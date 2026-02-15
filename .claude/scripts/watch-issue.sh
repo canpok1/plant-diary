@@ -20,6 +20,12 @@ for issue_number in $issues; do
   # in-progress-by-claudeラベルを付与
   gh issue edit "$issue_number" --add-label "in-progress-by-claude"
 
+  # エラー時にラベルを削除するトラップを設定
+  trap "gh issue edit \"$issue_number\" --remove-label \"in-progress-by-claude\" || true" ERR
+
   # claudeコマンドを実行
   claude -p "/solve-issue $issue_number"
+
+  # トラップを解除
+  trap - ERR
 done
