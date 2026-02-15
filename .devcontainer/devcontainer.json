@@ -1,0 +1,13 @@
+{
+	"name": "Ubuntu",
+	"build": {
+		"dockerfile": "Dockerfile"
+	},
+	"features": {
+        "ghcr.io/devcontainers/features/go:1": {}
+	},
+	"remoteUser": "vscode",
+	"mounts": [
+		"source=${devcontainerId}-claude-code-config,target=/home/vscode/.claude,type=volume"
+	]
+}
