@@ -13,7 +13,7 @@ get_cost() { echo "$input" | jq -r '.cost.total_cost_usd // empty'; }
 get_input_tokens() {
   echo "$input" | jq -r '
     .context_window.current_usage |
-    (.input_tokens + .cache_creation_input_tokens + .cache_read_input_tokens)
+    ((.input_tokens // 0) + (.cache_creation_input_tokens // 0) + (.cache_read_input_tokens // 0))
   '
 }
 
@@ -39,7 +39,7 @@ calc_context_percent() {
   usage=$(get_current_usage)
 
   if [ "$usage" != "null" ] && [[ "$context_size" =~ ^[1-9][0-9]*$ ]]; then
-    echo "$usage" | jq -r "(.input_tokens + .cache_creation_input_tokens + .cache_read_input_tokens) * 100 / $context_size | floor"
+    echo "$usage" | jq -r "((.input_tokens // 0) + (.cache_creation_input_tokens // 0) + (.cache_read_input_tokens // 0)) * 100 / $context_size | floor"
   else
     echo "0"
   fi
@@ -48,8 +48,8 @@ calc_context_percent() {
 # 各値を取得
 MODEL=$(get_model_name)
 CONTEXT_PERCENT=$(calc_context_percent)
-INPUT_TOKENS=$(format_tokens $(get_input_tokens))
-OUTPUT_TOKENS=$(format_tokens $(get_output_tokens))
+INPUT_TOKENS=$(format_tokens "$(get_input_tokens)")
+OUTPUT_TOKENS=$(format_tokens "$(get_output_tokens)")
 COST=$(get_cost)
 
 # ステータスラインを出力
