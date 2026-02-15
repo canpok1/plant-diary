@@ -176,7 +176,7 @@ echo "$(date): Captured ${OUTPUT}" >> /var/log/plant-diary-capture.log
 
 ### 8.2 プロンプト設計
 
-```
+```text
 この植物の写真を見て、成長の様子や変化を観察してください。
 親しみやすい口調で、200文字程度の観察日記を書いてください。
 ```
@@ -217,7 +217,7 @@ echo "$(date): Captured ${OUTPUT}" >> /var/log/plant-diary-capture.log
 ### 10.1 コンテナ構成
 
 * **コンテナ数**: 1（Web + Worker統合）
-* **ベースイメージ**: `golang:1.23-alpine`
+* **ベースイメージ**: `golang:1.26-alpine`
 
 ### 10.2 docker-compose.yml
 
@@ -237,7 +237,7 @@ services:
 ### 10.3 Dockerfile
 
 ```dockerfile
-FROM golang:1.23-alpine
+FROM golang:1.26-alpine
 WORKDIR /app
 COPY app/ .
 RUN go build -o plant-diary .
