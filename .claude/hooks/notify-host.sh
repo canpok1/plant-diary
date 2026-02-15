@@ -4,4 +4,5 @@ if [ -z "$WORKSPACE_DIR" ]; then
   exit 1
 fi
 
-echo "{\"message\": \"${1:-Done}\", \"title\": \"${2:-Dev Container}\"}" > ${WORKSPACE_DIR}/.devcontainer/host-notifier.json
+jq -n --arg msg "${1:-Done}" --arg title "${2:-Dev Container}" \
+  '{message: $msg, title: $title}' > "${WORKSPACE_DIR}/.devcontainer/host-notifier.json"
