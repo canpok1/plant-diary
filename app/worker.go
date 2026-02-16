@@ -10,6 +10,10 @@ import (
 	"time"
 )
 
+const (
+	basePrompt = "この植物の写真を見て、成長の様子や変化を観察してください。親しみやすい口調で、200文字程度の観察日記を書いてください。"
+)
+
 // Worker は未処理画像を監視し、日記生成処理を実行する。
 type Worker struct {
 	repo        DiaryRepository
@@ -113,11 +117,28 @@ func (w *Worker) processNewImages() {
 			continue
 		}
 
+		// 過去1ヶ月の日記を取得（対象日は除外）
+		oneMonthAgo := img.createdAt.AddDate(0, -1, 0)
+		oneDayBefore := img.createdAt.Add(-1 * time.Second)
+		pastDiaries, err := w.repo.GetDiariesInDateRange(oneMonthAgo, oneDayBefore)
+		if err != nil {
+			log.Printf("WARN: failed to get past diaries for %s: %v, continuing with empty history", img.path, err)
+			pastDiaries = []Diary{}
+		}
+
+		// 動的プロンプトを生成
+		prompt := buildDiaryPrompt(pastDiaries)
+
 		// 日記を生成（リトライ付き）
 		var content string
 		retryErr := Retry(w.retryConfig, fmt.Sprintf("generate diary for %s", img.path), func() error {
 			var genErr error
-			content, genErr = w.generator.GenerateDiary(img.path)
+			// 型アサーションで DiaryGeneratorWithPrompt をサポートしているか確認
+			if genWithPrompt, ok := w.generator.(DiaryGeneratorWithPrompt); ok {
+				content, genErr = genWithPrompt.GenerateDiaryWithPrompt(img.path, prompt)
+			} else {
+				content, genErr = w.generator.GenerateDiary(img.path)
+			}
 			return genErr
 		})
 		if retryErr != nil {
@@ -153,4 +174,27 @@ func parseCreatedAtFromFilename(imagePath string) (time.Time, error) {
 	}
 
 	return createdAt, nil
+}
+
+// buildDiaryPrompt は過去日記を含む動的プロンプトを生成する。
+func buildDiaryPrompt(pastDiaries []Diary) string {
+	if len(pastDiaries) == 0 {
+		return basePrompt
+	}
+
+	// JSTに変換するためのヘルパー
+	jst := time.FixedZone("Asia/Tokyo", 9*60*60)
+
+	var builder strings.Builder
+	builder.WriteString(basePrompt)
+	builder.WriteString("\n\n参考までに、過去1ヶ月の観察記録を以下に示します：\n\n")
+
+	for _, diary := range pastDiaries {
+		jstTime := diary.CreatedAt.In(jst)
+		fmt.Fprintf(&builder, "【%s】\n%s\n\n", jstTime.Format("2006年01月02日"), diary.Content)
+	}
+
+	builder.WriteString("これまでの観察記録を踏まえて、今回の写真から見られる成長の変化や特徴を記述してください。")
+
+	return builder.String()
 }

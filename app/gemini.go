@@ -11,9 +11,9 @@ import (
 )
 
 const (
-	geminiModel   = "gemini-2.5-flash"
-	geminiTimeout = 30 * time.Second
-	geminiPrompt  = "この植物の写真を見て、成長の様子や変化を観察してください。親しみやすい口調で、200文字程度の観察日記を書いてください。"
+	geminiModel          = "gemini-2.5-flash"
+	geminiTimeout        = 30 * time.Second
+	geminiDefaultPrompt  = "この植物の写真を見て、成長の様子や変化を観察してください。親しみやすい口調で、200文字程度の観察日記を書いてください。"
 )
 
 // GeminiDiaryGenerator は Gemini API を使って画像から日記を生成する。
@@ -33,6 +33,11 @@ func NewGeminiDiaryGenerator() (*GeminiDiaryGenerator, error) {
 
 // GenerateDiary は画像ファイルを読み込み、Gemini API で観察日記を生成する。
 func (g *GeminiDiaryGenerator) GenerateDiary(imagePath string) (string, error) {
+	return g.GenerateDiaryWithPrompt(imagePath, geminiDefaultPrompt)
+}
+
+// GenerateDiaryWithPrompt は画像ファイルと動的プロンプトを使用して、Gemini API で観察日記を生成する。
+func (g *GeminiDiaryGenerator) GenerateDiaryWithPrompt(imagePath string, prompt string) (string, error) {
 	imageBytes, err := os.ReadFile(imagePath)
 	if err != nil {
 		return "", fmt.Errorf("画像ファイルの読み込みに失敗: %w", err)
@@ -52,7 +57,7 @@ func (g *GeminiDiaryGenerator) GenerateDiary(imagePath string) (string, error) {
 	}
 
 	parts := []*genai.Part{
-		{Text: geminiPrompt},
+		{Text: prompt},
 		{InlineData: &genai.Blob{
 			Data:     imageBytes,
 			MIMEType: mimeType,

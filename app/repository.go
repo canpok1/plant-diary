@@ -20,6 +20,7 @@ type DiaryRepository interface {
 	CreateDiary(imagePath, content string, createdAt time.Time) error
 	IsImageProcessed(imagePath string) (bool, error)
 	GetLatestDiaryCreatedAt() (time.Time, error)
+	GetDiariesInDateRange(startDate, endDate time.Time) ([]Diary, error)
 }
 
 // MockDiaryRepository はメモリ上でデータを保持するモック実装
@@ -121,4 +122,29 @@ func (r *MockDiaryRepository) GetLatestDiaryCreatedAt() (time.Time, error) {
 	}
 
 	return latest, nil
+}
+
+// GetDiariesInDateRange は指定日付範囲内の日記を古い順で返す
+func (r *MockDiaryRepository) GetDiariesInDateRange(startDate, endDate time.Time) ([]Diary, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	result := make([]Diary, 0)
+	for _, d := range r.diaries {
+		if (d.CreatedAt.Equal(startDate) || d.CreatedAt.After(startDate)) &&
+			(d.CreatedAt.Equal(endDate) || d.CreatedAt.Before(endDate)) {
+			result = append(result, *d)
+		}
+	}
+
+	// 古い順（CreatedAt昇順）でソート
+	for i := 0; i < len(result); i++ {
+		for j := i + 1; j < len(result); j++ {
+			if result[j].CreatedAt.Before(result[i].CreatedAt) {
+				result[i], result[j] = result[j], result[i]
+			}
+		}
+	}
+
+	return result, nil
 }
