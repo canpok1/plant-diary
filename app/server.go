@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Server はHTTPサーバーを表す構造体
@@ -29,6 +30,10 @@ func NewServer(repo DiaryRepository, photosDir string) (*Server, error) {
 				return s
 			}
 			return string(runes[:length]) + "..."
+		},
+		"toJST": func(t time.Time) time.Time {
+			jst := time.FixedZone("Asia/Tokyo", 9*60*60)
+			return t.In(jst)
 		},
 	}
 
