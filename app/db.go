@@ -1,0 +1,134 @@
+package main
+
+import (
+	"database/sql"
+	"fmt"
+	"log"
+	"time"
+
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/sqlite3"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
+	_ "github.com/mattn/go-sqlite3"
+)
+
+// InitDB はデータベース接続を初期化し、接続プールを設定し、マイグレーションを実行する。
+func InitDB(dbPath, migrationsPath string) (*sql.DB, error) {
+	db, err := sql.Open("sqlite3", dbPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open database: %w", err)
+	}
+
+	// 接続プール設定
+	db.SetMaxOpenConns(1) // SQLiteは単一書き込みのため
+	db.SetMaxIdleConns(1)
+	db.SetConnMaxLifetime(time.Hour)
+
+	// 接続確認
+	if err := db.Ping(); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("failed to ping database: %w", err)
+	}
+
+	// WALモード有効化（読み取り並行性向上）
+	if _, err := db.Exec("PRAGMA journal_mode=WAL"); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("failed to set WAL mode: %w", err)
+	}
+
+	// マイグレーション実行
+	if err := runMigrations(db, migrationsPath); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("failed to run migrations: %w", err)
+	}
+
+	log.Println("INFO: Database initialized successfully")
+	return db, nil
+}
+
+// runMigrations はgolang-migrate/migrateを使用してマイグレーションを実行する。
+func runMigrations(db *sql.DB, migrationsPath string) error {
+	driver, err := sqlite3.WithInstance(db, &sqlite3.Config{})
+	if err != nil {
+		return fmt.Errorf("failed to create migration driver: %w", err)
+	}
+
+	m, err := migrate.NewWithDatabaseInstance(
+		"file://"+migrationsPath,
+		"sqlite3",
+		driver,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create migrate instance: %w", err)
+	}
+
+	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+		return fmt.Errorf("migration failed: %w", err)
+	}
+
+	log.Println("INFO: Database migrations completed successfully")
+	return nil
+}
+
+// SQLiteDiaryRepository はSQLiteを使用したDiaryRepositoryの実装
+type SQLiteDiaryRepository struct {
+	db *sql.DB
+}
+
+// NewSQLiteDiaryRepository は新しいSQLiteDiaryRepositoryを生成する
+func NewSQLiteDiaryRepository(db *sql.DB) *SQLiteDiaryRepository {
+	return &SQLiteDiaryRepository{db: db}
+}
+
+// GetAllDiaries は全ての日記を新着順（created_at DESC）で返す
+func (r *SQLiteDiaryRepository) GetAllDiaries() ([]Diary, error) {
+	rows, err := r.db.Query("SELECT id, image_path, content, created_at FROM diary ORDER BY created_at DESC")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var diaries []Diary
+	for rows.Next() {
+		var d Diary
+		if err := rows.Scan(&d.ID, &d.ImagePath, &d.Content, &d.CreatedAt); err != nil {
+			return nil, err
+		}
+		diaries = append(diaries, d)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return diaries, nil
+}
+
+// GetDiaryByID は指定IDの日記を返す。見つからない場合はnilを返す
+func (r *SQLiteDiaryRepository) GetDiaryByID(id int) (*Diary, error) {
+	var d Diary
+	err := r.db.QueryRow("SELECT id, image_path, content, created_at FROM diary WHERE id = ?", id).
+		Scan(&d.ID, &d.ImagePath, &d.Content, &d.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &d, nil
+}
+
+// CreateDiary は新しい日記エントリを作成する
+func (r *SQLiteDiaryRepository) CreateDiary(imagePath, content string) error {
+	_, err := r.db.Exec("INSERT INTO diary (image_path, content) VALUES (?, ?)", imagePath, content)
+	return err
+}
+
+// IsImageProcessed は指定画像パスが既に処理済みかどうかを返す
+func (r *SQLiteDiaryRepository) IsImageProcessed(imagePath string) (bool, error) {
+	var count int
+	err := r.db.QueryRow("SELECT COUNT(*) FROM diary WHERE image_path = ?", imagePath).Scan(&count)
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
