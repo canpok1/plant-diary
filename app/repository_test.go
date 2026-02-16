@@ -8,7 +8,7 @@ import (
 func TestMockDiaryRepository_CreateDiary(t *testing.T) {
 	repo := NewMockDiaryRepository()
 
-	err := repo.CreateDiary("/path/to/image.jpg", "テスト日記")
+	err := repo.CreateDiary("/path/to/image.jpg", "テスト日記", time.Now())
 	if err != nil {
 		t.Fatalf("CreateDiary failed: %v", err)
 	}
@@ -34,7 +34,7 @@ func TestMockDiaryRepository_CreateDiary(t *testing.T) {
 func TestMockDiaryRepository_GetDiaryByID(t *testing.T) {
 	repo := NewMockDiaryRepository()
 
-	err := repo.CreateDiary("/path/to/image.jpg", "テスト日記")
+	err := repo.CreateDiary("/path/to/image.jpg", "テスト日記", time.Now())
 	if err != nil {
 		t.Fatalf("CreateDiary failed: %v", err)
 	}
@@ -67,21 +67,21 @@ func TestMockDiaryRepository_GetAllDiaries_Order(t *testing.T) {
 	repo := NewMockDiaryRepository()
 
 	// 複数の日記を作成（時間をずらす）
-	err := repo.CreateDiary("/path/1.jpg", "日記1")
+	err := repo.CreateDiary("/path/1.jpg", "日記1", time.Now())
 	if err != nil {
 		t.Fatalf("CreateDiary failed: %v", err)
 	}
 
 	time.Sleep(10 * time.Millisecond)
 
-	err = repo.CreateDiary("/path/2.jpg", "日記2")
+	err = repo.CreateDiary("/path/2.jpg", "日記2", time.Now())
 	if err != nil {
 		t.Fatalf("CreateDiary failed: %v", err)
 	}
 
 	time.Sleep(10 * time.Millisecond)
 
-	err = repo.CreateDiary("/path/3.jpg", "日記3")
+	err = repo.CreateDiary("/path/3.jpg", "日記3", time.Now())
 	if err != nil {
 		t.Fatalf("CreateDiary failed: %v", err)
 	}
@@ -119,7 +119,7 @@ func TestMockDiaryRepository_IsImageProcessed(t *testing.T) {
 	}
 
 	// 画像を処理
-	err = repo.CreateDiary("/path/to/new.jpg", "新しい日記")
+	err = repo.CreateDiary("/path/to/new.jpg", "新しい日記", time.Now())
 	if err != nil {
 		t.Fatalf("CreateDiary failed: %v", err)
 	}

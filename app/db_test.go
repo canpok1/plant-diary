@@ -35,7 +35,7 @@ func TestSQLiteDiaryRepository_CreateDiary(t *testing.T) {
 	db := setupTestDB(t)
 	repo := NewSQLiteDiaryRepository(db)
 
-	err := repo.CreateDiary("/path/to/image.jpg", "テスト日記")
+	err := repo.CreateDiary("/path/to/image.jpg", "テスト日記", time.Now())
 	if err != nil {
 		t.Fatalf("CreateDiary failed: %v", err)
 	}
@@ -66,13 +66,13 @@ func TestSQLiteDiaryRepository_CreateDiary_DuplicateImagePath(t *testing.T) {
 	db := setupTestDB(t)
 	repo := NewSQLiteDiaryRepository(db)
 
-	err := repo.CreateDiary("/path/to/image.jpg", "日記1")
+	err := repo.CreateDiary("/path/to/image.jpg", "日記1", time.Now())
 	if err != nil {
 		t.Fatalf("first CreateDiary failed: %v", err)
 	}
 
 	// 同じimage_pathで再度作成するとUNIQUE制約エラーになる
-	err = repo.CreateDiary("/path/to/image.jpg", "日記2")
+	err = repo.CreateDiary("/path/to/image.jpg", "日記2", time.Now())
 	if err == nil {
 		t.Error("expected error for duplicate image_path, got nil")
 	}
@@ -82,7 +82,7 @@ func TestSQLiteDiaryRepository_GetDiaryByID(t *testing.T) {
 	db := setupTestDB(t)
 	repo := NewSQLiteDiaryRepository(db)
 
-	err := repo.CreateDiary("/path/to/image.jpg", "テスト日記")
+	err := repo.CreateDiary("/path/to/image.jpg", "テスト日記", time.Now())
 	if err != nil {
 		t.Fatalf("CreateDiary failed: %v", err)
 	}
@@ -196,7 +196,7 @@ func TestSQLiteDiaryRepository_IsImageProcessed(t *testing.T) {
 	}
 
 	// 画像を処理
-	err = repo.CreateDiary("/path/to/new.jpg", "新しい日記")
+	err = repo.CreateDiary("/path/to/new.jpg", "新しい日記", time.Now())
 	if err != nil {
 		t.Fatalf("CreateDiary failed: %v", err)
 	}
@@ -216,4 +216,31 @@ func TestSQLiteDiaryRepository_ImplementsInterface(t *testing.T) {
 	db := setupTestDB(t)
 	// コンパイル時にインターフェースを満たすことを確認
 	var _ DiaryRepository = NewSQLiteDiaryRepository(db)
+}
+
+func TestSQLiteDiaryRepository_CreateDiary_CustomCreatedAt(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewSQLiteDiaryRepository(db)
+
+	// カスタム日時を指定してdiary作成
+	customTime := time.Date(2026, 2, 16, 11, 10, 0, 0, time.UTC)
+	err := repo.CreateDiary("/path/to/20260216_1110_UTC.jpg", "UTC日時テスト", customTime)
+	if err != nil {
+		t.Fatalf("CreateDiary failed: %v", err)
+	}
+
+	// 日記を取得して日時を確認
+	diaries, err := repo.GetAllDiaries()
+	if err != nil {
+		t.Fatalf("GetAllDiaries failed: %v", err)
+	}
+
+	if len(diaries) != 1 {
+		t.Fatalf("expected 1 diary, got %d", len(diaries))
+	}
+
+	// created_atがカスタム日時と一致することを確認
+	if !diaries[0].CreatedAt.Equal(customTime) {
+		t.Errorf("expected CreatedAt %v, got %v", customTime, diaries[0].CreatedAt)
+	}
 }

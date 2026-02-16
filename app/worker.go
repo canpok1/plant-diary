@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -89,12 +90,39 @@ func (w *Worker) processNewImages() {
 			continue
 		}
 
+		// 日付パース（失敗時は現在時刻にフォールバック）
+		createdAt, err := parseCreatedAtFromFilename(file)
+		if err != nil {
+			log.Printf("WARN: failed to parse created_at from filename %s: %v. Using current time.", file, err)
+			createdAt = time.Now()
+		}
+
 		// 日記を保存
-		if err := w.repo.CreateDiary(file, content); err != nil {
+		if err := w.repo.CreateDiary(file, content, createdAt); err != nil {
 			log.Printf("ERROR: failed to save diary for %s: %v", file, err)
 			continue
 		}
 
 		log.Printf("INFO: diary created for %s", file)
 	}
+}
+
+// parseCreatedAtFromFilename はファイル名から撮影日時を抽出する。
+// ファイル名形式: YYYYMMDD_HHMM_UTC.jpg
+// 例: "20260216_1110_UTC.jpg" -> 2026-02-16 11:10:00 (UTC)
+func parseCreatedAtFromFilename(imagePath string) (time.Time, error) {
+	basename := filepath.Base(imagePath)
+	nameWithoutExt := strings.TrimSuffix(basename, filepath.Ext(basename))
+
+	// 新形式（YYYYMMDD_HHMM_UTC）をパース
+	createdAt, err := time.Parse("20060102_1504_UTC", nameWithoutExt)
+	if err != nil {
+		// 旧形式（YYYYMMDD_HHMM）との後方互換性のため、フォールバック
+		createdAt, err = time.Parse("20060102_1504", nameWithoutExt)
+		if err != nil {
+			return time.Time{}, fmt.Errorf("failed to parse filename %s: %w", basename, err)
+		}
+	}
+
+	return createdAt, nil
 }
