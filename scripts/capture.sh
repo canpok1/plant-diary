@@ -44,7 +44,7 @@ DATE=$(date +%Y%m%d_%H%M)
 OUTPUT="${DATA_DIR}/${DATE}.jpg"
 
 # 撮影（追加オプション付き）
-if fswebcam -r "${RESOLUTION}" --jpeg "${JPEG_QUALITY}" -D "${DELAY}" --no-banner "${EXTRA_OPTIONS[@]}" "${OUTPUT}" 2>> "${LOG_FILE}"; then
+if fswebcam -r "${RESOLUTION}" --jpeg "${JPEG_QUALITY}" -D "${DELAY}" --no-banner ${EXTRA_OPTIONS[@]} "${OUTPUT}" 2>> "${LOG_FILE}"; then
     log_message "INFO: Captured ${OUTPUT}"
     echo "撮影成功: ${OUTPUT}"
 else
