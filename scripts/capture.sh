@@ -16,6 +16,9 @@ RESOLUTION="1280x720"
 JPEG_QUALITY="95"
 DELAY="1"  # カメラ安定のための遅延（秒）
 
+# 追加オプション（引数から取得）
+EXTRA_OPTIONS=("$@")
+
 # === 関数 ===
 log_message() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') $1" >> "${LOG_FILE}"
@@ -40,8 +43,8 @@ fi
 DATE=$(date +%Y%m%d_%H%M)
 OUTPUT="${DATA_DIR}/${DATE}.jpg"
 
-# 撮影
-if fswebcam -r "${RESOLUTION}" --jpeg "${JPEG_QUALITY}" -D "${DELAY}" --no-banner "${OUTPUT}" 2>> "${LOG_FILE}"; then
+# 撮影（追加オプション付き）
+if fswebcam -r "${RESOLUTION}" --jpeg "${JPEG_QUALITY}" -D "${DELAY}" --no-banner "${EXTRA_OPTIONS[@]}" "${OUTPUT}" 2>> "${LOG_FILE}"; then
     log_message "INFO: Captured ${OUTPUT}"
     echo "撮影成功: ${OUTPUT}"
 else
