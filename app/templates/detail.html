@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>植物日記 - 詳細</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+            background-color: #ffffff;
+            color: #333333;
+            line-height: 1.8;
+        }
+
+        header {
+            border-bottom: 1px solid #e0e0e0;
+            padding: 16px 24px;
+        }
+
+        header a {
+            color: #333333;
+            text-decoration: none;
+            font-size: 1.25rem;
+            font-weight: bold;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin: 16px 24px;
+            color: #557a3e;
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+
+        .detail-container {
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 0 24px 48px;
+        }
+
+        .detail-image {
+            width: 100%;
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            display: block;
+        }
+
+        .detail-meta {
+            margin-top: 16px;
+            color: #888888;
+            font-size: 0.85rem;
+        }
+
+        .detail-content {
+            margin-top: 24px;
+            font-size: 1rem;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        @media (max-width: 600px) {
+            header {
+                padding: 12px 16px;
+            }
+
+            .back-link {
+                margin: 12px 16px;
+            }
+
+            .detail-container {
+                padding: 0 16px 32px;
+            }
+
+            .detail-meta {
+                font-size: 0.8rem;
+            }
+
+            .detail-content {
+                font-size: 0.95rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <a href="/">植物日記</a>
+    </header>
+    <a class="back-link" href="/">&larr; 一覧へ戻る</a>
+    <main class="detail-container">
+        <img class="detail-image" src="/photos/{{.Diary.ImagePath}}" alt="植物の写真">
+        <p class="detail-meta">{{.Diary.CreatedAt.Format "2006年1月2日 15:04"}}</p>
+        <div class="detail-content">{{.Diary.Content}}</div>
+    </main>
+</body>
+</html>
