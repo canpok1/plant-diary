@@ -8,6 +8,9 @@
 *.so
 *.dylib
 
+# Go build binaries (Linux)
+/app/plant-diary
+
 # Test binary, built with `go test -c`
 *.test
 
