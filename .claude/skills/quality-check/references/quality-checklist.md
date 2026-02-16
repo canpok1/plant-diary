@@ -14,7 +14,7 @@ AIが成果物の品質をレビューする際に使用するチェックリス
 - [ ] **context.Context**: 最初の引数に配置されているか
 - [ ] **適切な抽象化**: インターフェースが実装詳細に依存していないか
 
-詳細は `docs/conventions/go-style-guide.md` を参照。
+詳細は `docs/rules/go-style-guide.md` を参照。
 
 ## 2. エラーハンドリング
 
@@ -88,5 +88,5 @@ go mod tidy
 
 ## 参考資料
 
-- `docs/conventions/go-style-guide.md`: Go言語スタイルガイド（設計パターン詳細）
-- `docs/conventions/commit-message-guide.md`: コミットメッセージガイド（開発者向け）
+- `docs/rules/go-style-guide.md`: Go言語スタイルガイド（設計パターン詳細）
+- `docs/rules/commit-message-guide.md`: コミットメッセージガイド（開発者向け）

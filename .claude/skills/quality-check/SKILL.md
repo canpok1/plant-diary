@@ -1,6 +1,6 @@
 ---
 name: quality-check
-description: コードの設計・実装パターンを品質チェック。インターフェース設計、エラーハンドリング、テスト、セキュリティ等の基準に照らしてレビューし、フィードバックを提供する。
+description: コミットやPR作成後に使用。linterでチェックできない設計・実装パターン（インターフェース設計、エラーハンドリング、テスト戦略等）をレビューしてフィードバックを提供する。
 context: fork
 agent: general-purpose
 allowed-tools: Bash Read Grep Glob SendMessage
@@ -73,4 +73,4 @@ argument-hint: "[target-commit-or-pr]"
 ## 参考
 
 - `references/quality-checklist.md`: 品質チェックリスト（詳細な項目）
-- `docs/conventions/go-style-guide.md`: Go言語スタイルガイド（設計パターン）
+- `docs/rules/go-style-guide.md`: Go言語スタイルガイド（設計パターン）
