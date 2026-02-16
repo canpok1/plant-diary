@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -31,7 +32,13 @@ func NewServer(repo DiaryRepository, photosDir string) (*Server, error) {
 		},
 	}
 
-	tmpl, err := template.New("").Funcs(funcMap).ParseGlob("templates/*.html")
+	// テンプレートディレクトリの自動検出
+	templatesPath := "templates"
+	if _, err := os.Stat(templatesPath); os.IsNotExist(err) {
+		templatesPath = "app/templates"
+	}
+
+	tmpl, err := template.New("").Funcs(funcMap).ParseGlob(filepath.Join(templatesPath, "*.html"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse templates: %w", err)
 	}
@@ -101,11 +108,12 @@ func (s *Server) handleDiary(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// ImagePathからファイル名のみを抽出
-	diary.ImagePath = filepath.Base(diary.ImagePath)
+	// ImagePathからファイル名のみを抽出（表示用コピー）
+	diaryView := *diary
+	diaryView.ImagePath = filepath.Base(diary.ImagePath)
 
 	data := map[string]interface{}{
-		"Diary": diary,
+		"Diary": &diaryView,
 	}
 
 	if err := s.templates.ExecuteTemplate(w, "detail.html", data); err != nil {
@@ -120,7 +128,8 @@ func (s *Server) handlePhoto(w http.ResponseWriter, r *http.Request) {
 	filename := r.PathValue("filename")
 
 	// ディレクトリトラバーサル防止
-	if strings.Contains(filename, "/") || strings.Contains(filename, "\\") || filename == ".." {
+	if filename == "" || filename == "." || filename == ".." ||
+		strings.Contains(filename, "/") || strings.Contains(filename, "\\") {
 		s.renderError(w, http.StatusNotFound)
 		return
 	}
