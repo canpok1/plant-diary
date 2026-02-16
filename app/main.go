@@ -17,6 +17,15 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	// DB初期化とマイグレーション実行
+	dbPath := "data/plant_log.db"
+	migrationsPath := "migrations"
+	db, err := InitDB(dbPath, migrationsPath)
+	if err != nil {
+		log.Fatalf("FATAL: failed to initialize database: %v", err)
+	}
+	defer db.Close()
+
 	// DiaryGenerator の初期化
 	var generator DiaryGenerator
 	if apiKey := os.Getenv("GEMINI_API_KEY"); apiKey != "" {
@@ -31,10 +40,9 @@ func main() {
 		log.Println("INFO: Using MockDiaryGenerator (GEMINI_API_KEY not set)")
 	}
 
-	// DiaryRepository の初期化
-	// TODO: Issue #12 完了後、SQLiteDB実装に切り替え
-	repo := NewMockDiaryRepository()
-	log.Println("INFO: Using MockDiaryRepository")
+	// DiaryRepository の初期化（SQLite実装）
+	repo := NewSQLiteDiaryRepository(db)
+	log.Println("INFO: Using SQLiteDiaryRepository")
 
 	// Worker の初期化と起動
 	photosDir := "data/photos"
