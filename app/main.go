@@ -3,9 +3,11 @@ package main
 import (
 	"context"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 )
 
 func main() {
@@ -40,6 +42,24 @@ func main() {
 	worker.Start(ctx)
 	log.Printf("INFO: Worker started. Polling %s every 1 minute...", photosDir)
 
+	// HTTPサーバーの初期化と起動
+	srv, err := NewServer(repo, photosDir)
+	if err != nil {
+		log.Fatalf("FATAL: failed to initialize server: %v", err)
+	}
+
+	httpServer := &http.Server{
+		Addr:    ":8080",
+		Handler: srv,
+	}
+
+	go func() {
+		log.Println("INFO: HTTP server starting on :8080")
+		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("FATAL: HTTP server error: %v", err)
+		}
+	}()
+
 	// シグナルハンドリング（Ctrl+C で終了）
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
@@ -47,5 +67,14 @@ func main() {
 
 	log.Println("INFO: Shutting down...")
 	cancel()
+
+	// HTTPサーバーのGraceful Shutdown（最大5秒待機）
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer shutdownCancel()
+
+	if err := httpServer.Shutdown(shutdownCtx); err != nil {
+		log.Printf("ERROR: HTTP server shutdown error: %v", err)
+	}
+
 	log.Println("INFO: Plant Diary System stopped")
 }
