@@ -65,7 +65,7 @@
 
 ### 実装例（Issue #11より）
 
-```
+```text
 チーム構成:
 - team-lead（リーダー）
 - project-setup（プロジェクト構造担当）
