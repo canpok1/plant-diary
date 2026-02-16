@@ -12,7 +12,7 @@ USBカメラで撮影した植物の画像を元に、Google Gemini APIを使っ
 
 ## システム構成
 
-```
+```text
 ┌──────────────┐    ┌─────────────────────────────┐
 │  USBカメラ    │    │  Docker コンテナ              │
 │  + cron      │───>│  ┌─────────┐  ┌───────────┐ │
@@ -133,7 +133,7 @@ crontab -e
 
 ## ディレクトリ構造
 
-```
+```text
 .
 ├── docker-compose.yml      # Docker Compose設定
 ├── Dockerfile              # コンテナビルド定義
