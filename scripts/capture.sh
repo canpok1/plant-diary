@@ -4,6 +4,14 @@ set -euo pipefail
 # 植物観察日記 - 撮影スクリプト
 # USBカメラで植物の写真を撮影し、data/photos/ に保存する。
 # crontab で定期実行することを想定。
+#
+# === 使い方 ===
+# 基本: ./scripts/capture.sh
+# 追加オプション指定（正しい方法）:
+#   ./scripts/capture.sh --set "Auto Exposure=Aperture Priority Mode" --set "Exposure Time, Absolute=20"
+#
+# 注意: 追加オプション全体をシングルクォートやダブルクォートで囲まないこと
+# 誤った例: ./scripts/capture.sh '--set "Auto Exposure=..." --set "Exposure Time..."'
 
 # === 設定 ===
 # スクリプトの配置場所から plant-diary ルートを特定
