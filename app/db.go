@@ -135,3 +135,16 @@ func (r *SQLiteDiaryRepository) IsImageProcessed(imagePath string) (bool, error)
 	}
 	return exists, nil
 }
+
+// GetLatestDiaryCreatedAt は最新の日記の作成日時を返す。日記が存在しない場合はゼロ値を返す
+func (r *SQLiteDiaryRepository) GetLatestDiaryCreatedAt() (time.Time, error) {
+	var createdAt time.Time
+	err := r.db.QueryRow("SELECT created_at FROM diary ORDER BY created_at DESC LIMIT 1").Scan(&createdAt)
+	if err == sql.ErrNoRows {
+		return time.Time{}, nil
+	}
+	if err != nil {
+		return time.Time{}, err
+	}
+	return createdAt, nil
+}

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 )
@@ -52,7 +53,14 @@ func (w *Worker) Start(ctx context.Context, done chan struct{}) {
 
 // processNewImages は未処理画像を検出し、1枚ずつ順次処理する。
 func (w *Worker) processNewImages() {
-	// data/photos/*.jpg の一覧を取得
+	// 1. 最新日記の日付を取得
+	latestCreatedAt, err := w.repo.GetLatestDiaryCreatedAt()
+	if err != nil {
+		log.Printf("ERROR: failed to get latest diary created_at: %v", err)
+		return
+	}
+
+	// 2. 全ファイルをスキャン
 	pattern := filepath.Join(w.photosDir, "*.jpg")
 	files, err := filepath.Glob(pattern)
 	if err != nil {
@@ -60,50 +68,70 @@ func (w *Worker) processNewImages() {
 		return
 	}
 
+	// 3. 日付をパースし、フィルタリング
+	type imageWithTime struct {
+		path      string
+		createdAt time.Time
+	}
+	var validImages []imageWithTime
+
 	for _, file := range files {
-		// 未処理画像かどうかを判定
+		// 既に処理済みならスキップ
 		processed, err := w.repo.IsImageProcessed(file)
 		if err != nil {
-			log.Printf("ERROR: failed to check image status: %v", err)
+			log.Printf("ERROR: failed to check image status for %s: %v", file, err)
 			continue
 		}
 		if processed {
 			continue
 		}
 
-		// 画像ファイルの読み込み検証
-		_, err = ReadImageFile(file)
+		// ファイル名から日付をパース
+		createdAt, err := parseCreatedAtFromFilename(file)
 		if err != nil {
-			log.Printf("ERROR: skipping image %s: %v", file, err)
+			log.Printf("WARN: skipping %s: %v", file, err)
+			continue
+		}
+
+		// 最新日記より新しい画像のみ
+		if createdAt.After(latestCreatedAt) {
+			validImages = append(validImages, imageWithTime{file, createdAt})
+		}
+	}
+
+	// 4. 日付順（昇順）にソート
+	sort.Slice(validImages, func(i, j int) bool {
+		return validImages[i].createdAt.Before(validImages[j].createdAt)
+	})
+
+	// 5. 順番に処理
+	for _, img := range validImages {
+		// 画像ファイルの読み込み検証
+		_, err := ReadImageFile(img.path)
+		if err != nil {
+			log.Printf("ERROR: skipping image %s: %v", img.path, err)
 			continue
 		}
 
 		// 日記を生成（リトライ付き）
 		var content string
-		retryErr := Retry(w.retryConfig, fmt.Sprintf("generate diary for %s", file), func() error {
+		retryErr := Retry(w.retryConfig, fmt.Sprintf("generate diary for %s", img.path), func() error {
 			var genErr error
-			content, genErr = w.generator.GenerateDiary(file)
+			content, genErr = w.generator.GenerateDiary(img.path)
 			return genErr
 		})
 		if retryErr != nil {
-			log.Printf("ERROR: skipping image %s: %v", file, retryErr)
+			log.Printf("ERROR: skipping image %s: %v", img.path, retryErr)
 			continue
-		}
-
-		// 日付パース（失敗時は現在時刻にフォールバック）
-		createdAt, err := parseCreatedAtFromFilename(file)
-		if err != nil {
-			log.Printf("WARN: failed to parse created_at from filename %s: %v. Using current time.", file, err)
-			createdAt = time.Now()
 		}
 
 		// 日記を保存
-		if err := w.repo.CreateDiary(file, content, createdAt); err != nil {
-			log.Printf("ERROR: failed to save diary for %s: %v", file, err)
+		if err := w.repo.CreateDiary(img.path, content, img.createdAt); err != nil {
+			log.Printf("ERROR: failed to save diary for %s: %v", img.path, err)
 			continue
 		}
 
-		log.Printf("INFO: diary created for %s", file)
+		log.Printf("INFO: diary created for %s", img.path)
 	}
 }
 

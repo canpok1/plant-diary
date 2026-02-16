@@ -244,3 +244,49 @@ func TestSQLiteDiaryRepository_CreateDiary_CustomCreatedAt(t *testing.T) {
 		t.Errorf("expected CreatedAt %v, got %v", customTime, diaries[0].CreatedAt)
 	}
 }
+
+func TestSQLiteDiaryRepository_GetLatestDiaryCreatedAt(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewSQLiteDiaryRepository(db)
+
+	// 日記が存在しない場合はゼロ値を返す
+	latest, err := repo.GetLatestDiaryCreatedAt()
+	if err != nil {
+		t.Fatalf("GetLatestDiaryCreatedAt failed: %v", err)
+	}
+
+	if !latest.IsZero() {
+		t.Errorf("expected zero time for empty diary, got %v", latest)
+	}
+
+	// 複数の日記を作成
+	time1 := time.Date(2026, 1, 1, 10, 0, 0, 0, time.UTC)
+	time2 := time.Date(2026, 1, 2, 10, 0, 0, 0, time.UTC)
+	time3 := time.Date(2026, 1, 3, 10, 0, 0, 0, time.UTC)
+
+	err = repo.CreateDiary("/path/1.jpg", "日記1", time1)
+	if err != nil {
+		t.Fatalf("CreateDiary failed: %v", err)
+	}
+
+	err = repo.CreateDiary("/path/2.jpg", "日記2", time2)
+	if err != nil {
+		t.Fatalf("CreateDiary failed: %v", err)
+	}
+
+	err = repo.CreateDiary("/path/3.jpg", "日記3", time3)
+	if err != nil {
+		t.Fatalf("CreateDiary failed: %v", err)
+	}
+
+	// 最新の日記の日時を取得
+	latest, err = repo.GetLatestDiaryCreatedAt()
+	if err != nil {
+		t.Fatalf("GetLatestDiaryCreatedAt failed: %v", err)
+	}
+
+	// 最新の日時（time3）と一致することを確認
+	if !latest.Equal(time3) {
+		t.Errorf("expected latest time %v, got %v", time3, latest)
+	}
+}

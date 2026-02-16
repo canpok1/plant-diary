@@ -19,6 +19,7 @@ type DiaryRepository interface {
 	GetDiaryByID(id int) (*Diary, error)
 	CreateDiary(imagePath, content string, createdAt time.Time) error
 	IsImageProcessed(imagePath string) (bool, error)
+	GetLatestDiaryCreatedAt() (time.Time, error)
 }
 
 // MockDiaryRepository はメモリ上でデータを保持するモック実装
@@ -101,4 +102,23 @@ func (r *MockDiaryRepository) IsImageProcessed(imagePath string) (bool, error) {
 	}
 
 	return false, nil
+}
+
+// GetLatestDiaryCreatedAt は最新の日記の作成日時を返す。日記が存在しない場合はゼロ値を返す
+func (r *MockDiaryRepository) GetLatestDiaryCreatedAt() (time.Time, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	if len(r.diaries) == 0 {
+		return time.Time{}, nil
+	}
+
+	var latest time.Time
+	for _, d := range r.diaries {
+		if d.CreatedAt.After(latest) {
+			latest = d.CreatedAt
+		}
+	}
+
+	return latest, nil
 }
