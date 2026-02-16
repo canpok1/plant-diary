@@ -290,3 +290,83 @@ func TestSQLiteDiaryRepository_GetLatestDiaryCreatedAt(t *testing.T) {
 		t.Errorf("expected latest time %v, got %v", time3, latest)
 	}
 }
+
+func TestSQLiteDiaryRepository_GetDiariesInDateRange(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewSQLiteDiaryRepository(db)
+
+	// 複数の日記を作成
+	time1 := time.Date(2026, 1, 1, 10, 0, 0, 0, time.UTC)
+	time2 := time.Date(2026, 1, 15, 10, 0, 0, 0, time.UTC)
+	time3 := time.Date(2026, 2, 1, 10, 0, 0, 0, time.UTC)
+	time4 := time.Date(2026, 2, 10, 10, 0, 0, 0, time.UTC)
+
+	err := repo.CreateDiary("/path/1.jpg", "日記1", time1)
+	if err != nil {
+		t.Fatalf("CreateDiary failed: %v", err)
+	}
+
+	err = repo.CreateDiary("/path/2.jpg", "日記2", time2)
+	if err != nil {
+		t.Fatalf("CreateDiary failed: %v", err)
+	}
+
+	err = repo.CreateDiary("/path/3.jpg", "日記3", time3)
+	if err != nil {
+		t.Fatalf("CreateDiary failed: %v", err)
+	}
+
+	err = repo.CreateDiary("/path/4.jpg", "日記4", time4)
+	if err != nil {
+		t.Fatalf("CreateDiary failed: %v", err)
+	}
+
+	// 日付範囲内の日記を取得
+	startDate := time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC)
+	endDate := time.Date(2026, 2, 5, 0, 0, 0, 0, time.UTC)
+
+	diaries, err := repo.GetDiariesInDateRange(startDate, endDate)
+	if err != nil {
+		t.Fatalf("GetDiariesInDateRange failed: %v", err)
+	}
+
+	// 2件（日記2と日記3）が取得されることを確認
+	if len(diaries) != 2 {
+		t.Fatalf("expected 2 diaries, got %d", len(diaries))
+	}
+
+	// 古い順（created_at ASC）であることを確認
+	if diaries[0].Content != "日記2" {
+		t.Errorf("expected first diary to be '日記2', got '%s'", diaries[0].Content)
+	}
+
+	if diaries[1].Content != "日記3" {
+		t.Errorf("expected second diary to be '日記3', got '%s'", diaries[1].Content)
+	}
+}
+
+func TestSQLiteDiaryRepository_GetDiariesInDateRange_Empty(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewSQLiteDiaryRepository(db)
+
+	// 日記を1件作成
+	time1 := time.Date(2026, 1, 1, 10, 0, 0, 0, time.UTC)
+	err := repo.CreateDiary("/path/1.jpg", "日記1", time1)
+	if err != nil {
+		t.Fatalf("CreateDiary failed: %v", err)
+	}
+
+	// 範囲外の日付で検索
+	startDate := time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC)
+	endDate := time.Date(2026, 2, 28, 0, 0, 0, 0, time.UTC)
+
+	diaries, err := repo.GetDiariesInDateRange(startDate, endDate)
+	if err != nil {
+		t.Fatalf("GetDiariesInDateRange failed: %v", err)
+	}
+
+	// 結果が空であることを確認
+	if len(diaries) != 0 {
+		t.Errorf("expected 0 diaries, got %d", len(diaries))
+	}
+}
