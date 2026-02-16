@@ -1,6 +1,6 @@
 ---
 name: quality-check
-description: コミットやPRの品質チェックを実施。コミットメッセージ、コード規約、テスト、エラーハンドリング等の基準に照らして成果物をレビューし、フィードバックを提供する。
+description: コードの設計・実装パターンを品質チェック。インターフェース設計、エラーハンドリング、テスト、セキュリティ等の基準に照らしてレビューし、フィードバックを提供する。
 context: fork
 agent: general-purpose
 allowed-tools: Bash Read Grep Glob SendMessage
@@ -13,55 +13,64 @@ argument-hint: "[target-commit-or-pr]"
 
 ## 役割
 
-成果物の品質を統一された基準でチェックし、具体的な改善点をフィードバックします。
+成果物の設計・実装パターンを統一された基準でチェックし、具体的な改善点をフィードバックします。
+
+**前提**: linterでチェック可能な項目（gofmt, golangci-lint等）は自動チェックに任せます。このスキルは人間の判断が必要な項目に集中します。
+
+**注意**: コミットメッセージは品質チェックの対象外です（開発者の責任範囲）。
 
 ## チェック対象
 
 `references/quality-checklist.md` の基準に基づいて以下を確認：
 
-### 1. コミットメッセージ
-- 規約準拠（「{機能名}を{動詞}」形式）
-- Co-Authored-By クレジットの存在
-- 簡潔性と明確性
-
-### 2. コード品質
-- コード規約準拠（Go: golangci-lint等）
-- エラーハンドリングの適切性
-- テストの有無と網羅性
-
-### 3. 設計
-- インターフェース設計の妥当性
+### 1. インターフェース設計
 - 単一責任の原則
-- 依存関係管理
+- 適切な抽象化レベル
+- context.Context の配置
+
+### 2. エラーハンドリング
+- エラーチェックの網羅性
+- エラーラッピングの適切性
+- エラーメッセージの品質
+
+### 3. テスト
+- カバレッジ
+- エッジケースのテスト
+- モックの適切な使用
 
 ### 4. セキュリティ
+- 入力検証
 - 機密情報のハードコードなし
-- 入力検証の適切性
 - パストラバーサル対策
 
-### 5. ドキュメント
-- 公開APIへのコメント
-- godoc形式の準拠
-- パッケージコメントの存在
+### 5. パフォーマンス
+- context.Context のタイムアウト設定
+- ゴルーチンリークの防止
+- N+1問題の回避
 
 ## チェック手順
 
-1. **コミット履歴の確認**
-   ```bash
-   git log --oneline --author=[対象]
-   git log --pretty=full  # Co-Authored-By確認
-   ```
-
-2. **変更内容の確認**
+1. **変更内容の確認**
    ```bash
    git diff [対象範囲]
    git show [コミットハッシュ]
    ```
 
-3. **品質基準の照合**
+2. **linterチェック（自動）**
+   ```bash
+   golangci-lint run
+   ```
+
+3. **テスト実行**
+   ```bash
+   go test ./...
+   go test -cover ./...
+   ```
+
+4. **品質基準の照合**
    `references/quality-checklist.md` の各項目を確認
 
-4. **フィードバック作成**
+5. **フィードバック作成**
    - 問題があれば具体的な改善点を記載
    - 良い点も積極的にフィードバック
    - 必要に応じて修正例を提示
@@ -88,11 +97,9 @@ argument-hint: "[target-commit-or-pr]"
 
 # PRをチェック
 /quality-check #123
-
-# 特定メンバーのコミットをチェック
-/quality-check --author=backend-dev
 ```
 
 ## 参考
 
-詳細な品質基準: `references/quality-checklist.md`
+- `references/quality-checklist.md`: 品質チェックリスト
+- `docs/conventions/go-style-guide.md`: Go言語スタイルガイド
