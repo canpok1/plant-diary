@@ -19,35 +19,6 @@ argument-hint: "[target-commit-or-pr]"
 
 **注意**: コミットメッセージは品質チェックの対象外です（開発者の責任範囲）。
 
-## チェック対象
-
-`references/quality-checklist.md` の基準に基づいて以下を確認：
-
-### 1. インターフェース設計
-- 単一責任の原則
-- 適切な抽象化レベル
-- context.Context の配置
-
-### 2. エラーハンドリング
-- エラーチェックの網羅性
-- エラーラッピングの適切性
-- エラーメッセージの品質
-
-### 3. テスト
-- カバレッジ
-- エッジケースのテスト
-- モックの適切な使用
-
-### 4. セキュリティ
-- 入力検証
-- 機密情報のハードコードなし
-- パストラバーサル対策
-
-### 5. パフォーマンス
-- context.Context のタイムアウト設定
-- ゴルーチンリークの防止
-- N+1問題の回避
-
 ## チェック手順
 
 1. **変更内容の確認**
@@ -101,5 +72,5 @@ argument-hint: "[target-commit-or-pr]"
 
 ## 参考
 
-- `references/quality-checklist.md`: 品質チェックリスト
-- `docs/conventions/go-style-guide.md`: Go言語スタイルガイド
+- `references/quality-checklist.md`: 品質チェックリスト（詳細な項目）
+- `docs/conventions/go-style-guide.md`: Go言語スタイルガイド（設計パターン）
