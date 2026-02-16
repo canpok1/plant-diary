@@ -121,8 +121,8 @@ func (r *SQLiteDiaryRepository) GetDiaryByID(id int) (*Diary, error) {
 }
 
 // CreateDiary は新しい日記エントリを作成する
-func (r *SQLiteDiaryRepository) CreateDiary(imagePath, content string) error {
-	_, err := r.db.Exec("INSERT INTO diary (image_path, content) VALUES (?, ?)", imagePath, content)
+func (r *SQLiteDiaryRepository) CreateDiary(imagePath, content string, createdAt time.Time) error {
+	_, err := r.db.Exec("INSERT INTO diary (image_path, content, created_at) VALUES (?, ?, ?)", imagePath, content, createdAt)
 	return err
 }
 

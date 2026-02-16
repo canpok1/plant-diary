@@ -47,8 +47,8 @@ if ! command -v fswebcam &> /dev/null; then
     exit 1
 fi
 
-# ファイル名の生成（YYYYMMDD_HHMM.jpg）
-DATE=$(date +%Y%m%d_%H%M)
+# ファイル名の生成（YYYYMMDD_HHMM_UTC.jpg）
+DATE=$(date -u +%Y%m%d_%H%M_UTC)
 OUTPUT="${DATA_DIR}/${DATE}.jpg"
 
 # 撮影（追加オプション付き）

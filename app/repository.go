@@ -17,7 +17,7 @@ type Diary struct {
 type DiaryRepository interface {
 	GetAllDiaries() ([]Diary, error)
 	GetDiaryByID(id int) (*Diary, error)
-	CreateDiary(imagePath, content string) error
+	CreateDiary(imagePath, content string, createdAt time.Time) error
 	IsImageProcessed(imagePath string) (bool, error)
 }
 
@@ -73,7 +73,7 @@ func (r *MockDiaryRepository) GetDiaryByID(id int) (*Diary, error) {
 }
 
 // CreateDiary は新しい日記エントリを作成する
-func (r *MockDiaryRepository) CreateDiary(imagePath, content string) error {
+func (r *MockDiaryRepository) CreateDiary(imagePath, content string, createdAt time.Time) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -81,7 +81,7 @@ func (r *MockDiaryRepository) CreateDiary(imagePath, content string) error {
 		ID:        r.nextID,
 		ImagePath: imagePath,
 		Content:   content,
-		CreatedAt: time.Now(),
+		CreatedAt: createdAt,
 	}
 	r.diaries[r.nextID] = diary
 	r.nextID++
