@@ -61,15 +61,9 @@ func runMigrations(db *sql.DB, migrationsPath string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create migrate instance: %w", err)
 	}
-	defer func() {
-		srcErr, dbErr := m.Close()
-		if srcErr != nil {
-			log.Printf("WARN: failed to close migration source: %v", srcErr)
-		}
-		if dbErr != nil {
-			log.Printf("WARN: failed to close migration db: %v", dbErr)
-		}
-	}()
+	// Note: WithInstanceを使用した場合、データベース接続は呼び出し側が管理する。
+	// m.Close()を呼び出すとデータベース接続が閉じられる可能性があるため、呼び出さない。
+	// マイグレーションは起動時に1回だけ実行されるため、ソースを閉じなくても問題ない。
 
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
 		return fmt.Errorf("migration failed: %w", err)
