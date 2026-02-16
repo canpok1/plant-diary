@@ -118,9 +118,11 @@ func (w *Worker) processNewImages() {
 		}
 
 		// 過去1ヶ月の日記を取得（対象日は除外）
-		oneMonthAgo := img.createdAt.AddDate(0, -1, 0)
-		oneDayBefore := img.createdAt.Add(-1 * time.Second)
-		pastDiaries, err := w.repo.GetDiariesInDateRange(oneMonthAgo, oneDayBefore)
+		// 対象日の0時（日付境界）を計算
+		startOfDay := time.Date(img.createdAt.Year(), img.createdAt.Month(), img.createdAt.Day(), 0, 0, 0, 0, img.createdAt.Location())
+		oneMonthAgo := startOfDay.AddDate(0, -1, 0)
+		endOfPrevDay := startOfDay.Add(-time.Nanosecond)
+		pastDiaries, err := w.repo.GetDiariesInDateRange(oneMonthAgo, endOfPrevDay)
 		if err != nil {
 			log.Printf("WARN: failed to get past diaries for %s: %v, continuing with empty history", img.path, err)
 			pastDiaries = []Diary{}

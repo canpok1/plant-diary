@@ -11,9 +11,9 @@ import (
 )
 
 const (
-	geminiModel          = "gemini-2.5-flash"
-	geminiTimeout        = 30 * time.Second
-	geminiDefaultPrompt  = "この植物の写真を見て、成長の様子や変化を観察してください。親しみやすい口調で、200文字程度の観察日記を書いてください。"
+	geminiModel         = "gemini-2.5-flash"
+	geminiTimeout       = 30 * time.Second
+	geminiDefaultPrompt = "この植物の写真を見て、成長の様子や変化を観察してください。親しみやすい口調で、200文字程度の観察日記を書いてください。"
 )
 
 // GeminiDiaryGenerator は Gemini API を使って画像から日記を生成する。
