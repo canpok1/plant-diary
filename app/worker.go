@@ -11,7 +11,8 @@ import (
 )
 
 const (
-	basePrompt = "この植物の写真を見て、成長の様子や変化を観察してください。親しみやすい口調で、200文字程度の観察日記を書いてください。"
+	basePrompt             = "この植物の写真を見て、成長の様子や変化を観察してください。親しみやすい口調で、200文字程度の観察日記を書いてください。"
+	maxPastDiariesInPrompt = 30 // プロンプトに含める過去日記の最大件数
 )
 
 // Worker は未処理画像を監視し、日記生成処理を実行する。
@@ -184,6 +185,12 @@ func buildDiaryPrompt(pastDiaries []Diary) string {
 		return basePrompt
 	}
 
+	// プロンプトに含める日記を最新のN件に制限（古い順にソートされているため、最後のN件を取得）
+	diariesToInclude := pastDiaries
+	if len(pastDiaries) > maxPastDiariesInPrompt {
+		diariesToInclude = pastDiaries[len(pastDiaries)-maxPastDiariesInPrompt:]
+	}
+
 	// JSTに変換するためのヘルパー
 	jst := time.FixedZone("Asia/Tokyo", 9*60*60)
 
@@ -191,7 +198,7 @@ func buildDiaryPrompt(pastDiaries []Diary) string {
 	builder.WriteString(basePrompt)
 	builder.WriteString("\n\n参考までに、過去1ヶ月の観察記録を以下に示します：\n\n")
 
-	for _, diary := range pastDiaries {
+	for _, diary := range diariesToInclude {
 		jstTime := diary.CreatedAt.In(jst)
 		fmt.Fprintf(&builder, "【%s】\n%s\n\n", jstTime.Format("2006年01月02日"), diary.Content)
 	}

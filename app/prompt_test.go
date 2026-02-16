@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -61,5 +62,38 @@ func TestBuildDiaryPrompt_WithPastDiaries(t *testing.T) {
 	// 指示文が含まれることを確認
 	if !strings.Contains(prompt, "これまでの観察記録を踏まえて") {
 		t.Error("expected prompt to contain instruction text")
+	}
+}
+
+func TestBuildDiaryPrompt_ExceedsMaxEntries(t *testing.T) {
+	// 40件の過去日記を作成（maxPastDiariesInPromptを超える）
+	pastDiaries := make([]Diary, 40)
+	baseTime := time.Date(2026, 1, 1, 10, 0, 0, 0, time.UTC)
+	for i := 0; i < 40; i++ {
+		pastDiaries[i] = Diary{
+			ID:        i + 1,
+			ImagePath: fmt.Sprintf("/path/%d.jpg", i+1),
+			Content:   fmt.Sprintf("日記%d番目", i+1),
+			CreatedAt: baseTime.AddDate(0, 0, i),
+		}
+	}
+
+	prompt := buildDiaryPrompt(pastDiaries)
+
+	// 最新の30件のみが含まれることを確認
+	// 最も古い10件（日記1番目〜日記10番目）は含まれないはず
+	if strings.Contains(prompt, "日記1番目") {
+		t.Error("expected oldest entry (日記1番目) to be excluded")
+	}
+	if strings.Contains(prompt, "日記10番目") {
+		t.Error("expected old entry (日記10番目) to be excluded")
+	}
+
+	// 最新の30件（日記11番目〜日記40番目）は含まれるはず
+	if !strings.Contains(prompt, "日記11番目") {
+		t.Error("expected entry (日記11番目) to be included")
+	}
+	if !strings.Contains(prompt, "日記40番目") {
+		t.Error("expected latest entry (日記40番目) to be included")
 	}
 }
