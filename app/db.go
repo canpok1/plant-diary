@@ -61,6 +61,15 @@ func runMigrations(db *sql.DB, migrationsPath string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create migrate instance: %w", err)
 	}
+	defer func() {
+		srcErr, dbErr := m.Close()
+		if srcErr != nil {
+			log.Printf("WARN: failed to close migration source: %v", srcErr)
+		}
+		if dbErr != nil {
+			log.Printf("WARN: failed to close migration db: %v", dbErr)
+		}
+	}()
 
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
 		return fmt.Errorf("migration failed: %w", err)
@@ -125,10 +134,10 @@ func (r *SQLiteDiaryRepository) CreateDiary(imagePath, content string) error {
 
 // IsImageProcessed は指定画像パスが既に処理済みかどうかを返す
 func (r *SQLiteDiaryRepository) IsImageProcessed(imagePath string) (bool, error) {
-	var count int
-	err := r.db.QueryRow("SELECT COUNT(*) FROM diary WHERE image_path = ?", imagePath).Scan(&count)
+	var exists bool
+	err := r.db.QueryRow("SELECT EXISTS(SELECT 1 FROM diary WHERE image_path = ? LIMIT 1)", imagePath).Scan(&exists)
 	if err != nil {
 		return false, err
 	}
-	return count > 0, nil
+	return exists, nil
 }
