@@ -27,9 +27,10 @@ func NewWorker(repo DiaryRepository, generator DiaryGenerator, photosDir string)
 }
 
 // Start は1分ごとにポーリングするGoroutineを起動する。
-// contextがキャンセルされると停止する。
-func (w *Worker) Start(ctx context.Context) {
+// contextがキャンセルされると停止し、doneチャネルを閉じる。
+func (w *Worker) Start(ctx context.Context, done chan struct{}) {
 	go func() {
+		defer close(done)
 		ticker := time.NewTicker(1 * time.Minute)
 		defer ticker.Stop()
 

@@ -47,7 +47,8 @@ func main() {
 	// Worker の初期化と起動
 	photosDir := "data/photos"
 	worker := NewWorker(repo, generator, photosDir)
-	worker.Start(ctx)
+	workerDone := make(chan struct{})
+	worker.Start(ctx, workerDone)
 	log.Printf("INFO: Worker started. Polling %s every 1 minute...", photosDir)
 
 	// HTTPサーバーの初期化と起動
@@ -75,6 +76,17 @@ func main() {
 
 	log.Println("INFO: Shutting down...")
 	cancel()
+
+	// Workerの停止を待機（最大10秒）
+	workerShutdownCtx, workerShutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer workerShutdownCancel()
+
+	select {
+	case <-workerDone:
+		log.Println("INFO: Worker stopped successfully")
+	case <-workerShutdownCtx.Done():
+		log.Println("WARN: Worker shutdown timeout")
+	}
 
 	// HTTPサーバーのGraceful Shutdown（最大5秒待機）
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
