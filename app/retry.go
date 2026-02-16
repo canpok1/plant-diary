@@ -30,6 +30,15 @@ func DefaultRetryConfig() RetryConfig {
 // Retry は指定された関数をリトライ付きで実行する。
 // 最初の試行が失敗した場合、設定に基づいて最大MaxRetries回リトライする。
 func Retry(config RetryConfig, operation string, fn func() error) error {
+	if config.MaxRetries < 0 {
+		return fmt.Errorf("MaxRetries must be >= 0")
+	}
+	if config.SleepFunc == nil {
+		config.SleepFunc = time.Sleep
+	}
+	if len(config.Intervals) < config.MaxRetries {
+		return fmt.Errorf("Intervals length (%d) is less than MaxRetries (%d)", len(config.Intervals), config.MaxRetries)
+	}
 	totalAttempts := 1 + config.MaxRetries
 	for attempt := 1; attempt <= totalAttempts; attempt++ {
 		err := fn()
