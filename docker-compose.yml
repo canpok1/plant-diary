@@ -1,6 +1,6 @@
 services:
   plant-diary:
-    build: .
+    image: ghcr.io/canpok1/plant-diary/server:latest
     ports:
       - "8080:8080"
     volumes:
