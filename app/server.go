@@ -35,6 +35,10 @@ func NewServer(repo DiaryRepository, photosDir string) (*Server, error) {
 			jst := time.FixedZone("Asia/Tokyo", 9*60*60)
 			return t.In(jst)
 		},
+		"weekdayJP": func(t time.Time) string {
+			weekdays := []string{"日", "月", "火", "水", "木", "金", "土"}
+			return weekdays[t.Weekday()]
+		},
 	}
 
 	// テンプレートディレクトリの自動検出

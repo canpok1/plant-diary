@@ -99,7 +99,7 @@
     <a class="back-link" href="/">&larr; 一覧へ戻る</a>
     <main class="detail-container">
         <img class="detail-image" src="/photos/{{.Diary.ImagePath}}" alt="植物の写真">
-        <p class="detail-meta">{{(.Diary.CreatedAt | toJST).Format "2006年1月2日 15:04"}}</p>
+        <p class="detail-meta">{{(.Diary.CreatedAt | toJST).Format "2006年1月2日"}}（{{.Diary.CreatedAt | toJST | weekdayJP}}）{{(.Diary.CreatedAt | toJST).Format "15:04"}}</p>
         <div class="detail-content">{{.Diary.Content}}</div>
     </main>
 </body>
