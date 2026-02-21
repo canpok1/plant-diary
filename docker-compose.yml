@@ -1,6 +1,7 @@
 services:
   plant-diary:
     image: ghcr.io/canpok1/plant-diary/server:latest
+    pull_policy: always
     ports:
       - "8080:8080"
     volumes:
