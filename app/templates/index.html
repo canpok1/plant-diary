@@ -132,7 +132,7 @@
             <div class="diary-card">
                 <img src="/photos/{{.ImagePath}}" alt="植物の写真">
                 <div class="diary-card-body">
-                    <p class="diary-card-date">{{(.CreatedAt | toJST).Format "2006年1月2日 15:04"}}</p>
+                    <p class="diary-card-date">{{(.CreatedAt | toJST).Format "2006年1月2日"}}（{{.CreatedAt | toJST | weekdayJP}}）{{(.CreatedAt | toJST).Format "15:04"}}</p>
                     <p class="diary-card-text">{{truncate .Content 50}}</p>
                     <a class="diary-card-link" href="/diary/{{.ID}}">詳細を見る &rarr;</a>
                 </div>
