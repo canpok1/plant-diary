@@ -249,6 +249,7 @@ func (s *Server) handleSlideshow(w http.ResponseWriter, r *http.Request) {
 	type photoItem struct {
 		URL      string `json:"url"`
 		DateTime string `json:"dateTime"`
+		DiaryID  int    `json:"diaryId"`
 	}
 	photos := make([]photoItem, 0, len(diaries))
 	for i := range diaries {
@@ -262,6 +263,7 @@ func (s *Server) handleSlideshow(w http.ResponseWriter, r *http.Request) {
 		photos = append(photos, photoItem{
 			URL:      "/photos/" + diaries[i].ImagePath,
 			DateTime: dateTime,
+			DiaryID:  diaries[i].ID,
 		})
 	}
 	photosJSON, err := json.Marshal(photos)
