@@ -89,6 +89,25 @@
             text-decoration: underline;
         }
 
+        .filter-form {
+            margin-bottom: 24px;
+        }
+
+        .filter-form select {
+            padding: 8px 12px;
+            font-size: 0.95rem;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            background-color: #ffffff;
+            color: #333333;
+            cursor: pointer;
+        }
+
+        .filter-form select:focus {
+            outline: none;
+            border-color: #4a7c59;
+        }
+
         .empty-message {
             text-align: center;
             color: #888888;
@@ -126,6 +145,14 @@
         <h1>植物観察日記</h1>
     </header>
     <main>
+        <div class="filter-form">
+            <select onchange="applyMonthFilter(this.value)">
+                <option value=""{{if eq .SelectedYear 0}} selected{{end}}>全ての月</option>
+                {{range .AvailableMonths}}
+                <option value="{{.Year}}-{{printf "%02d" .Month}}"{{if and (eq .Year $.SelectedYear) (eq .Month $.SelectedMonth)}} selected{{end}}>{{.Year}}年{{.Month}}月</option>
+                {{end}}
+            </select>
+        </div>
         {{if .Diaries}}
         <div class="diary-list">
             {{range .Diaries}}
@@ -143,5 +170,15 @@
         <p class="empty-message">まだ日記がありません。</p>
         {{end}}
     </main>
+    <script>
+        function applyMonthFilter(value) {
+            if (value) {
+                var parts = value.split('-');
+                window.location.href = '/?year=' + parts[0] + '&month=' + parts[1];
+            } else {
+                window.location.href = '/';
+            }
+        }
+    </script>
 </body>
 </html>

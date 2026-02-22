@@ -1,9 +1,17 @@
 package main
 
 import (
+	"fmt"
+	"sort"
 	"sync"
 	"time"
 )
+
+// YearMonth は年月を表す構造体
+type YearMonth struct {
+	Year  int
+	Month int
+}
 
 // Diary は日記エントリを表す構造体
 type Diary struct {
@@ -21,6 +29,7 @@ type DiaryRepository interface {
 	IsImageProcessed(imagePath string) (bool, error)
 	GetLatestDiaryCreatedAt() (time.Time, error)
 	GetDiariesInDateRange(startDate, endDate time.Time) ([]Diary, error)
+	GetAvailableYearMonths() ([]YearMonth, error)
 }
 
 // MockDiaryRepository はメモリ上でデータを保持するモック実装
@@ -122,6 +131,33 @@ func (r *MockDiaryRepository) GetLatestDiaryCreatedAt() (time.Time, error) {
 	}
 
 	return latest, nil
+}
+
+// GetAvailableYearMonths は日記が存在する年月一覧をJST基準で新しい順に返す
+func (r *MockDiaryRepository) GetAvailableYearMonths() ([]YearMonth, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	jst := time.FixedZone("Asia/Tokyo", 9*60*60)
+	seen := make(map[string]bool)
+	var result []YearMonth
+	for _, d := range r.diaries {
+		t := d.CreatedAt.In(jst)
+		key := fmt.Sprintf("%d-%02d", t.Year(), int(t.Month()))
+		if !seen[key] {
+			seen[key] = true
+			result = append(result, YearMonth{Year: t.Year(), Month: int(t.Month())})
+		}
+	}
+
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].Year != result[j].Year {
+			return result[i].Year > result[j].Year
+		}
+		return result[i].Month > result[j].Month
+	})
+
+	return result, nil
 }
 
 // GetDiariesInDateRange は指定日付範囲内の日記を古い順で返す

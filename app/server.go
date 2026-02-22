@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -73,11 +74,49 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // handleIndex は日記一覧ページを表示する
 func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
-	diaries, err := s.repo.GetAllDiaries()
+	yearStr := r.URL.Query().Get("year")
+	monthStr := r.URL.Query().Get("month")
+
+	var diaries []Diary
+	var err error
+	selectedYear := 0
+	selectedMonth := 0
+
+	if yearStr != "" && monthStr != "" {
+		year, yearErr := strconv.Atoi(yearStr)
+		month, monthErr := strconv.Atoi(monthStr)
+		if yearErr == nil && monthErr == nil && year > 0 && month >= 1 && month <= 12 {
+			jst := time.FixedZone("Asia/Tokyo", 9*60*60)
+			startDateJST := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, jst)
+			endDateJST := startDateJST.AddDate(0, 1, 0).Add(-time.Nanosecond)
+			diaries, err = s.repo.GetDiariesInDateRange(startDateJST.UTC(), endDateJST.UTC())
+			selectedYear = year
+			selectedMonth = month
+		} else {
+			diaries, err = s.repo.GetAllDiaries()
+		}
+	} else {
+		diaries, err = s.repo.GetAllDiaries()
+	}
+
 	if err != nil {
 		log.Printf("ERROR: failed to get diaries: %v", err)
 		s.renderError(w, http.StatusInternalServerError)
 		return
+	}
+
+	availableMonths, err := s.repo.GetAvailableYearMonths()
+	if err != nil {
+		log.Printf("ERROR: failed to get available year months: %v", err)
+		s.renderError(w, http.StatusInternalServerError)
+		return
+	}
+
+	// フィルタ適用時はGetDiariesInDateRangeがASC順で返すため、全件表示と揃えてDESC順にソート
+	if selectedYear != 0 {
+		sort.Slice(diaries, func(i, j int) bool {
+			return diaries[i].CreatedAt.After(diaries[j].CreatedAt)
+		})
 	}
 
 	// ImagePathをファイル名のみに変換
@@ -86,7 +125,10 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := map[string]interface{}{
-		"Diaries": diaries,
+		"Diaries":         diaries,
+		"AvailableMonths": availableMonths,
+		"SelectedYear":    selectedYear,
+		"SelectedMonth":   selectedMonth,
 	}
 
 	if err := s.templates.ExecuteTemplate(w, "index.html", data); err != nil {
