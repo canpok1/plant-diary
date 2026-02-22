@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -109,6 +110,13 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 		log.Printf("ERROR: failed to get available year months: %v", err)
 		s.renderError(w, http.StatusInternalServerError)
 		return
+	}
+
+	// フィルタ適用時はGetDiariesInDateRangeがASC順で返すため、全件表示と揃えてDESC順にソート
+	if selectedYear != 0 {
+		sort.Slice(diaries, func(i, j int) bool {
+			return diaries[i].CreatedAt.After(diaries[j].CreatedAt)
+		})
 	}
 
 	// ImagePathをファイル名のみに変換
