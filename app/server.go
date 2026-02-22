@@ -76,6 +76,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	yearStr := r.URL.Query().Get("year")
 	monthStr := r.URL.Query().Get("month")
+	keyword := r.URL.Query().Get("q")
 
 	var diaries []Diary
 	var err error
@@ -93,16 +94,35 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 			selectedYear = year
 			selectedMonth = month
 		} else {
-			diaries, err = s.repo.GetAllDiaries()
+			if keyword != "" {
+				diaries, err = s.repo.SearchDiaries(keyword)
+			} else {
+				diaries, err = s.repo.GetAllDiaries()
+			}
 		}
 	} else {
-		diaries, err = s.repo.GetAllDiaries()
+		if keyword != "" {
+			diaries, err = s.repo.SearchDiaries(keyword)
+		} else {
+			diaries, err = s.repo.GetAllDiaries()
+		}
 	}
 
 	if err != nil {
 		log.Printf("ERROR: failed to get diaries: %v", err)
 		s.renderError(w, http.StatusInternalServerError)
 		return
+	}
+
+	// 月別フィルタとキーワード検索を組み合わせた場合、インメモリでキーワード絞り込み
+	if keyword != "" && selectedYear != 0 {
+		filtered := make([]Diary, 0, len(diaries))
+		for _, d := range diaries {
+			if strings.Contains(d.Content, keyword) {
+				filtered = append(filtered, d)
+			}
+		}
+		diaries = filtered
 	}
 
 	availableMonths, err := s.repo.GetAvailableYearMonths()
@@ -129,6 +149,7 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 		"AvailableMonths": availableMonths,
 		"SelectedYear":    selectedYear,
 		"SelectedMonth":   selectedMonth,
+		"Keyword":         keyword,
 	}
 
 	if err := s.templates.ExecuteTemplate(w, "index.html", data); err != nil {

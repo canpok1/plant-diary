@@ -178,6 +178,32 @@ func (r *SQLiteDiaryRepository) GetAvailableYearMonths() ([]YearMonth, error) {
 	return result, nil
 }
 
+// SearchDiaries はキーワードを含む日記を新着順（created_at DESC）で返す
+func (r *SQLiteDiaryRepository) SearchDiaries(keyword string) ([]Diary, error) {
+	rows, err := r.db.Query(
+		"SELECT id, image_path, content, created_at FROM diary WHERE content LIKE ? ORDER BY created_at DESC",
+		"%"+keyword+"%",
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var diaries []Diary
+	for rows.Next() {
+		var d Diary
+		if err := rows.Scan(&d.ID, &d.ImagePath, &d.Content, &d.CreatedAt); err != nil {
+			return nil, err
+		}
+		diaries = append(diaries, d)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return diaries, nil
+}
+
 // GetDiariesInDateRange は指定日付範囲内の日記を古い順（created_at ASC）で返す
 func (r *SQLiteDiaryRepository) GetDiariesInDateRange(startDate, endDate time.Time) ([]Diary, error) {
 	rows, err := r.db.Query("SELECT id, image_path, content, created_at FROM diary WHERE created_at >= ? AND created_at <= ? ORDER BY created_at ASC", startDate, endDate)
