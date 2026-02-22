@@ -118,6 +118,15 @@
             margin-bottom: 16px;
         }
 
+        .slideshow-info a {
+            color: #555555;
+            text-decoration: underline;
+        }
+
+        .slideshow-info a:hover {
+            color: #4a7c59;
+        }
+
         .slideshow-controls {
             display: flex;
             flex-wrap: wrap;
@@ -258,7 +267,12 @@
                 currentIndex = (index + photos.length) % photos.length;
                 var photo = photos[currentIndex];
                 document.getElementById('slideshow-img').src = photo.url;
-                document.getElementById('slideshow-datetime').textContent = photo.dateTime;
+                var datetimeEl = document.getElementById('slideshow-datetime');
+                var link = document.createElement('a');
+                link.href = '/diary/' + photo.diaryId;
+                link.textContent = photo.dateTime;
+                datetimeEl.innerHTML = '';
+                datetimeEl.appendChild(link);
                 document.getElementById('slideshow-progress').textContent = (currentIndex + 1) + ' / ' + photos.length;
             }
 
