@@ -204,14 +204,19 @@ func (r *SQLiteDiaryRepository) SearchDiaries(keyword string) ([]Diary, error) {
 	return diaries, nil
 }
 
-// GetDiariesAsc は全日記または指定期間の日記を古い順（created_at ASC）で返す。from/toがゼロ値の場合は全件取得
+// GetDiariesAsc は全日記または指定期間の日記を古い順（created_at ASC）で返す。from/toがゼロ値の場合はその条件を無視する
 func (r *SQLiteDiaryRepository) GetDiariesAsc(from, to time.Time) ([]Diary, error) {
 	var rows *sql.Rows
 	var err error
 
-	if from.IsZero() {
+	switch {
+	case from.IsZero() && to.IsZero():
 		rows, err = r.db.Query("SELECT id, image_path, content, created_at FROM diary ORDER BY created_at ASC")
-	} else {
+	case from.IsZero():
+		rows, err = r.db.Query("SELECT id, image_path, content, created_at FROM diary WHERE created_at <= ? ORDER BY created_at ASC", to)
+	case to.IsZero():
+		rows, err = r.db.Query("SELECT id, image_path, content, created_at FROM diary WHERE created_at >= ? ORDER BY created_at ASC", from)
+	default:
 		rows, err = r.db.Query("SELECT id, image_path, content, created_at FROM diary WHERE created_at >= ? AND created_at <= ? ORDER BY created_at ASC", from, to)
 	}
 	if err != nil {
