@@ -400,6 +400,55 @@ func TestSQLiteDiaryRepository_GetAvailableYearMonths(t *testing.T) {
 	}
 }
 
+func TestSQLiteDiaryRepository_SearchDiaries(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewSQLiteDiaryRepository(db)
+
+	// 複数の日記を作成
+	_, err := db.Exec("INSERT INTO diary (image_path, content, created_at) VALUES (?, ?, ?)",
+		"/path/1.jpg", "葉が青くなってきた", time.Date(2026, 1, 1, 10, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("Insert failed: %v", err)
+	}
+	_, err = db.Exec("INSERT INTO diary (image_path, content, created_at) VALUES (?, ?, ?)",
+		"/path/2.jpg", "花が咲いた", time.Date(2026, 1, 2, 10, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("Insert failed: %v", err)
+	}
+	_, err = db.Exec("INSERT INTO diary (image_path, content, created_at) VALUES (?, ?, ?)",
+		"/path/3.jpg", "葉が黄色に変化した", time.Date(2026, 1, 3, 10, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("Insert failed: %v", err)
+	}
+
+	// キーワードで検索
+	diaries, err := repo.SearchDiaries("葉")
+	if err != nil {
+		t.Fatalf("SearchDiaries failed: %v", err)
+	}
+
+	if len(diaries) != 2 {
+		t.Fatalf("expected 2 diaries, got %d", len(diaries))
+	}
+
+	// 新着順（created_at DESC）であることを確認
+	if diaries[0].Content != "葉が黄色に変化した" {
+		t.Errorf("expected first diary to be '葉が黄色に変化した', got '%s'", diaries[0].Content)
+	}
+	if diaries[1].Content != "葉が青くなってきた" {
+		t.Errorf("expected second diary to be '葉が青くなってきた', got '%s'", diaries[1].Content)
+	}
+
+	// マッチしないキーワード
+	diaries, err = repo.SearchDiaries("実")
+	if err != nil {
+		t.Fatalf("SearchDiaries failed: %v", err)
+	}
+	if len(diaries) != 0 {
+		t.Errorf("expected 0 diaries, got %d", len(diaries))
+	}
+}
+
 func TestSQLiteDiaryRepository_GetDiariesInDateRange_Empty(t *testing.T) {
 	db := setupTestDB(t)
 	repo := NewSQLiteDiaryRepository(db)

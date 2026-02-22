@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 )
@@ -30,6 +31,7 @@ type DiaryRepository interface {
 	GetLatestDiaryCreatedAt() (time.Time, error)
 	GetDiariesInDateRange(startDate, endDate time.Time) ([]Diary, error)
 	GetAvailableYearMonths() ([]YearMonth, error)
+	SearchDiaries(keyword string) ([]Diary, error)
 }
 
 // MockDiaryRepository はメモリ上でデータを保持するモック実装
@@ -155,6 +157,25 @@ func (r *MockDiaryRepository) GetAvailableYearMonths() ([]YearMonth, error) {
 			return result[i].Year > result[j].Year
 		}
 		return result[i].Month > result[j].Month
+	})
+
+	return result, nil
+}
+
+// SearchDiaries はキーワードを含む日記を新着順で返す
+func (r *MockDiaryRepository) SearchDiaries(keyword string) ([]Diary, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	result := make([]Diary, 0)
+	for _, d := range r.diaries {
+		if strings.Contains(d.Content, keyword) {
+			result = append(result, *d)
+		}
+	}
+
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].CreatedAt.After(result[j].CreatedAt)
 	})
 
 	return result, nil

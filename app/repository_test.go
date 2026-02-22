@@ -242,6 +242,63 @@ func TestMockDiaryRepository_GetAvailableYearMonths(t *testing.T) {
 	}
 }
 
+func TestMockDiaryRepository_SearchDiaries(t *testing.T) {
+	repo := NewMockDiaryRepository()
+
+	time1 := time.Date(2026, 1, 1, 10, 0, 0, 0, time.UTC)
+	time2 := time.Date(2026, 1, 2, 10, 0, 0, 0, time.UTC)
+	time3 := time.Date(2026, 1, 3, 10, 0, 0, 0, time.UTC)
+
+	err := repo.CreateDiary("/path/1.jpg", "葉が青くなってきた", time1)
+	if err != nil {
+		t.Fatalf("CreateDiary failed: %v", err)
+	}
+	err = repo.CreateDiary("/path/2.jpg", "花が咲いた", time2)
+	if err != nil {
+		t.Fatalf("CreateDiary failed: %v", err)
+	}
+	err = repo.CreateDiary("/path/3.jpg", "葉が黄色に変化した", time3)
+	if err != nil {
+		t.Fatalf("CreateDiary failed: %v", err)
+	}
+
+	// キーワードで検索
+	diaries, err := repo.SearchDiaries("葉")
+	if err != nil {
+		t.Fatalf("SearchDiaries failed: %v", err)
+	}
+
+	if len(diaries) != 2 {
+		t.Fatalf("expected 2 diaries, got %d", len(diaries))
+	}
+
+	// 新着順であることを確認
+	if diaries[0].Content != "葉が黄色に変化した" {
+		t.Errorf("expected first diary to be '葉が黄色に変化した', got '%s'", diaries[0].Content)
+	}
+	if diaries[1].Content != "葉が青くなってきた" {
+		t.Errorf("expected second diary to be '葉が青くなってきた', got '%s'", diaries[1].Content)
+	}
+
+	// マッチしないキーワード
+	diaries, err = repo.SearchDiaries("実")
+	if err != nil {
+		t.Fatalf("SearchDiaries failed: %v", err)
+	}
+	if len(diaries) != 0 {
+		t.Errorf("expected 0 diaries, got %d", len(diaries))
+	}
+
+	// キーワードなし（全件）
+	diaries, err = repo.SearchDiaries("")
+	if err != nil {
+		t.Fatalf("SearchDiaries failed: %v", err)
+	}
+	if len(diaries) != 3 {
+		t.Errorf("expected 3 diaries for empty keyword, got %d", len(diaries))
+	}
+}
+
 func TestMockDiaryRepository_GetDiariesInDateRange_Empty(t *testing.T) {
 	repo := NewMockDiaryRepository()
 
