@@ -115,10 +115,12 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 月別フィルタとキーワード検索を組み合わせた場合、インメモリでキーワード絞り込み
+	// SQLite の LIKE と挙動を合わせるため大小文字を区別しない比較を行う
 	if keyword != "" && selectedYear != 0 {
 		filtered := make([]Diary, 0, len(diaries))
+		kw := strings.ToLower(keyword)
 		for _, d := range diaries {
-			if strings.Contains(d.Content, keyword) {
+			if strings.Contains(strings.ToLower(d.Content), kw) {
 				filtered = append(filtered, d)
 			}
 		}
