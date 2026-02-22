@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>スライドショー - 植物観察日記</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Meiryo", sans-serif;
+            background-color: #ffffff;
+            color: #333333;
+            line-height: 1.6;
+        }
+
+        header {
+            background-color: #4a7c59;
+            color: #ffffff;
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+
+        header h1 {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+
+        header nav a {
+            color: #ffffff;
+            text-decoration: none;
+            font-size: 0.95rem;
+            opacity: 0.85;
+        }
+
+        header nav a:hover {
+            opacity: 1;
+            text-decoration: underline;
+        }
+
+        main {
+            max-width: 960px;
+            margin: 24px auto;
+            padding: 0 16px;
+        }
+
+        .filter-form {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 24px;
+        }
+
+        .filter-form label {
+            font-size: 0.95rem;
+        }
+
+        .filter-form input[type="date"] {
+            padding: 8px 12px;
+            font-size: 0.95rem;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            background-color: #ffffff;
+            color: #333333;
+        }
+
+        .filter-form input[type="date"]:focus {
+            outline: none;
+            border-color: #4a7c59;
+        }
+
+        .filter-form button {
+            padding: 8px 16px;
+            font-size: 0.95rem;
+            border: none;
+            border-radius: 6px;
+            background-color: #4a7c59;
+            color: #ffffff;
+            cursor: pointer;
+        }
+
+        .filter-form button:hover {
+            background-color: #3a6347;
+        }
+
+        .slideshow-area {
+            text-align: center;
+        }
+
+        .slideshow-image-wrapper {
+            max-height: 70vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #f5f5f5;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 12px;
+        }
+
+        .slideshow-image-wrapper img {
+            max-width: 100%;
+            max-height: 70vh;
+            object-fit: contain;
+            display: block;
+        }
+
+        .slideshow-info {
+            font-size: 1rem;
+            color: #555555;
+            margin-bottom: 16px;
+        }
+
+        .slideshow-controls {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+        }
+
+        .slideshow-controls button {
+            padding: 10px 20px;
+            font-size: 1rem;
+            border: none;
+            border-radius: 6px;
+            background-color: #4a7c59;
+            color: #ffffff;
+            cursor: pointer;
+        }
+
+        .slideshow-controls button:hover {
+            background-color: #3a6347;
+        }
+
+        .slideshow-controls button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+
+        .speed-control {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.95rem;
+        }
+
+        .speed-control select {
+            padding: 8px 12px;
+            font-size: 0.95rem;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            background-color: #ffffff;
+            color: #333333;
+            cursor: pointer;
+        }
+
+        .speed-control select:focus {
+            outline: none;
+            border-color: #4a7c59;
+        }
+
+        .empty-message {
+            text-align: center;
+            color: #888888;
+            padding: 48px 0;
+            font-size: 1rem;
+        }
+
+        @media screen and (max-width: 640px) {
+            header {
+                padding: 12px 16px;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+
+            header h1 {
+                font-size: 1.25rem;
+            }
+
+            main {
+                margin: 16px auto;
+                padding: 0 12px;
+            }
+
+            .filter-form {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .slideshow-controls {
+                gap: 8px;
+            }
+
+            .slideshow-controls button {
+                padding: 8px 14px;
+                font-size: 0.9rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>スライドショー</h1>
+        <nav><a href="/">← 日記一覧</a></nav>
+    </header>
+    <main>
+        <form class="filter-form" onsubmit="applyFilter(event)">
+            <label>開始日:</label>
+            <input type="date" id="from-input" value="{{.From}}">
+            <label>〜 終了日:</label>
+            <input type="date" id="to-input" value="{{.To}}">
+            <button type="submit">適用</button>
+        </form>
+
+        {{if .Diaries}}
+        <div class="slideshow-area">
+            <div class="slideshow-image-wrapper">
+                <img id="slideshow-img" src="" alt="植物の写真">
+            </div>
+            <p class="slideshow-info">
+                <span id="slideshow-datetime"></span>
+                &nbsp;&nbsp;
+                <span id="slideshow-progress"></span>
+            </p>
+            <div class="slideshow-controls">
+                <button id="btn-prev" onclick="prevSlide()">◀ 前へ</button>
+                <button id="btn-play" onclick="togglePlay()">▶ 再生</button>
+                <button id="btn-next" onclick="nextSlide()">次へ ▶</button>
+                <div class="speed-control">
+                    <label for="speed-select">速度:</label>
+                    <select id="speed-select" onchange="changeSpeed()">
+                        <option value="500">0.5秒</option>
+                        <option value="1000" selected>1秒</option>
+                        <option value="2000">2秒</option>
+                        <option value="5000">5秒</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        <script>
+            var photos = {{.PhotosJSON}};
+            var currentIndex = 0;
+            var isPlaying = false;
+            var intervalId = null;
+            var speed = 1000;
+
+            function showSlide(index) {
+                if (photos.length === 0) return;
+                currentIndex = (index + photos.length) % photos.length;
+                var photo = photos[currentIndex];
+                document.getElementById('slideshow-img').src = photo.url;
+                document.getElementById('slideshow-datetime').textContent = photo.dateTime;
+                document.getElementById('slideshow-progress').textContent = (currentIndex + 1) + ' / ' + photos.length;
+            }
+
+            function prevSlide() {
+                showSlide(currentIndex - 1);
+            }
+
+            function nextSlide() {
+                showSlide(currentIndex + 1);
+            }
+
+            function togglePlay() {
+                if (isPlaying) {
+                    stopPlay();
+                } else {
+                    startPlay();
+                }
+            }
+
+            function startPlay() {
+                isPlaying = true;
+                document.getElementById('btn-play').textContent = '⏸ 停止';
+                intervalId = setInterval(function() {
+                    nextSlide();
+                }, speed);
+            }
+
+            function stopPlay() {
+                isPlaying = false;
+                document.getElementById('btn-play').textContent = '▶ 再生';
+                if (intervalId !== null) {
+                    clearInterval(intervalId);
+                    intervalId = null;
+                }
+            }
+
+            function changeSpeed() {
+                speed = parseInt(document.getElementById('speed-select').value, 10);
+                if (isPlaying) {
+                    stopPlay();
+                    startPlay();
+                }
+            }
+
+            function applyFilter(event) {
+                event.preventDefault();
+                var from = document.getElementById('from-input').value;
+                var to = document.getElementById('to-input').value;
+                var params = [];
+                if (from) params.push('from=' + encodeURIComponent(from));
+                if (to) params.push('to=' + encodeURIComponent(to));
+                window.location.href = params.length > 0 ? '/slideshow?' + params.join('&') : '/slideshow';
+            }
+
+            showSlide(0);
+        </script>
+        {{else}}
+        <p class="empty-message">表示できる写真がありません。</p>
+        {{end}}
+    </main>
+</body>
+</html>

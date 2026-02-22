@@ -32,6 +32,7 @@ type DiaryRepository interface {
 	GetDiariesInDateRange(startDate, endDate time.Time) ([]Diary, error)
 	GetAvailableYearMonths() ([]YearMonth, error)
 	SearchDiaries(keyword string) ([]Diary, error)
+	GetDiariesAsc(from, to time.Time) ([]Diary, error)
 }
 
 // MockDiaryRepository はメモリ上でデータを保持するモック実装
@@ -176,6 +177,27 @@ func (r *MockDiaryRepository) SearchDiaries(keyword string) ([]Diary, error) {
 
 	sort.Slice(result, func(i, j int) bool {
 		return result[i].CreatedAt.After(result[j].CreatedAt)
+	})
+
+	return result, nil
+}
+
+// GetDiariesAsc は全日記または指定期間の日記を古い順で返す。from/toがゼロ値の場合は全件取得
+func (r *MockDiaryRepository) GetDiariesAsc(from, to time.Time) ([]Diary, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	result := make([]Diary, 0)
+	for _, d := range r.diaries {
+		if from.IsZero() || (d.CreatedAt.Equal(from) || d.CreatedAt.After(from)) {
+			if to.IsZero() || (d.CreatedAt.Equal(to) || d.CreatedAt.Before(to)) {
+				result = append(result, *d)
+			}
+		}
+	}
+
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].CreatedAt.Before(result[j].CreatedAt)
 	})
 
 	return result, nil

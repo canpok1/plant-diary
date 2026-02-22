@@ -204,6 +204,41 @@ func (r *SQLiteDiaryRepository) SearchDiaries(keyword string) ([]Diary, error) {
 	return diaries, nil
 }
 
+// GetDiariesAsc は全日記または指定期間の日記を古い順（created_at ASC）で返す。from/toがゼロ値の場合はその条件を無視する
+func (r *SQLiteDiaryRepository) GetDiariesAsc(from, to time.Time) ([]Diary, error) {
+	var rows *sql.Rows
+	var err error
+
+	switch {
+	case from.IsZero() && to.IsZero():
+		rows, err = r.db.Query("SELECT id, image_path, content, created_at FROM diary ORDER BY created_at ASC")
+	case from.IsZero():
+		rows, err = r.db.Query("SELECT id, image_path, content, created_at FROM diary WHERE created_at <= ? ORDER BY created_at ASC", to)
+	case to.IsZero():
+		rows, err = r.db.Query("SELECT id, image_path, content, created_at FROM diary WHERE created_at >= ? ORDER BY created_at ASC", from)
+	default:
+		rows, err = r.db.Query("SELECT id, image_path, content, created_at FROM diary WHERE created_at >= ? AND created_at <= ? ORDER BY created_at ASC", from, to)
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var diaries []Diary
+	for rows.Next() {
+		var d Diary
+		if err := rows.Scan(&d.ID, &d.ImagePath, &d.Content, &d.CreatedAt); err != nil {
+			return nil, err
+		}
+		diaries = append(diaries, d)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return diaries, nil
+}
+
 // GetDiariesInDateRange は指定日付範囲内の日記を古い順（created_at ASC）で返す
 func (r *SQLiteDiaryRepository) GetDiariesInDateRange(startDate, endDate time.Time) ([]Diary, error) {
 	rows, err := r.db.Query("SELECT id, image_path, content, created_at FROM diary WHERE created_at >= ? AND created_at <= ? ORDER BY created_at ASC", startDate, endDate)
