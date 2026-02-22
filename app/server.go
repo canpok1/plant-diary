@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"log"
@@ -63,6 +64,7 @@ func NewServer(repo DiaryRepository, photosDir string) (*Server, error) {
 	s.mux.HandleFunc("GET /", s.handleIndex)
 	s.mux.HandleFunc("GET /diary/{id}", s.handleDiary)
 	s.mux.HandleFunc("GET /photos/{filename}", s.handlePhoto)
+	s.mux.HandleFunc("GET /slideshow", s.handleSlideshow)
 
 	return s, nil
 }
@@ -210,6 +212,77 @@ func (s *Server) handlePhoto(w http.ResponseWriter, r *http.Request) {
 
 	filePath := filepath.Join(s.photosDir, filename)
 	http.ServeFile(w, r, filePath)
+}
+
+// handleSlideshow はスライドショーページを表示する
+func (s *Server) handleSlideshow(w http.ResponseWriter, r *http.Request) {
+	fromStr := r.URL.Query().Get("from")
+	toStr := r.URL.Query().Get("to")
+
+	var from, to time.Time
+	jst := time.FixedZone("Asia/Tokyo", 9*60*60)
+
+	if fromStr != "" {
+		t, err := time.ParseInLocation("2006-01-02", fromStr, jst)
+		if err == nil {
+			from = t.UTC()
+		}
+	}
+	if toStr != "" {
+		t, err := time.ParseInLocation("2006-01-02", toStr, jst)
+		if err == nil {
+			// 終了日は当日の終わりまで含める
+			to = t.Add(24*time.Hour - time.Nanosecond).UTC()
+		}
+	}
+
+	diaries, err := s.repo.GetDiariesAsc(from, to)
+	if err != nil {
+		log.Printf("ERROR: failed to get diaries for slideshow: %v", err)
+		s.renderError(w, http.StatusInternalServerError)
+		return
+	}
+
+	// ImagePathをファイル名のみに変換し、JavaScript用データを準備
+	jstZone := time.FixedZone("Asia/Tokyo", 9*60*60)
+	weekdays := []string{"日", "月", "火", "水", "木", "金", "土"}
+	type photoItem struct {
+		URL      string `json:"url"`
+		DateTime string `json:"dateTime"`
+	}
+	photos := make([]photoItem, 0, len(diaries))
+	for i := range diaries {
+		diaries[i].ImagePath = filepath.Base(diaries[i].ImagePath)
+		t := diaries[i].CreatedAt.In(jstZone)
+		dateTime := fmt.Sprintf("%d年%d月%d日（%s）%s",
+			t.Year(), int(t.Month()), t.Day(),
+			weekdays[t.Weekday()],
+			t.Format("15:04"),
+		)
+		photos = append(photos, photoItem{
+			URL:      "/photos/" + diaries[i].ImagePath,
+			DateTime: dateTime,
+		})
+	}
+	photosJSON, err := json.Marshal(photos)
+	if err != nil {
+		log.Printf("ERROR: failed to marshal photos JSON: %v", err)
+		s.renderError(w, http.StatusInternalServerError)
+		return
+	}
+
+	data := map[string]interface{}{
+		"Diaries":    diaries,
+		"From":       fromStr,
+		"To":         toStr,
+		"PhotosJSON": template.JS(photosJSON),
+	}
+
+	if err := s.templates.ExecuteTemplate(w, "slideshow.html", data); err != nil {
+		log.Printf("ERROR: failed to render slideshow template: %v", err)
+		s.renderError(w, http.StatusInternalServerError)
+		return
+	}
 }
 
 // renderError はエラーページをレンダリングする
