@@ -149,6 +149,35 @@ func (r *SQLiteDiaryRepository) GetLatestDiaryCreatedAt() (time.Time, error) {
 	return createdAt, nil
 }
 
+// GetAvailableYearMonths は日記が存在する年月一覧をJST基準で新しい順に返す
+func (r *SQLiteDiaryRepository) GetAvailableYearMonths() ([]YearMonth, error) {
+	rows, err := r.db.Query(`
+		SELECT DISTINCT
+			CAST(strftime('%Y', datetime(created_at, '+9 hours')) AS INTEGER),
+			CAST(strftime('%m', datetime(created_at, '+9 hours')) AS INTEGER)
+		FROM diary
+		ORDER BY 1 DESC, 2 DESC
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var result []YearMonth
+	for rows.Next() {
+		var ym YearMonth
+		if err := rows.Scan(&ym.Year, &ym.Month); err != nil {
+			return nil, err
+		}
+		result = append(result, ym)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
 // GetDiariesInDateRange は指定日付範囲内の日記を古い順（created_at ASC）で返す
 func (r *SQLiteDiaryRepository) GetDiariesInDateRange(startDate, endDate time.Time) ([]Diary, error) {
 	rows, err := r.db.Query("SELECT id, image_path, content, created_at FROM diary WHERE created_at >= ? AND created_at <= ? ORDER BY created_at ASC", startDate, endDate)

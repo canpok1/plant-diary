@@ -188,6 +188,52 @@ func TestMockDiaryRepository_GetDiariesInDateRange(t *testing.T) {
 	}
 }
 
+func TestMockDiaryRepository_GetAvailableYearMonths(t *testing.T) {
+	repo := NewMockDiaryRepository()
+
+	// 日記が存在しない場合は空を返す
+	months, err := repo.GetAvailableYearMonths()
+	if err != nil {
+		t.Fatalf("GetAvailableYearMonths failed: %v", err)
+	}
+	if len(months) != 0 {
+		t.Errorf("expected 0 months for empty repo, got %d", len(months))
+	}
+
+	// 複数月にまたがる日記を作成（JST基準で異なる年月）
+	jst := time.FixedZone("Asia/Tokyo", 9*60*60)
+	time1 := time.Date(2026, 1, 10, 12, 0, 0, 0, jst)
+	time2 := time.Date(2026, 1, 20, 12, 0, 0, 0, jst)
+	time3 := time.Date(2026, 2, 5, 12, 0, 0, 0, jst)
+	time4 := time.Date(2025, 12, 15, 12, 0, 0, 0, jst)
+
+	_ = repo.CreateDiary("/path/1.jpg", "日記1", time1)
+	_ = repo.CreateDiary("/path/2.jpg", "日記2", time2)
+	_ = repo.CreateDiary("/path/3.jpg", "日記3", time3)
+	_ = repo.CreateDiary("/path/4.jpg", "日記4", time4)
+
+	months, err = repo.GetAvailableYearMonths()
+	if err != nil {
+		t.Fatalf("GetAvailableYearMonths failed: %v", err)
+	}
+
+	// 3つの年月（2026/02, 2026/01, 2025/12）が返ることを確認
+	if len(months) != 3 {
+		t.Fatalf("expected 3 months, got %d", len(months))
+	}
+
+	// 新しい順（降順）であることを確認
+	if months[0].Year != 2026 || months[0].Month != 2 {
+		t.Errorf("expected first month to be 2026/2, got %d/%d", months[0].Year, months[0].Month)
+	}
+	if months[1].Year != 2026 || months[1].Month != 1 {
+		t.Errorf("expected second month to be 2026/1, got %d/%d", months[1].Year, months[1].Month)
+	}
+	if months[2].Year != 2025 || months[2].Month != 12 {
+		t.Errorf("expected third month to be 2025/12, got %d/%d", months[2].Year, months[2].Month)
+	}
+}
+
 func TestMockDiaryRepository_GetDiariesInDateRange_Empty(t *testing.T) {
 	repo := NewMockDiaryRepository()
 
