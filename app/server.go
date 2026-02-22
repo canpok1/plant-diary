@@ -86,9 +86,9 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 		month, monthErr := strconv.Atoi(monthStr)
 		if yearErr == nil && monthErr == nil && year > 0 && month >= 1 && month <= 12 {
 			jst := time.FixedZone("Asia/Tokyo", 9*60*60)
-			startDate := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, jst)
-			endDate := startDate.AddDate(0, 1, 0).Add(-time.Nanosecond)
-			diaries, err = s.repo.GetDiariesInDateRange(startDate, endDate)
+			startDateJST := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, jst)
+			endDateJST := startDateJST.AddDate(0, 1, 0).Add(-time.Nanosecond)
+			diaries, err = s.repo.GetDiariesInDateRange(startDateJST.UTC(), endDateJST.UTC())
 			selectedYear = year
 			selectedMonth = month
 		} else {

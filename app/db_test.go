@@ -365,10 +365,18 @@ func TestSQLiteDiaryRepository_GetAvailableYearMonths(t *testing.T) {
 	time3 := time.Date(2026, 2, 5, 12, 0, 0, 0, jst)
 	time4 := time.Date(2025, 12, 15, 12, 0, 0, 0, jst)
 
-	_ = repo.CreateDiary("/path/1.jpg", "日記1", time1)
-	_ = repo.CreateDiary("/path/2.jpg", "日記2", time2)
-	_ = repo.CreateDiary("/path/3.jpg", "日記3", time3)
-	_ = repo.CreateDiary("/path/4.jpg", "日記4", time4)
+	if err := repo.CreateDiary("/path/1.jpg", "日記1", time1); err != nil {
+		t.Fatalf("CreateDiary failed: %v", err)
+	}
+	if err := repo.CreateDiary("/path/2.jpg", "日記2", time2); err != nil {
+		t.Fatalf("CreateDiary failed: %v", err)
+	}
+	if err := repo.CreateDiary("/path/3.jpg", "日記3", time3); err != nil {
+		t.Fatalf("CreateDiary failed: %v", err)
+	}
+	if err := repo.CreateDiary("/path/4.jpg", "日記4", time4); err != nil {
+		t.Fatalf("CreateDiary failed: %v", err)
+	}
 
 	months, err = repo.GetAvailableYearMonths()
 	if err != nil {
