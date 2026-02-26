@@ -57,9 +57,8 @@ get_brightness() {
 }
 
 load_exposure() {
-    if [ -f "${EXPOSURE_FILE}" ]; then
-        local val
-        val=$(cat "${EXPOSURE_FILE}")
+    local val
+    if [ -r "${EXPOSURE_FILE}" ] && val=$(<"${EXPOSURE_FILE}" 2>/dev/null); then
         if [[ "$val" =~ ^[0-9]+$ ]] && [ "$val" -ge "${EXPOSURE_MIN}" ] && [ "$val" -le "${EXPOSURE_MAX}" ]; then
             echo "$val"
             return
@@ -130,7 +129,11 @@ fi
 
 # ファイル名の生成（YYYYMMDD_HHMM_UTC.jpg）
 DATE=$(date -u +%Y%m%d_%H%M_UTC)
+RUN_ID="$$"
 FINAL_OUTPUT="${DATA_DIR}/${DATE}.jpg"
+if [ -e "${FINAL_OUTPUT}" ]; then
+    FINAL_OUTPUT="${DATA_DIR}/${DATE}_${RUN_ID}.jpg"
+fi
 
 # 前回の露出値を読み込み
 EXPOSURE=$(load_exposure)
@@ -151,7 +154,7 @@ TARGET_BRIGHTNESS="0.475"
 
 for ((i = 1; i <= MAX_ADJUST_RETRIES; i++)); do
     # 一時ファイルに撮影
-    TMP_OUTPUT="${DATA_DIR}/_tmp_${i}_${DATE}.jpg"
+    TMP_OUTPUT="${DATA_DIR}/_tmp_${RUN_ID}_${i}_${DATE}.jpg"
     TMP_FILES+=("${TMP_OUTPUT}")
 
     if ! capture_with_exposure "${EXPOSURE}" "${TMP_OUTPUT}"; then
