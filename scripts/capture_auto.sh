@@ -121,6 +121,13 @@ if ! command -v convert &> /dev/null; then
     exit 1
 fi
 
+# bc の存在確認
+if ! command -v bc &> /dev/null; then
+    log_message "ERROR: bc が見つかりません。sudo apt install bc でインストールしてください。"
+    echo "ERROR: bc が見つかりません。" >&2
+    exit 1
+fi
+
 # ファイル名の生成（YYYYMMDD_HHMM_UTC.jpg）
 DATE=$(date -u +%Y%m%d_%H%M_UTC)
 FINAL_OUTPUT="${DATA_DIR}/${DATE}.jpg"
