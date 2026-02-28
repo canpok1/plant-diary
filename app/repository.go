@@ -22,6 +22,21 @@ type Diary struct {
 	CreatedAt time.Time
 }
 
+// User はユーザーを表す構造体
+type User struct {
+	ID           int
+	UUID         string
+	Username     string
+	PasswordHash string
+	CreatedAt    time.Time
+}
+
+// UserRepository はユーザーデータへのアクセスを定義するインターフェース
+type UserRepository interface {
+	CreateUser(uuid, username, passwordHash string) error
+	GetUserByUsername(username string) (*User, error)
+}
+
 // DiaryRepository は日記データへのアクセスを定義するインターフェース
 type DiaryRepository interface {
 	GetAllDiaries() ([]Diary, error)

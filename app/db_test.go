@@ -23,6 +23,13 @@ func setupTestDB(t *testing.T) *sql.DB {
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 		);
 		CREATE INDEX IF NOT EXISTS idx_created_at ON diary(created_at DESC);
+		CREATE TABLE IF NOT EXISTS users (
+			id            INTEGER PRIMARY KEY AUTOINCREMENT,
+			uuid          TEXT NOT NULL UNIQUE,
+			username      TEXT NOT NULL UNIQUE,
+			password_hash TEXT NOT NULL,
+			created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+		);
 	`)
 	if err != nil {
 		t.Fatalf("failed to create table: %v", err)
@@ -473,4 +480,68 @@ func TestSQLiteDiaryRepository_GetDiariesInDateRange_Empty(t *testing.T) {
 	if len(diaries) != 0 {
 		t.Errorf("expected 0 diaries, got %d", len(diaries))
 	}
+}
+
+func TestSQLiteUserRepository_CreateUser(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewSQLiteUserRepository(db)
+
+	err := repo.CreateUser("abc123", "alice", "hashedpassword")
+	if err != nil {
+		t.Fatalf("CreateUser failed: %v", err)
+	}
+
+	user, err := repo.GetUserByUsername("alice")
+	if err != nil {
+		t.Fatalf("GetUserByUsername failed: %v", err)
+	}
+
+	if user == nil {
+		t.Fatal("expected user, got nil")
+	}
+	if user.UUID != "abc123" {
+		t.Errorf("expected UUID 'abc123', got '%s'", user.UUID)
+	}
+	if user.Username != "alice" {
+		t.Errorf("expected Username 'alice', got '%s'", user.Username)
+	}
+	if user.PasswordHash != "hashedpassword" {
+		t.Errorf("expected PasswordHash 'hashedpassword', got '%s'", user.PasswordHash)
+	}
+}
+
+func TestSQLiteUserRepository_GetUserByUsername_NotFound(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewSQLiteUserRepository(db)
+
+	user, err := repo.GetUserByUsername("nonexistent")
+	if err != nil {
+		t.Fatalf("GetUserByUsername failed: %v", err)
+	}
+
+	if user != nil {
+		t.Errorf("expected nil for non-existent user, got %v", user)
+	}
+}
+
+func TestSQLiteUserRepository_CreateUser_DuplicateUsername(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewSQLiteUserRepository(db)
+
+	err := repo.CreateUser("uuid1", "alice", "hash1")
+	if err != nil {
+		t.Fatalf("first CreateUser failed: %v", err)
+	}
+
+	// 同じusernameで作成するとUNIQUE制約エラー
+	err = repo.CreateUser("uuid2", "alice", "hash2")
+	if err == nil {
+		t.Error("expected error for duplicate username, got nil")
+	}
+}
+
+func TestSQLiteUserRepository_ImplementsInterface(t *testing.T) {
+	db := setupTestDB(t)
+	// コンパイル時にインターフェースを満たすことを確認
+	var _ UserRepository = NewSQLiteUserRepository(db)
 }

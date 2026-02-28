@@ -6,12 +6,35 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 )
 
+const (
+	ApiKeyAuthScopes = "ApiKeyAuth.Scopes"
+)
+
+// CreateUserRequest defines model for CreateUserRequest.
+type CreateUserRequest struct {
+	Password string `json:"password"`
+	Username string `json:"username"`
+}
+
+// UserResponse defines model for UserResponse.
+type UserResponse struct {
+	Username string `json:"username"`
+	Uuid     string `json:"uuid"`
+}
+
+// PostApiUsersJSONRequestBody defines body for PostApiUsers for application/json ContentType.
+type PostApiUsersJSONRequestBody = CreateUserRequest
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// ユーザーを作成する
+	// (POST /api/users)
+	PostApiUsers(w http.ResponseWriter, r *http.Request)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -22,6 +45,26 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// PostApiUsers operation middleware
+func (siw *ServerInterfaceWrapper) PostApiUsers(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, ApiKeyAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostApiUsers(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
 
 type UnescapedCookieParamError struct {
 	ParamName string
@@ -136,6 +179,14 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 			http.Error(w, err.Error(), http.StatusBadRequest)
 		}
 	}
+
+	wrapper := ServerInterfaceWrapper{
+		Handler:            si,
+		HandlerMiddlewares: options.Middlewares,
+		ErrorHandlerFunc:   options.ErrorHandlerFunc,
+	}
+
+	m.HandleFunc("POST "+options.BaseURL+"/api/users", wrapper.PostApiUsers)
 
 	return m
 }
