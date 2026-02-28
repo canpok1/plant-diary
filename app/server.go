@@ -473,6 +473,8 @@ func (s *Server) handlePhotoWithUserUUID(w http.ResponseWriter, r *http.Request)
 
 	// ディレクトリトラバーサル防止
 	if userUUID == "" || filename == "" ||
+		userUUID == "." || userUUID == ".." ||
+		filename == "." || filename == ".." ||
 		strings.Contains(userUUID, "/") || strings.Contains(userUUID, "\\") ||
 		strings.Contains(filename, "/") || strings.Contains(filename, "\\") {
 		s.renderError(w, http.StatusNotFound)
@@ -623,8 +625,8 @@ func (s *Server) PostApiPhotos(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// ファイル名生成（YYYYMMDD_HHMM_UTC.jpg）
-	filename := capturedAt.Format("20060102_1504") + "_UTC.jpg"
+	// ファイル名生成（YYYYMMDD_HHMMSS_UTC.jpg）秒単位で衝突を回避
+	filename := capturedAt.Format("20060102_150405") + "_UTC.jpg"
 	imagePath := filepath.Join(userDir, filename)
 
 	// ファイルの保存
@@ -634,13 +636,15 @@ func (s *Server) PostApiPhotos(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
-	defer dst.Close()
 
 	if _, err := io.Copy(dst, file); err != nil {
+		dst.Close()
+		os.Remove(imagePath)
 		log.Printf("ERROR: failed to save photo file %s: %v", imagePath, err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
+	dst.Close()
 
 	// ジョブIDを生成
 	jobID, err := generateUUID()
