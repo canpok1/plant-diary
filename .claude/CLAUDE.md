@@ -18,7 +18,7 @@
 - `base-tools:solve-issue`: Issue解決フロー
 - `base-tools:setup-worktree`: worktree作成
 
-これらのスキルは外部プラグイン（canpok1-plugins/base-tools）で管理されており、このリポジトリでは編集できません。改善提案がある場合は、該当プラグインのリポジトリにIssueを作成してください。
+これらのスキルは外部プラグイン（canpok1-plugins/base-tools）で管理されており、このリポジトリでは編集できません。改善提案がある場合は、https://github.com/canpok1/claude-code-plugins にIssueを作成してください。
 
 ## agent teamの使用指針
 
