@@ -15,7 +15,7 @@ USBカメラで撮影した植物の画像を元に、Gemini APIを用いて日�
 ### 2.2 技術スタック
 
 * **言語**: Go (Golang)
-* **データベース**: SQLite 3
+* **データベース**: SQLite 3.35.0以上
 * **AIエンジン**: Google Gemini 2.5 Flash (API)
 * **カメラ制御**: fswebcam (ホスト側Cron実行)
 * **DBマイグレーション**: golang-migrate/migrate
