@@ -13,10 +13,6 @@ import (
 func main() {
 	log.Println("INFO: Starting Plant Diary System...")
 
-	// コンテキストの作成（シグナルハンドリング）
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	// DB初期化とマイグレーション実行
 	dbPath := "data/plant_log.db"
 	migrationsPath := "migrations"
@@ -50,14 +46,8 @@ func main() {
 	// SessionRepository の初期化（SQLite実装）
 	sessionRepo := NewSQLiteSessionRepository(db)
 
-	// Worker の初期化と起動
-	photosDir := "data/photos"
-	worker := NewWorker(repo, generator, photosDir)
-	workerDone := make(chan struct{})
-	worker.Start(ctx, workerDone)
-	log.Printf("INFO: Worker started. Polling %s every 1 minute...", photosDir)
-
 	// HTTPサーバーの初期化と起動
+	photosDir := "data/photos"
 	srv, err := NewServer(repo, userRepo, sessionRepo, generator, photosDir)
 	if err != nil {
 		log.Fatalf("FATAL: failed to initialize server: %v", err)
@@ -81,18 +71,6 @@ func main() {
 	<-sigCh
 
 	log.Println("INFO: Shutting down...")
-	cancel()
-
-	// Workerの停止を待機（最大10秒）
-	workerShutdownCtx, workerShutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer workerShutdownCancel()
-
-	select {
-	case <-workerDone:
-		log.Println("INFO: Worker stopped successfully")
-	case <-workerShutdownCtx.Done():
-		log.Println("WARN: Worker shutdown timeout")
-	}
 
 	// HTTPサーバーのGraceful Shutdown（最大5秒待機）
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
