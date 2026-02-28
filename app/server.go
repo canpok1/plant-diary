@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/subtle"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -12,18 +13,21 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 // Server はHTTPサーバーを表す構造体
 type Server struct {
 	repo      DiaryRepository
+	userRepo  UserRepository
 	photosDir string
 	templates *template.Template
 	mux       *http.ServeMux
 }
 
 // NewServer は新しいServerを生成する
-func NewServer(repo DiaryRepository, photosDir string) (*Server, error) {
+func NewServer(repo DiaryRepository, userRepo UserRepository, photosDir string) (*Server, error) {
 	// カスタムテンプレート関数を登録
 	funcMap := template.FuncMap{
 		"truncate": func(s string, length int) string {
@@ -56,6 +60,7 @@ func NewServer(repo DiaryRepository, photosDir string) (*Server, error) {
 
 	s := &Server{
 		repo:      repo,
+		userRepo:  userRepo,
 		photosDir: photosDir,
 		templates: tmpl,
 		mux:       http.NewServeMux(),
@@ -65,6 +70,8 @@ func NewServer(repo DiaryRepository, photosDir string) (*Server, error) {
 	s.mux.HandleFunc("GET /diary/{id}", s.handleDiary)
 	s.mux.HandleFunc("GET /photos/{filename}", s.handlePhoto)
 	s.mux.HandleFunc("GET /slideshow", s.handleSlideshow)
+
+	HandlerFromMux(s, s.mux)
 
 	return s, nil
 }
@@ -284,6 +291,78 @@ func (s *Server) handleSlideshow(w http.ResponseWriter, r *http.Request) {
 		log.Printf("ERROR: failed to render slideshow template: %v", err)
 		s.renderError(w, http.StatusInternalServerError)
 		return
+	}
+}
+
+// PostApiUsers はユーザー作成APIのハンドラ（POST /api/users）
+func (s *Server) PostApiUsers(w http.ResponseWriter, r *http.Request) {
+	// UPLOAD_API_KEY が未設定の場合は 503
+	apiKey := os.Getenv("UPLOAD_API_KEY")
+	if apiKey == "" {
+		http.Error(w, "Service Unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	// X-API-Key ヘッダーの検証（タイミング攻撃防止のため定数時間比較を使用）
+	if subtle.ConstantTimeCompare([]byte(r.Header.Get("X-API-Key")), []byte(apiKey)) != 1 {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// リクエストボディの解析
+	var req CreateUserRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+	if req.Username == "" || req.Password == "" {
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+
+	// 重複ユーザー名の確認
+	existing, err := s.userRepo.GetUserByUsername(req.Username)
+	if err != nil {
+		log.Printf("ERROR: failed to check existing user: %v", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+	if existing != nil {
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+
+	// パスワードのハッシュ化
+	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		log.Printf("ERROR: failed to hash password: %v", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	// UUID生成（ハイフンなし32文字）
+	uuid, err := generateUUID()
+	if err != nil {
+		log.Printf("ERROR: failed to generate UUID: %v", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	// ユーザー作成
+	if err := s.userRepo.CreateUser(uuid, req.Username, string(hash)); err != nil {
+		log.Printf("ERROR: failed to create user: %v", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	resp := UserResponse{
+		Uuid:     uuid,
+		Username: req.Username,
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		log.Printf("ERROR: failed to encode response: %v", err)
 	}
 }
 

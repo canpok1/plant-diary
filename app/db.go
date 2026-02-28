@@ -1,7 +1,9 @@
 package main
 
 import (
+	"crypto/rand"
 	"database/sql"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"strconv"
@@ -265,6 +267,50 @@ func (r *SQLiteDiaryRepository) GetDiariesAsc(from, to time.Time) ([]Diary, erro
 	}
 
 	return diaries, nil
+}
+
+// generateUUID はhyphenなし32文字のUUIDを生成する
+func generateUUID() (string, error) {
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("failed to generate UUID: %w", err)
+	}
+	return hex.EncodeToString(b), nil
+}
+
+// SQLiteUserRepository はSQLiteを使用したUserRepositoryの実装
+type SQLiteUserRepository struct {
+	db *sql.DB
+}
+
+// NewSQLiteUserRepository は新しいSQLiteUserRepositoryを生成する
+func NewSQLiteUserRepository(db *sql.DB) *SQLiteUserRepository {
+	return &SQLiteUserRepository{db: db}
+}
+
+// CreateUser は新しいユーザーを作成する
+func (r *SQLiteUserRepository) CreateUser(uuid, username, passwordHash string) error {
+	_, err := r.db.Exec(
+		"INSERT INTO users (uuid, username, password_hash) VALUES (?, ?, ?)",
+		uuid, username, passwordHash,
+	)
+	return err
+}
+
+// GetUserByUsername はusernameからユーザーを取得する。見つからない場合はnilを返す
+func (r *SQLiteUserRepository) GetUserByUsername(username string) (*User, error) {
+	var u User
+	err := r.db.QueryRow(
+		"SELECT id, uuid, username, password_hash, created_at FROM users WHERE username = ?",
+		username,
+	).Scan(&u.ID, &u.UUID, &u.Username, &u.PasswordHash, &u.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &u, nil
 }
 
 // GetDiariesInDateRange は指定日付範囲内の日記を古い順（created_at ASC）で返す
