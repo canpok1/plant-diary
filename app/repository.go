@@ -58,6 +58,7 @@ type DiaryRepository interface {
 	GetAllDiaries() ([]Diary, error)
 	GetDiaryByID(id int) (*Diary, error)
 	CreateDiary(imagePath, content string, createdAt time.Time) error
+	UpdateDiaryContent(id int, content string) error
 	IsImageProcessed(imagePath string) (bool, error)
 	GetLatestDiaryCreatedAt() (time.Time, error)
 	GetDiariesInDateRange(startDate, endDate time.Time) ([]Diary, error)
@@ -115,6 +116,19 @@ func (r *MockDiaryRepository) GetDiaryByID(id int) (*Diary, error) {
 
 	copy := *d
 	return &copy, nil
+}
+
+// UpdateDiaryContent は指定IDの日記のcontentを更新する。見つからない場合はエラーを返す
+func (r *MockDiaryRepository) UpdateDiaryContent(id int, content string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	d, ok := r.diaries[id]
+	if !ok {
+		return fmt.Errorf("diary %d not found", id)
+	}
+	d.Content = content
+	return nil
 }
 
 // CreateDiary は新しい日記エントリを作成する
