@@ -42,9 +42,16 @@ EXPOSURE_FILE="${PROJECT_DIR}/data/last_exposure.txt"
 TARGET_BRIGHTNESS="${1:-0.475}"
 MAX_ADJUST_RETRIES="${2:-5}"
 
-# 適正輝度範囲の算出
-BRIGHTNESS_MIN=$(echo "${TARGET_BRIGHTNESS} - ${BRIGHTNESS_TOLERANCE}" | bc -l)
-BRIGHTNESS_MAX=$(echo "${TARGET_BRIGHTNESS} + ${BRIGHTNESS_TOLERANCE}" | bc -l)
+# 引数バリデーション
+if ! [[ "${TARGET_BRIGHTNESS}" =~ ^(0(\.[0-9]+)?|1(\.0+)?)$ ]]; then
+    echo "ERROR: TARGET_BRIGHTNESS は 0〜1 の数値で指定してください。" >&2
+    exit 1
+fi
+
+if ! [[ "${MAX_ADJUST_RETRIES}" =~ ^[1-9][0-9]*$ ]]; then
+    echo "ERROR: MAX_ADJUST_RETRIES は 1 以上の整数で指定してください。" >&2
+    exit 1
+fi
 
 # 一時ファイル管理
 TMP_FILES=()
@@ -139,6 +146,10 @@ if ! command -v bc &> /dev/null; then
     echo "ERROR: bc が見つかりません。" >&2
     exit 1
 fi
+
+# 適正輝度範囲の算出
+BRIGHTNESS_MIN=$(echo "${TARGET_BRIGHTNESS} - ${BRIGHTNESS_TOLERANCE}" | bc -l)
+BRIGHTNESS_MAX=$(echo "${TARGET_BRIGHTNESS} + ${BRIGHTNESS_TOLERANCE}" | bc -l)
 
 # ファイル名の生成（YYYYMMDD_HHMM_UTC.jpg）
 DATE=$(date -u +%Y%m%d_%H%M_UTC)
