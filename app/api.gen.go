@@ -9,6 +9,9 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"time"
+
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 const (
@@ -21,17 +24,35 @@ type CreateUserRequest struct {
 	Username string `json:"username"`
 }
 
+// UploadPhotoRequest defines model for UploadPhotoRequest.
+type UploadPhotoRequest struct {
+	CapturedAt *time.Time         `json:"captured_at,omitempty"`
+	Photo      openapi_types.File `json:"photo"`
+	UserUuid   string             `json:"user_uuid"`
+}
+
+// UploadPhotoResponse defines model for UploadPhotoResponse.
+type UploadPhotoResponse struct {
+	JobId string `json:"job_id"`
+}
+
 // UserResponse defines model for UserResponse.
 type UserResponse struct {
 	Username string `json:"username"`
 	Uuid     string `json:"uuid"`
 }
 
+// PostApiPhotosMultipartRequestBody defines body for PostApiPhotos for multipart/form-data ContentType.
+type PostApiPhotosMultipartRequestBody = UploadPhotoRequest
+
 // PostApiUsersJSONRequestBody defines body for PostApiUsers for application/json ContentType.
 type PostApiUsersJSONRequestBody = CreateUserRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// 写真をアップロードする
+	// (POST /api/photos)
+	PostApiPhotos(w http.ResponseWriter, r *http.Request)
 	// ユーザーを作成する
 	// (POST /api/users)
 	PostApiUsers(w http.ResponseWriter, r *http.Request)
@@ -45,6 +66,26 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// PostApiPhotos operation middleware
+func (siw *ServerInterfaceWrapper) PostApiPhotos(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, ApiKeyAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostApiPhotos(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
 
 // PostApiUsers operation middleware
 func (siw *ServerInterfaceWrapper) PostApiUsers(w http.ResponseWriter, r *http.Request) {
@@ -186,6 +227,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 		ErrorHandlerFunc:   options.ErrorHandlerFunc,
 	}
 
+	m.HandleFunc("POST "+options.BaseURL+"/api/photos", wrapper.PostApiPhotos)
 	m.HandleFunc("POST "+options.BaseURL+"/api/users", wrapper.PostApiUsers)
 
 	return m

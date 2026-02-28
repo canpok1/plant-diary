@@ -20,7 +20,8 @@ func setupTestDB(t *testing.T) *sql.DB {
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			image_path TEXT NOT NULL UNIQUE,
 			content TEXT NOT NULL,
-			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			user_id INTEGER REFERENCES users(id)
 		);
 		CREATE INDEX IF NOT EXISTS idx_created_at ON diary(created_at DESC);
 		CREATE TABLE IF NOT EXISTS users (

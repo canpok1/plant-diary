@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -22,13 +23,14 @@ type Server struct {
 	repo        DiaryRepository
 	userRepo    UserRepository
 	sessionRepo SessionRepository
+	generator   DiaryGenerator
 	photosDir   string
 	templates   *template.Template
 	mux         *http.ServeMux
 }
 
 // NewServer は新しいServerを生成する
-func NewServer(repo DiaryRepository, userRepo UserRepository, sessionRepo SessionRepository, photosDir string) (*Server, error) {
+func NewServer(repo DiaryRepository, userRepo UserRepository, sessionRepo SessionRepository, generator DiaryGenerator, photosDir string) (*Server, error) {
 	// カスタムテンプレート関数を登録
 	funcMap := template.FuncMap{
 		"truncate": func(s string, length int) string {
@@ -63,6 +65,7 @@ func NewServer(repo DiaryRepository, userRepo UserRepository, sessionRepo Sessio
 		repo:        repo,
 		userRepo:    userRepo,
 		sessionRepo: sessionRepo,
+		generator:   generator,
 		photosDir:   photosDir,
 		templates:   tmpl,
 		mux:         http.NewServeMux(),
@@ -73,6 +76,7 @@ func NewServer(repo DiaryRepository, userRepo UserRepository, sessionRepo Sessio
 	s.mux.HandleFunc("GET /diary/{id}/edit", s.requireLogin(s.handleDiaryEditGet))
 	s.mux.HandleFunc("POST /diary/{id}/edit", s.requireLogin(s.handleDiaryEditPost))
 	s.mux.HandleFunc("GET /photos/{filename}", s.handlePhoto)
+	s.mux.HandleFunc("GET /photos/{user_uuid}/{filename}", s.handlePhotoWithUserUUID)
 	s.mux.HandleFunc("GET /slideshow", s.handleSlideshow)
 	s.mux.HandleFunc("GET /login", s.handleLoginGet)
 	s.mux.HandleFunc("POST /login", s.handleLoginPost)
@@ -462,6 +466,25 @@ func (s *Server) handlePhoto(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, filePath)
 }
 
+// handlePhotoWithUserUUID はユーザーUUID配下の画像ファイルを配信する
+func (s *Server) handlePhotoWithUserUUID(w http.ResponseWriter, r *http.Request) {
+	userUUID := r.PathValue("user_uuid")
+	filename := r.PathValue("filename")
+
+	// ディレクトリトラバーサル防止
+	if userUUID == "" || filename == "" ||
+		userUUID == "." || userUUID == ".." ||
+		filename == "." || filename == ".." ||
+		strings.Contains(userUUID, "/") || strings.Contains(userUUID, "\\") ||
+		strings.Contains(filename, "/") || strings.Contains(filename, "\\") {
+		s.renderError(w, http.StatusNotFound)
+		return
+	}
+
+	filePath := filepath.Join(s.photosDir, userUUID, filename)
+	http.ServeFile(w, r, filePath)
+}
+
 // handleSlideshow はスライドショーページを表示する
 func (s *Server) handleSlideshow(w http.ResponseWriter, r *http.Request) {
 	fromStr := r.URL.Query().Get("from")
@@ -532,6 +555,147 @@ func (s *Server) handleSlideshow(w http.ResponseWriter, r *http.Request) {
 		log.Printf("ERROR: failed to render slideshow template: %v", err)
 		s.renderError(w, http.StatusInternalServerError)
 		return
+	}
+}
+
+// PostApiPhotos は写真アップロードAPIのハンドラ（POST /api/photos）
+func (s *Server) PostApiPhotos(w http.ResponseWriter, r *http.Request) {
+	// UPLOAD_API_KEY が未設定の場合は 503
+	apiKey := os.Getenv("UPLOAD_API_KEY")
+	if apiKey == "" {
+		http.Error(w, "Service Unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	// X-API-Key ヘッダーの検証（タイミング攻撃防止のため定数時間比較を使用）
+	if subtle.ConstantTimeCompare([]byte(r.Header.Get("X-API-Key")), []byte(apiKey)) != 1 {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// multipart/form-data のパース（最大32MB）
+	if err := r.ParseMultipartForm(32 << 20); err != nil {
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+
+	// user_uuid の取得・検証
+	userUUID := r.FormValue("user_uuid")
+	if len(userUUID) != 32 {
+		http.Error(w, "Bad Request: user_uuid must be 32 characters", http.StatusBadRequest)
+		return
+	}
+
+	// UUIDからユーザーを取得
+	user, err := s.userRepo.GetUserByUUID(userUUID)
+	if err != nil {
+		log.Printf("ERROR: failed to get user by UUID: %v", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+	if user == nil {
+		http.Error(w, "Bad Request: user not found", http.StatusBadRequest)
+		return
+	}
+
+	// captured_at の解析（省略時はサーバー受信時刻）
+	capturedAt := time.Now().UTC()
+	if capturedAtStr := r.FormValue("captured_at"); capturedAtStr != "" {
+		t, err := time.Parse(time.RFC3339, capturedAtStr)
+		if err != nil {
+			http.Error(w, "Bad Request: invalid captured_at format", http.StatusBadRequest)
+			return
+		}
+		capturedAt = t.UTC()
+	}
+
+	// 写真ファイルの取得
+	file, _, err := r.FormFile("photo")
+	if err != nil {
+		http.Error(w, "Bad Request: photo field is required", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	// 保存先ディレクトリの作成
+	userDir := filepath.Join(s.photosDir, userUUID)
+	if err := os.MkdirAll(userDir, 0755); err != nil {
+		log.Printf("ERROR: failed to create user photo dir %s: %v", userDir, err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	// ファイル名生成（YYYYMMDD_HHMMSS_UTC.jpg）秒単位で衝突を回避
+	filename := capturedAt.Format("20060102_150405") + "_UTC.jpg"
+	imagePath := filepath.Join(userDir, filename)
+
+	// ファイルの保存
+	dst, err := os.Create(imagePath)
+	if err != nil {
+		log.Printf("ERROR: failed to create photo file %s: %v", imagePath, err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	if _, err := io.Copy(dst, file); err != nil {
+		dst.Close()
+		os.Remove(imagePath)
+		log.Printf("ERROR: failed to save photo file %s: %v", imagePath, err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+	dst.Close()
+
+	// ジョブIDを生成
+	jobID, err := generateUUID()
+	if err != nil {
+		log.Printf("ERROR: failed to generate job ID: %v", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	// goroutineで非同期に日記を生成・保存
+	go func() {
+		startOfDay := time.Date(capturedAt.Year(), capturedAt.Month(), capturedAt.Day(), 0, 0, 0, 0, capturedAt.Location())
+		oneMonthAgo := startOfDay.AddDate(0, -1, 0)
+		endOfPrevDay := startOfDay.Add(-time.Nanosecond)
+		pastDiaries, err := s.repo.GetDiariesInDateRange(oneMonthAgo, endOfPrevDay)
+		if err != nil {
+			log.Printf("WARN: failed to get past diaries for %s: %v, continuing with empty history", imagePath, err)
+			pastDiaries = []Diary{}
+		}
+
+		prompt := buildDiaryPrompt(pastDiaries)
+
+		var content string
+		retryErr := Retry(DefaultRetryConfig(), fmt.Sprintf("generate diary for %s", imagePath), func() error {
+			var genErr error
+			if genWithPrompt, ok := s.generator.(DiaryGeneratorWithPrompt); ok {
+				content, genErr = genWithPrompt.GenerateDiaryWithPrompt(imagePath, prompt)
+			} else {
+				content, genErr = s.generator.GenerateDiary(imagePath)
+			}
+			return genErr
+		})
+		if retryErr != nil {
+			log.Printf("ERROR: failed to generate diary for %s: %v", imagePath, retryErr)
+			return
+		}
+
+		if err := s.repo.CreateDiaryForUser(user.ID, imagePath, content, capturedAt); err != nil {
+			log.Printf("ERROR: failed to save diary for %s: %v", imagePath, err)
+			return
+		}
+
+		log.Printf("INFO: diary created for %s (job_id: %s)", imagePath, jobID)
+	}()
+
+	// 202 Accepted を返す
+	resp := UploadPhotoResponse{JobId: jobID}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusAccepted)
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		log.Printf("ERROR: failed to encode response: %v", err)
 	}
 }
 
