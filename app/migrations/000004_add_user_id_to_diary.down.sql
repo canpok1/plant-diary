@@ -1,0 +1,1 @@
+ALTER TABLE diary DROP COLUMN user_id;
