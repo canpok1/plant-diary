@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>植物日記 - 詳細</title>
+    <title>植物日記 - 編集</title>
     <style>
         * {
             margin: 0;
@@ -76,46 +76,73 @@
             text-decoration: underline;
         }
 
-        .detail-container {
+        .edit-container {
             max-width: 720px;
             margin: 0 auto;
             padding: 0 24px 48px;
         }
 
-        .detail-image {
+        .edit-container h2 {
+            font-size: 1.1rem;
+            font-weight: bold;
+            margin-bottom: 16px;
+            color: #333333;
+        }
+
+        .edit-container textarea {
             width: 100%;
-            max-width: 100%;
-            height: auto;
-            border-radius: 8px;
-            display: block;
-        }
-
-        .detail-meta {
-            margin-top: 16px;
-            color: #888888;
-            font-size: 0.85rem;
-        }
-
-        .detail-content {
-            margin-top: 24px;
+            min-height: 200px;
+            padding: 12px;
+            font-family: inherit;
             font-size: 1rem;
-            white-space: pre-wrap;
-            word-wrap: break-word;
+            line-height: 1.8;
+            border: 1px solid #cccccc;
+            border-radius: 4px;
+            resize: vertical;
+            color: #333333;
         }
 
-        .edit-link {
-            display: inline-block;
-            margin-top: 24px;
-            padding: 6px 16px;
+        .edit-container textarea:focus {
+            outline: none;
+            border-color: #557a3e;
+        }
+
+        .edit-actions {
+            margin-top: 16px;
+            display: flex;
+            gap: 12px;
+        }
+
+        .btn-save {
             background-color: #557a3e;
             color: #ffffff;
-            text-decoration: none;
+            border: none;
             border-radius: 4px;
+            cursor: pointer;
             font-size: 0.9rem;
+            padding: 8px 20px;
         }
 
-        .edit-link:hover {
+        .btn-save:hover {
             background-color: #446530;
+        }
+
+        .btn-cancel {
+            background: none;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            color: #555555;
+            cursor: pointer;
+            font-size: 0.9rem;
+            padding: 8px 20px;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+        }
+
+        .btn-cancel:hover {
+            border-color: #557a3e;
+            color: #557a3e;
         }
 
         @media (max-width: 600px) {
@@ -127,16 +154,8 @@
                 margin: 12px 16px;
             }
 
-            .detail-container {
+            .edit-container {
                 padding: 0 16px 32px;
-            }
-
-            .detail-meta {
-                font-size: 0.8rem;
-            }
-
-            .detail-content {
-                font-size: 0.95rem;
             }
         }
     </style>
@@ -145,24 +164,22 @@
     <header>
         <a href="/">植物日記</a>
         <nav>
-            {{if .LoggedIn}}
             <span class="user-info">{{.Username}}</span>
             <form method="POST" action="/logout" style="display:inline">
                 <button type="submit" class="logout-btn">ログアウト</button>
             </form>
-            {{else}}
-            <a href="/login">ログイン</a>
-            {{end}}
         </nav>
     </header>
-    <a class="back-link" href="/">&larr; 一覧へ戻る</a>
-    <main class="detail-container">
-        <img class="detail-image" src="/photos/{{.Diary.ImagePath}}" alt="植物の写真">
-        <p class="detail-meta">{{(.Diary.CreatedAt | toJST).Format "2006年1月2日"}}（{{.Diary.CreatedAt | toJST | weekdayJP}}）{{(.Diary.CreatedAt | toJST).Format "15:04"}}</p>
-        <div class="detail-content">{{.Diary.Content}}</div>
-        {{if .LoggedIn}}
-        <a href="/diary/{{.Diary.ID}}/edit" class="edit-link">編集</a>
-        {{end}}
+    <a class="back-link" href="/diary/{{.Diary.ID}}">&larr; 詳細へ戻る</a>
+    <main class="edit-container">
+        <h2>日記を編集</h2>
+        <form method="POST" action="/diary/{{.Diary.ID}}/edit">
+            <textarea name="content">{{.Diary.Content}}</textarea>
+            <div class="edit-actions">
+                <button type="submit" class="btn-save">保存</button>
+                <a href="/diary/{{.Diary.ID}}" class="btn-cancel">キャンセル</a>
+            </div>
+        </form>
     </main>
 </body>
 </html>

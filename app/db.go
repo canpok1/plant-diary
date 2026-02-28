@@ -156,6 +156,25 @@ func (r *SQLiteDiaryRepository) CreateDiary(imagePath, content string, createdAt
 	return err
 }
 
+// UpdateDiaryContent は指定IDの日記のcontentを更新し、updated_atも現在時刻に更新する
+func (r *SQLiteDiaryRepository) UpdateDiaryContent(id int, content string) error {
+	result, err := r.db.Exec(
+		"UPDATE diary SET content = ?, updated_at = ? WHERE id = ?",
+		content, time.Now().UTC(), id,
+	)
+	if err != nil {
+		return err
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return fmt.Errorf("diary %d not found", id)
+	}
+	return nil
+}
+
 // IsImageProcessed は指定画像パスが既に処理済みかどうかを返す
 func (r *SQLiteDiaryRepository) IsImageProcessed(imagePath string) (bool, error) {
 	var exists bool
