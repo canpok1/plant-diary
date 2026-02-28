@@ -51,8 +51,18 @@ DIARY_USER_UUID=""
 POSITIONAL=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --api-url)  DIARY_API_URL="$2";  shift 2 ;;
-    --user-uuid) DIARY_USER_UUID="$2"; shift 2 ;;
+    --api-url)
+      if [[ -z "${2:-}" || "$2" == --* ]]; then
+        echo "ERROR: --api-url には値が必要です。" >&2
+        exit 1
+      fi
+      DIARY_API_URL="$2"; shift 2 ;;
+    --user-uuid)
+      if [[ -z "${2:-}" || "$2" == --* ]]; then
+        echo "ERROR: --user-uuid には値が必要です。" >&2
+        exit 1
+      fi
+      DIARY_USER_UUID="$2"; shift 2 ;;
     *) POSITIONAL+=("$1"); shift ;;
   esac
 done
