@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -36,6 +38,12 @@ func InitDB(dbPath, migrationsPath string) (*sql.DB, error) {
 		return nil, fmt.Errorf("failed to set WAL mode: %w", err)
 	}
 
+	// SQLiteバージョン確認（ALTER TABLE DROP COLUMNはSQLite 3.35.0以上が必要）
+	if err := checkSQLiteVersion(db); err != nil {
+		db.Close()
+		return nil, err
+	}
+
 	// マイグレーション実行
 	if err := runMigrations(db, migrationsPath); err != nil {
 		db.Close()
@@ -44,6 +52,26 @@ func InitDB(dbPath, migrationsPath string) (*sql.DB, error) {
 
 	log.Println("INFO: Database initialized successfully")
 	return db, nil
+}
+
+// checkSQLiteVersion はSQLiteのバージョンが3.35.0以上であることを確認する。
+// ALTER TABLE DROP COLUMNがSQLite 3.35.0以上でのみサポートされているため。
+func checkSQLiteVersion(db *sql.DB) error {
+	var version string
+	if err := db.QueryRow("SELECT sqlite_version()").Scan(&version); err != nil {
+		return fmt.Errorf("failed to get SQLite version: %w", err)
+	}
+	parts := strings.Split(version, ".")
+	if len(parts) < 3 {
+		return fmt.Errorf("unexpected SQLite version format: %s", version)
+	}
+	major, _ := strconv.Atoi(parts[0])
+	minor, _ := strconv.Atoi(parts[1])
+	if major < 3 || (major == 3 && minor < 35) {
+		return fmt.Errorf("SQLite %s is not supported; 3.35.0 or later is required", version)
+	}
+	log.Printf("INFO: SQLite version %s confirmed", version)
+	return nil
 }
 
 // runMigrations はgolang-migrate/migrateを使用してマイグレーションを実行する。
