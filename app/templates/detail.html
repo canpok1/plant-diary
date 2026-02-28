@@ -21,6 +21,9 @@
         header {
             border-bottom: 1px solid #e0e0e0;
             padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
         }
 
         header a {
@@ -28,6 +31,37 @@
             text-decoration: none;
             font-size: 1.25rem;
             font-weight: bold;
+        }
+
+        header nav {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        header nav a {
+            color: #557a3e;
+            font-size: 0.9rem;
+        }
+
+        header nav .user-info {
+            font-size: 0.9rem;
+            color: #555555;
+        }
+
+        header nav .logout-btn {
+            background: none;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            color: #555555;
+            cursor: pointer;
+            font-size: 0.9rem;
+            padding: 4px 10px;
+        }
+
+        header nav .logout-btn:hover {
+            border-color: #557a3e;
+            color: #557a3e;
         }
 
         .back-link {
@@ -95,6 +129,16 @@
 <body>
     <header>
         <a href="/">植物日記</a>
+        <nav>
+            {{if .LoggedIn}}
+            <span class="user-info">{{.Username}}</span>
+            <form method="POST" action="/logout" style="display:inline">
+                <button type="submit" class="logout-btn">ログアウト</button>
+            </form>
+            {{else}}
+            <a href="/login">ログイン</a>
+            {{end}}
+        </nav>
     </header>
     <a class="back-link" href="/">&larr; 一覧へ戻る</a>
     <main class="detail-container">
