@@ -10,11 +10,18 @@ set -euo pipefail
 # 基本: ./scripts/capture_auto.sh
 # 目標輝度を指定: ./scripts/capture_auto.sh 0.5
 # 目標輝度と最大試行回数を指定: ./scripts/capture_auto.sh 0.5 8
+# API登録付き: ./scripts/capture_auto.sh 0.5 8 --api-url http://192.168.1.10:8080 --user-uuid 550e8400e29b41d4a716446655440000
+#
 #   引数1: TARGET_BRIGHTNESS（省略時: 0.475）
 #          0〜1の浮動小数点値で目標とする平均輝度を指定する。
 #          許容誤差（BRIGHTNESS_TOLERANCE）はスクリプト内の定数で調整できる。
 #   引数2: MAX_ADJUST_RETRIES（省略時: 5）
 #          明るさ調整の最大試行回数を指定する。
+#   --api-url: APIのベースURL。--user-uuid とセットで指定する（省略可）。
+#   --user-uuid: ユーザーUUID（ハイフンなし32文字）。--api-url とセットで指定する（省略可）。
+#
+# === 環境変数 ===
+# UPLOAD_API_KEY: APIキー。--api-url / --user-uuid 指定時は必須。
 #
 # === 前提条件 ===
 # - fswebcam がインストールされていること
@@ -39,6 +46,18 @@ EXPOSURE_MAX=5000
 EXPOSURE_FILE="${PROJECT_DIR}/data/last_exposure.txt"
 
 # 引数のパース
+DIARY_API_URL=""
+DIARY_USER_UUID=""
+POSITIONAL=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --api-url)  DIARY_API_URL="$2";  shift 2 ;;
+    --user-uuid) DIARY_USER_UUID="$2"; shift 2 ;;
+    *) POSITIONAL+=("$1"); shift ;;
+  esac
+done
+set -- "${POSITIONAL[@]+"${POSITIONAL[@]}"}"
+
 TARGET_BRIGHTNESS="${1:-0.475}"
 MAX_ADJUST_RETRIES="${2:-5}"
 
@@ -50,6 +69,20 @@ fi
 
 if ! [[ "${MAX_ADJUST_RETRIES}" =~ ^[1-9][0-9]*$ ]]; then
     echo "ERROR: MAX_ADJUST_RETRIES は 1 以上の整数で指定してください。" >&2
+    exit 1
+fi
+
+# フラグのバリデーション（片方だけの指定はエラー）
+if [ -n "${DIARY_API_URL}" ] && [ -z "${DIARY_USER_UUID}" ]; then
+    echo "ERROR: --api-url を指定する場合は --user-uuid も必要です。" >&2
+    exit 1
+fi
+if [ -z "${DIARY_API_URL}" ] && [ -n "${DIARY_USER_UUID}" ]; then
+    echo "ERROR: --user-uuid を指定する場合は --api-url も必要です。" >&2
+    exit 1
+fi
+if [ -n "${DIARY_API_URL}" ] && [ -z "${UPLOAD_API_KEY:-}" ]; then
+    echo "ERROR: API登録を行う場合は環境変数 UPLOAD_API_KEY が必要です。" >&2
     exit 1
 fi
 
@@ -210,6 +243,16 @@ for ((i = 1; i <= MAX_ADJUST_RETRIES; i++)); do
         log_message "INFO: 露出値を保存: ${EXPOSURE}"
         log_message "INFO: Captured ${FINAL_OUTPUT}"
         echo "撮影成功: ${FINAL_OUTPUT}"
+
+        # API登録（--api-url と --user-uuid が両方指定された場合のみ）
+        if [ -n "${DIARY_API_URL}" ]; then
+            curl -s -X POST \
+              -H "X-API-Key: ${UPLOAD_API_KEY}" \
+              -F "photo=@${FINAL_OUTPUT}" \
+              -F "user_uuid=${DIARY_USER_UUID}" \
+              "${DIARY_API_URL}/api/photos" || log_message "WARN: API upload failed (photo saved locally)"
+        fi
+
         exit 0
     fi
 
@@ -264,3 +307,12 @@ save_exposure "${BEST_EXPOSURE}"
 log_message "INFO: 露出値を保存: ${BEST_EXPOSURE}"
 log_message "INFO: Captured ${FINAL_OUTPUT}"
 echo "撮影成功: ${FINAL_OUTPUT}"
+
+# API登録（--api-url と --user-uuid が両方指定された場合のみ）
+if [ -n "${DIARY_API_URL}" ]; then
+    curl -s -X POST \
+      -H "X-API-Key: ${UPLOAD_API_KEY}" \
+      -F "photo=@${FINAL_OUTPUT}" \
+      -F "user_uuid=${DIARY_USER_UUID}" \
+      "${DIARY_API_URL}/api/photos" || log_message "WARN: API upload failed (photo saved locally)"
+fi
