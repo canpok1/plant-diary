@@ -156,6 +156,15 @@ func (r *SQLiteDiaryRepository) CreateDiary(imagePath, content string, createdAt
 	return err
 }
 
+// CreateDiaryForUser は指定ユーザーの新しい日記エントリを作成する
+func (r *SQLiteDiaryRepository) CreateDiaryForUser(userID int, imagePath, content string, createdAt time.Time) error {
+	_, err := r.db.Exec(
+		"INSERT INTO diary (image_path, content, created_at, user_id) VALUES (?, ?, ?, ?)",
+		imagePath, content, createdAt, userID,
+	)
+	return err
+}
+
 // UpdateDiaryContent は指定IDの日記のcontentを更新し、updated_atも現在時刻に更新する
 func (r *SQLiteDiaryRepository) UpdateDiaryContent(id int, content string) error {
 	result, err := r.db.Exec(
@@ -338,6 +347,22 @@ func (r *SQLiteUserRepository) GetUserByID(id int) (*User, error) {
 	err := r.db.QueryRow(
 		"SELECT id, uuid, username, password_hash, created_at FROM users WHERE id = ?",
 		id,
+	).Scan(&u.ID, &u.UUID, &u.Username, &u.PasswordHash, &u.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &u, nil
+}
+
+// GetUserByUUID はUUIDからユーザーを取得する。見つからない場合はnilを返す
+func (r *SQLiteUserRepository) GetUserByUUID(uuid string) (*User, error) {
+	var u User
+	err := r.db.QueryRow(
+		"SELECT id, uuid, username, password_hash, created_at FROM users WHERE uuid = ?",
+		uuid,
 	).Scan(&u.ID, &u.UUID, &u.Username, &u.PasswordHash, &u.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil

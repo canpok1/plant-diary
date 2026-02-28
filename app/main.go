@@ -58,7 +58,7 @@ func main() {
 	log.Printf("INFO: Worker started. Polling %s every 1 minute...", photosDir)
 
 	// HTTPサーバーの初期化と起動
-	srv, err := NewServer(repo, userRepo, sessionRepo, photosDir)
+	srv, err := NewServer(repo, userRepo, sessionRepo, generator, photosDir)
 	if err != nil {
 		log.Fatalf("FATAL: failed to initialize server: %v", err)
 	}

@@ -36,6 +36,7 @@ type UserRepository interface {
 	CreateUser(uuid, username, passwordHash string) error
 	GetUserByUsername(username string) (*User, error)
 	GetUserByID(id int) (*User, error)
+	GetUserByUUID(uuid string) (*User, error)
 }
 
 // Session はセッションを表す構造体
@@ -58,6 +59,7 @@ type DiaryRepository interface {
 	GetAllDiaries() ([]Diary, error)
 	GetDiaryByID(id int) (*Diary, error)
 	CreateDiary(imagePath, content string, createdAt time.Time) error
+	CreateDiaryForUser(userID int, imagePath, content string, createdAt time.Time) error
 	UpdateDiaryContent(id int, content string) error
 	IsImageProcessed(imagePath string) (bool, error)
 	GetLatestDiaryCreatedAt() (time.Time, error)
@@ -129,6 +131,11 @@ func (r *MockDiaryRepository) UpdateDiaryContent(id int, content string) error {
 	}
 	d.Content = content
 	return nil
+}
+
+// CreateDiaryForUser は指定ユーザーの新しい日記エントリを作成する（モックではuserIDを無視）
+func (r *MockDiaryRepository) CreateDiaryForUser(userID int, imagePath, content string, createdAt time.Time) error {
+	return r.CreateDiary(imagePath, content, createdAt)
 }
 
 // CreateDiary は新しい日記エントリを作成する

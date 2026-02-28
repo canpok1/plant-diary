@@ -34,6 +34,33 @@ paths:
           description: Service Unavailable
         '500':
           description: Internal Server Error
+  /api/photos:
+    post:
+      summary: 写真をアップロードする
+      operationId: postApiPhotos
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UploadPhotoRequest'
+      responses:
+        '202':
+          description: Accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadPhotoResponse'
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '503':
+          description: Service Unavailable
+        '500':
+          description: Internal Server Error
 components:
   securitySchemes:
     ApiKeyAuth:
@@ -60,4 +87,25 @@ components:
         uuid:
           type: string
         username:
+          type: string
+    UploadPhotoRequest:
+      type: object
+      required:
+        - photo
+        - user_uuid
+      properties:
+        photo:
+          type: string
+          format: binary
+        user_uuid:
+          type: string
+        captured_at:
+          type: string
+          format: date-time
+    UploadPhotoResponse:
+      type: object
+      required:
+        - job_id
+      properties:
+        job_id:
           type: string
