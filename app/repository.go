@@ -35,6 +35,22 @@ type User struct {
 type UserRepository interface {
 	CreateUser(uuid, username, passwordHash string) error
 	GetUserByUsername(username string) (*User, error)
+	GetUserByID(id int) (*User, error)
+}
+
+// Session はセッションを表す構造体
+type Session struct {
+	ID        string
+	UserID    int
+	CreatedAt time.Time
+	ExpiresAt time.Time
+}
+
+// SessionRepository はセッションデータへのアクセスを定義するインターフェース
+type SessionRepository interface {
+	CreateSession(id string, userID int, expiresAt time.Time) error
+	GetSessionByID(id string) (*Session, error)
+	DeleteSession(id string) error
 }
 
 // DiaryRepository は日記データへのアクセスを定義するインターフェース

@@ -47,6 +47,9 @@ func main() {
 	// UserRepository の初期化（SQLite実装）
 	userRepo := NewSQLiteUserRepository(db)
 
+	// SessionRepository の初期化（SQLite実装）
+	sessionRepo := NewSQLiteSessionRepository(db)
+
 	// Worker の初期化と起動
 	photosDir := "data/photos"
 	worker := NewWorker(repo, generator, photosDir)
@@ -55,7 +58,7 @@ func main() {
 	log.Printf("INFO: Worker started. Polling %s every 1 minute...", photosDir)
 
 	// HTTPサーバーの初期化と起動
-	srv, err := NewServer(repo, userRepo, photosDir)
+	srv, err := NewServer(repo, userRepo, sessionRepo, photosDir)
 	if err != nil {
 		log.Fatalf("FATAL: failed to initialize server: %v", err)
 	}

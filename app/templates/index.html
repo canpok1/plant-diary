@@ -32,6 +32,13 @@
             font-weight: bold;
         }
 
+        header nav {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-left: auto;
+        }
+
         header nav a {
             color: #ffffff;
             text-decoration: none;
@@ -42,6 +49,27 @@
         header nav a:hover {
             opacity: 1;
             text-decoration: underline;
+        }
+
+        header nav .user-info {
+            font-size: 0.9rem;
+            opacity: 0.85;
+        }
+
+        header nav .logout-btn {
+            background: none;
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            border-radius: 4px;
+            color: #ffffff;
+            cursor: pointer;
+            font-size: 0.9rem;
+            opacity: 0.85;
+            padding: 4px 10px;
+        }
+
+        header nav .logout-btn:hover {
+            opacity: 1;
+            background-color: rgba(255, 255, 255, 0.15);
         }
 
         main {
@@ -200,7 +228,17 @@
 <body>
     <header>
         <h1>植物観察日記</h1>
-        <nav><a href="/slideshow">スライドショー</a></nav>
+        <nav>
+            <a href="/slideshow">スライドショー</a>
+            {{if .LoggedIn}}
+            <span class="user-info">{{.Username}}</span>
+            <form method="POST" action="/logout" style="display:inline">
+                <button type="submit" class="logout-btn">ログアウト</button>
+            </form>
+            {{else}}
+            <a href="/login">ログイン</a>
+            {{end}}
+        </nav>
     </header>
     <main>
         <div class="filter-form">

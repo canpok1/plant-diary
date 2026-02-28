@@ -313,6 +313,66 @@ func (r *SQLiteUserRepository) GetUserByUsername(username string) (*User, error)
 	return &u, nil
 }
 
+// GetUserByID はIDからユーザーを取得する。見つからない場合はnilを返す
+func (r *SQLiteUserRepository) GetUserByID(id int) (*User, error) {
+	var u User
+	err := r.db.QueryRow(
+		"SELECT id, uuid, username, password_hash, created_at FROM users WHERE id = ?",
+		id,
+	).Scan(&u.ID, &u.UUID, &u.Username, &u.PasswordHash, &u.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &u, nil
+}
+
+// SQLiteSessionRepository はSQLiteを使用したSessionRepositoryの実装
+type SQLiteSessionRepository struct {
+	db *sql.DB
+}
+
+// NewSQLiteSessionRepository は新しいSQLiteSessionRepositoryを生成する
+func NewSQLiteSessionRepository(db *sql.DB) *SQLiteSessionRepository {
+	return &SQLiteSessionRepository{db: db}
+}
+
+// CreateSession は新しいセッションを作成する（期限切れセッションも同時に削除）
+func (r *SQLiteSessionRepository) CreateSession(id string, userID int, expiresAt time.Time) error {
+	if _, err := r.db.Exec("DELETE FROM sessions WHERE expires_at < ?", time.Now()); err != nil {
+		log.Printf("WARN: failed to delete expired sessions: %v", err)
+	}
+	_, err := r.db.Exec(
+		"INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)",
+		id, userID, expiresAt,
+	)
+	return err
+}
+
+// GetSessionByID はセッションIDからセッションを取得する。見つからない場合や期限切れの場合はnilを返す
+func (r *SQLiteSessionRepository) GetSessionByID(id string) (*Session, error) {
+	var s Session
+	err := r.db.QueryRow(
+		"SELECT id, user_id, created_at, expires_at FROM sessions WHERE id = ? AND expires_at > ?",
+		id, time.Now(),
+	).Scan(&s.ID, &s.UserID, &s.CreatedAt, &s.ExpiresAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &s, nil
+}
+
+// DeleteSession はセッションを削除する
+func (r *SQLiteSessionRepository) DeleteSession(id string) error {
+	_, err := r.db.Exec("DELETE FROM sessions WHERE id = ?", id)
+	return err
+}
+
 // GetDiariesInDateRange は指定日付範囲内の日記を古い順（created_at ASC）で返す
 func (r *SQLiteDiaryRepository) GetDiariesInDateRange(startDate, endDate time.Time) ([]Diary, error) {
 	rows, err := r.db.Query("SELECT id, image_path, content, created_at FROM diary WHERE created_at >= ? AND created_at <= ? ORDER BY created_at ASC", startDate, endDate)

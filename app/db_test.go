@@ -30,6 +30,13 @@ func setupTestDB(t *testing.T) *sql.DB {
 			password_hash TEXT NOT NULL,
 			created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 		);
+		CREATE TABLE IF NOT EXISTS sessions (
+			id         TEXT PRIMARY KEY,
+			user_id    INTEGER NOT NULL REFERENCES users(id),
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			expires_at DATETIME NOT NULL
+		);
+		CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
 	`)
 	if err != nil {
 		t.Fatalf("failed to create table: %v", err)
@@ -540,8 +547,142 @@ func TestSQLiteUserRepository_CreateUser_DuplicateUsername(t *testing.T) {
 	}
 }
 
+func TestSQLiteUserRepository_GetUserByID(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewSQLiteUserRepository(db)
+
+	err := repo.CreateUser("uuid-001", "alice", "hashedpassword")
+	if err != nil {
+		t.Fatalf("CreateUser failed: %v", err)
+	}
+
+	user, err := repo.GetUserByUsername("alice")
+	if err != nil {
+		t.Fatalf("GetUserByUsername failed: %v", err)
+	}
+	if user == nil {
+		t.Fatal("expected user, got nil")
+	}
+
+	found, err := repo.GetUserByID(user.ID)
+	if err != nil {
+		t.Fatalf("GetUserByID failed: %v", err)
+	}
+	if found == nil {
+		t.Fatal("expected user, got nil")
+	}
+	if found.Username != "alice" {
+		t.Errorf("expected Username 'alice', got '%s'", found.Username)
+	}
+
+	// 存在しないIDを取得
+	notFound, err := repo.GetUserByID(9999)
+	if err != nil {
+		t.Fatalf("GetUserByID failed: %v", err)
+	}
+	if notFound != nil {
+		t.Errorf("expected nil for non-existent ID, got %v", notFound)
+	}
+}
+
 func TestSQLiteUserRepository_ImplementsInterface(t *testing.T) {
 	db := setupTestDB(t)
 	// コンパイル時にインターフェースを満たすことを確認
 	var _ UserRepository = NewSQLiteUserRepository(db)
+}
+
+func TestSQLiteSessionRepository_CreateAndGet(t *testing.T) {
+	db := setupTestDB(t)
+	userRepo := NewSQLiteUserRepository(db)
+	sessionRepo := NewSQLiteSessionRepository(db)
+
+	if err := userRepo.CreateUser("uuid-001", "alice", "hash"); err != nil {
+		t.Fatalf("CreateUser failed: %v", err)
+	}
+	user, err := userRepo.GetUserByUsername("alice")
+	if err != nil {
+		t.Fatalf("GetUserByUsername failed: %v", err)
+	}
+
+	expiresAt := time.Now().Add(7 * 24 * time.Hour)
+	if err := sessionRepo.CreateSession("sess-001", user.ID, expiresAt); err != nil {
+		t.Fatalf("CreateSession failed: %v", err)
+	}
+
+	session, err := sessionRepo.GetSessionByID("sess-001")
+	if err != nil {
+		t.Fatalf("GetSessionByID failed: %v", err)
+	}
+	if session == nil {
+		t.Fatal("expected session, got nil")
+	}
+	if session.UserID != user.ID {
+		t.Errorf("expected UserID %d, got %d", user.ID, session.UserID)
+	}
+}
+
+func TestSQLiteSessionRepository_GetExpiredSession(t *testing.T) {
+	db := setupTestDB(t)
+	userRepo := NewSQLiteUserRepository(db)
+	sessionRepo := NewSQLiteSessionRepository(db)
+
+	if err := userRepo.CreateUser("uuid-001", "alice", "hash"); err != nil {
+		t.Fatalf("CreateUser failed: %v", err)
+	}
+	user, err := userRepo.GetUserByUsername("alice")
+	if err != nil {
+		t.Fatalf("GetUserByUsername failed: %v", err)
+	}
+
+	// 期限切れセッションを直接挿入
+	expiredAt := time.Now().Add(-1 * time.Hour)
+	_, err = db.Exec("INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)", "expired-sess", user.ID, expiredAt)
+	if err != nil {
+		t.Fatalf("Insert expired session failed: %v", err)
+	}
+
+	session, err := sessionRepo.GetSessionByID("expired-sess")
+	if err != nil {
+		t.Fatalf("GetSessionByID failed: %v", err)
+	}
+	if session != nil {
+		t.Error("expected nil for expired session, got non-nil")
+	}
+}
+
+func TestSQLiteSessionRepository_DeleteSession(t *testing.T) {
+	db := setupTestDB(t)
+	userRepo := NewSQLiteUserRepository(db)
+	sessionRepo := NewSQLiteSessionRepository(db)
+
+	if err := userRepo.CreateUser("uuid-001", "alice", "hash"); err != nil {
+		t.Fatalf("CreateUser failed: %v", err)
+	}
+	user, err := userRepo.GetUserByUsername("alice")
+	if err != nil {
+		t.Fatalf("GetUserByUsername failed: %v", err)
+	}
+
+	expiresAt := time.Now().Add(7 * 24 * time.Hour)
+	if err := sessionRepo.CreateSession("sess-del", user.ID, expiresAt); err != nil {
+		t.Fatalf("CreateSession failed: %v", err)
+	}
+
+	if err := sessionRepo.DeleteSession("sess-del"); err != nil {
+		t.Fatalf("DeleteSession failed: %v", err)
+	}
+
+	session, err := sessionRepo.GetSessionByID("sess-del")
+	if err != nil {
+		t.Fatalf("GetSessionByID failed: %v", err)
+	}
+	if session != nil {
+		t.Error("expected nil after deletion, got non-nil")
+	}
+}
+
+func TestSQLiteSessionRepository_ImplementsInterface(t *testing.T) {
+	db := setupTestDB(t)
+	// コンパイル時にインターフェースを満たすことを確認
+	var _ SessionRepository = NewSQLiteSessionRepository(db)
 }
