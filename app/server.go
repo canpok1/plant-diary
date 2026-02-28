@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/subtle"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -302,8 +303,8 @@ func (s *Server) PostApiUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// X-API-Key ヘッダーの検証
-	if r.Header.Get("X-API-Key") != apiKey {
+	// X-API-Key ヘッダーの検証（タイミング攻撃防止のため定数時間比較を使用）
+	if subtle.ConstantTimeCompare([]byte(r.Header.Get("X-API-Key")), []byte(apiKey)) != 1 {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
