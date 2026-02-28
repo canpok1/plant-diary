@@ -320,6 +320,18 @@ func (s *Server) PostApiUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 重複ユーザー名の確認
+	existing, err := s.userRepo.GetUserByUsername(req.Username)
+	if err != nil {
+		log.Printf("ERROR: failed to check existing user: %v", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+	if existing != nil {
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+
 	// パスワードのハッシュ化
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {

@@ -32,6 +32,8 @@ paths:
           description: Unauthorized
         '503':
           description: Service Unavailable
+        '500':
+          description: Internal Server Error
 components:
   securitySchemes:
     ApiKeyAuth:
