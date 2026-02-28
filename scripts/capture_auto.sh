@@ -8,6 +8,13 @@ set -euo pipefail
 #
 # === 使い方 ===
 # 基本: ./scripts/capture_auto.sh
+# 目標輝度を指定: ./scripts/capture_auto.sh 0.5
+# 目標輝度と最大試行回数を指定: ./scripts/capture_auto.sh 0.5 8
+#   引数1: TARGET_BRIGHTNESS（省略時: 0.475）
+#          0〜1の浮動小数点値で目標とする平均輝度を指定する。
+#          許容誤差（BRIGHTNESS_TOLERANCE）はスクリプト内の定数で調整できる。
+#   引数2: MAX_ADJUST_RETRIES（省略時: 5）
+#          明るさ調整の最大試行回数を指定する。
 #
 # === 前提条件 ===
 # - fswebcam がインストールされていること
@@ -25,13 +32,19 @@ JPEG_QUALITY="95"
 DELAY="1"  # カメラ安定のための遅延（秒）
 
 # 明るさ自動調整パラメータ
-BRIGHTNESS_MIN="0.30"
-BRIGHTNESS_MAX="0.65"
+BRIGHTNESS_TOLERANCE="0.175"  # 目標輝度からの許容誤差（TARGET_BRIGHTNESS ± この値が適正範囲）
 DEFAULT_EXPOSURE=250
 EXPOSURE_MIN=10
 EXPOSURE_MAX=5000
-MAX_ADJUST_RETRIES=5
 EXPOSURE_FILE="${PROJECT_DIR}/data/last_exposure.txt"
+
+# 引数のパース
+TARGET_BRIGHTNESS="${1:-0.475}"
+MAX_ADJUST_RETRIES="${2:-5}"
+
+# 適正輝度範囲の算出
+BRIGHTNESS_MIN=$(echo "${TARGET_BRIGHTNESS} - ${BRIGHTNESS_TOLERANCE}" | bc -l)
+BRIGHTNESS_MAX=$(echo "${TARGET_BRIGHTNESS} + ${BRIGHTNESS_TOLERANCE}" | bc -l)
 
 # 一時ファイル管理
 TMP_FILES=()
@@ -150,7 +163,6 @@ declare -a TRIAL_BRIGHTNESSES=()
 declare -a TRIAL_EXPOSURES=()
 
 BEST_INDEX=-1
-TARGET_BRIGHTNESS="0.475"
 
 for ((i = 1; i <= MAX_ADJUST_RETRIES; i++)); do
     # 一時ファイルに撮影
