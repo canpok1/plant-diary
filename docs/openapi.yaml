@@ -1,0 +1,9 @@
+openapi: "3.1.0"
+info:
+  title: Plant Diary API
+  version: "0.1.0"
+  description: 植物観察日記システムのAPI
+servers:
+  - url: http://localhost:8080
+    description: ローカル開発サーバー
+paths: {}
