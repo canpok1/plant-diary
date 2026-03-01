@@ -94,6 +94,11 @@ if !strings.HasPrefix(cleanPath, "/safe/directory/") {
 go mod tidy
 ```
 
+## 8. データベース操作との一貫性
+
+- [ ] **文字列比較の一貫性**: DB（SQLiteのLIKE等）と言語ネイティブ（strings.Contains等）の比較で大小文字区別が一致しているか
+- [ ] **インメモリフィルタ**: DBクエリ結果をさらにコード側でフィルタする場合、DBの挙動と一致しているか
+
 ## レビュー手順
 
 1. **変更内容の確認**: `git diff` または `git show`
