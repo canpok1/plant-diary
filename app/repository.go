@@ -32,6 +32,14 @@ type Book struct {
 	CreatedAt time.Time
 }
 
+// BookView はトップページ表示用の日記帳情報
+type BookView struct {
+	ID             int
+	Name           string
+	LatestDiaryAt  time.Time // 最新日記の日時（ゼロ値は日記なし）
+	HasDiaries     bool      // 日記が存在する場合true
+}
+
 // User はユーザーを表す構造体
 type User struct {
 	ID           int
@@ -44,6 +52,7 @@ type User struct {
 // BookRepository は日記帳データへのアクセスを定義するインターフェース
 type BookRepository interface {
 	CreateBook(creatorID int, name string) (*Book, error)
+	GetAllBooks() ([]BookView, error)
 	GetBooksByCreatorID(creatorID int) ([]Book, error)
 	GetBookByID(id int) (*Book, error)
 	GetBookByUploadKey(uploadKey string) (*Book, error)
@@ -77,6 +86,7 @@ type SessionRepository interface {
 type DiaryRepository interface {
 	GetAllDiaries() ([]Diary, error)
 	GetDiaryByID(id int) (*Diary, error)
+	GetDiariesByBookID(bookID int) ([]Diary, error)
 	CreateDiary(imagePath, content string, createdAt time.Time) error
 	CreateDiaryForUser(userID int, imagePath, content string, createdAt time.Time) error
 	CreateDiaryForBook(bookID, creatorID int, imagePath, content string, createdAt time.Time) error
@@ -91,16 +101,18 @@ type DiaryRepository interface {
 
 // MockDiaryRepository はメモリ上でデータを保持するモック実装
 type MockDiaryRepository struct {
-	mu      sync.RWMutex
-	diaries map[int]*Diary
-	nextID  int
+	mu          sync.RWMutex
+	diaries     map[int]*Diary
+	bookDiaries map[int][]int // bookID -> []diaryID
+	nextID      int
 }
 
 // NewMockDiaryRepository は新しいMockDiaryRepositoryを生成する
 func NewMockDiaryRepository() *MockDiaryRepository {
 	return &MockDiaryRepository{
-		diaries: make(map[int]*Diary),
-		nextID:  1,
+		diaries:     make(map[int]*Diary),
+		bookDiaries: make(map[int][]int),
+		nextID:      1,
 	}
 }
 
@@ -158,9 +170,45 @@ func (r *MockDiaryRepository) CreateDiaryForUser(userID int, imagePath, content 
 	return r.CreateDiary(imagePath, content, createdAt)
 }
 
-// CreateDiaryForBook は指定日記帳・クリエイターの新しい日記エントリを作成する（モックではbookID/creatorIDを無視）
+// CreateDiaryForBook は指定日記帳・クリエイターの新しい日記エントリを作成する（モックではcreatorIDを無視）
 func (r *MockDiaryRepository) CreateDiaryForBook(bookID, creatorID int, imagePath, content string, createdAt time.Time) error {
-	return r.CreateDiary(imagePath, content, createdAt)
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	diary := &Diary{
+		ID:        r.nextID,
+		ImagePath: imagePath,
+		Content:   content,
+		CreatedAt: createdAt,
+	}
+	r.diaries[r.nextID] = diary
+	r.bookDiaries[bookID] = append(r.bookDiaries[bookID], r.nextID)
+	r.nextID++
+	return nil
+}
+
+// GetDiariesByBookID は指定日記帳IDの日記を新着順で返す
+func (r *MockDiaryRepository) GetDiariesByBookID(bookID int) ([]Diary, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	diaryIDs, ok := r.bookDiaries[bookID]
+	if !ok {
+		return nil, nil
+	}
+
+	result := make([]Diary, 0, len(diaryIDs))
+	for _, id := range diaryIDs {
+		if d, ok := r.diaries[id]; ok {
+			result = append(result, *d)
+		}
+	}
+
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].CreatedAt.After(result[j].CreatedAt)
+	})
+
+	return result, nil
 }
 
 // CreateDiary は新しい日記エントリを作成する
@@ -318,6 +366,21 @@ func NewMockBookRepository() *MockBookRepository {
 		books:  make(map[int]*Book),
 		nextID: 1,
 	}
+}
+
+// GetAllBooks は全ての日記帳をBookView形式で返す（モックではLatestDiaryAtはnil）
+func (r *MockBookRepository) GetAllBooks() ([]BookView, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	result := make([]BookView, 0, len(r.books))
+	for _, b := range r.books {
+		result = append(result, BookView{
+			ID:   b.ID,
+			Name: b.Name,
+		})
+	}
+	return result, nil
 }
 
 // CreateBook は新しい日記帳を作成する

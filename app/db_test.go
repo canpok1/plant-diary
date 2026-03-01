@@ -899,6 +899,84 @@ func TestSQLiteBookRepository_DeleteBook(t *testing.T) {
 	}
 }
 
+func TestSQLiteBookRepository_GetAllBooks(t *testing.T) {
+	db := setupTestDB(t)
+	userRepo := NewSQLiteUserRepository(db)
+	bookRepo := NewSQLiteBookRepository(db)
+	diaryRepo := NewSQLiteDiaryRepository(db)
+
+	// 日記帳が存在しない場合
+	books, err := bookRepo.GetAllBooks()
+	if err != nil {
+		t.Fatalf("GetAllBooks failed: %v", err)
+	}
+	if len(books) != 0 {
+		t.Errorf("expected 0 books, got %d", len(books))
+	}
+
+	// ユーザーを作成
+	if err := userRepo.CreateUser("uuid-001", "alice", "hash"); err != nil {
+		t.Fatalf("CreateUser failed: %v", err)
+	}
+	alice, err := userRepo.GetUserByUsername("alice")
+	if err != nil {
+		t.Fatalf("GetUserByUsername failed: %v", err)
+	}
+
+	// 日記帳を2つ作成
+	book1, err := bookRepo.CreateBook(alice.ID, "Book 1")
+	if err != nil {
+		t.Fatalf("CreateBook failed: %v", err)
+	}
+	book2, err := bookRepo.CreateBook(alice.ID, "Book 2")
+	if err != nil {
+		t.Fatalf("CreateBook failed: %v", err)
+	}
+
+	// 日記帳1に日記を追加
+	diaryTime := time.Date(2026, 1, 15, 10, 0, 0, 0, time.UTC)
+	if err := diaryRepo.CreateDiaryForBook(book1.ID, alice.ID, "/path/1.jpg", "日記1", diaryTime); err != nil {
+		t.Fatalf("CreateDiaryForBook failed: %v", err)
+	}
+
+	books, err = bookRepo.GetAllBooks()
+	if err != nil {
+		t.Fatalf("GetAllBooks failed: %v", err)
+	}
+	if len(books) != 2 {
+		t.Fatalf("expected 2 books, got %d", len(books))
+	}
+
+	// book1（日記あり）とbook2（日記なし）を確認
+	// 作成順（DESC）で返るため、book2が最初
+	var foundBook1, foundBook2 *BookView
+	for i := range books {
+		if books[i].ID == book1.ID {
+			foundBook1 = &books[i]
+		}
+		if books[i].ID == book2.ID {
+			foundBook2 = &books[i]
+		}
+	}
+
+	if foundBook1 == nil {
+		t.Fatal("book1 not found in GetAllBooks result")
+	}
+	if !foundBook1.HasDiaries {
+		t.Error("expected book1 to have diaries")
+	}
+	if !foundBook1.LatestDiaryAt.Equal(diaryTime) {
+		t.Errorf("expected LatestDiaryAt %v, got %v", diaryTime, foundBook1.LatestDiaryAt)
+	}
+
+	if foundBook2 == nil {
+		t.Fatal("book2 not found in GetAllBooks result")
+	}
+	if foundBook2.HasDiaries {
+		t.Error("expected book2 to have no diaries")
+	}
+}
+
 func TestSQLiteBookRepository_ImplementsInterface(t *testing.T) {
 	db := setupTestDB(t)
 	// コンパイル時にインターフェースを満たすことを確認
@@ -938,5 +1016,79 @@ func TestSQLiteDiaryRepository_CreateDiaryForBook(t *testing.T) {
 	}
 	if diaries[0].ImagePath != "/path/to/image.jpg" {
 		t.Errorf("expected ImagePath '/path/to/image.jpg', got '%s'", diaries[0].ImagePath)
+	}
+}
+
+func TestSQLiteDiaryRepository_GetDiariesByBookID(t *testing.T) {
+	db := setupTestDB(t)
+	userRepo := NewSQLiteUserRepository(db)
+	bookRepo := NewSQLiteBookRepository(db)
+	diaryRepo := NewSQLiteDiaryRepository(db)
+
+	if err := userRepo.CreateUser("uuid-001", "alice", "hash"); err != nil {
+		t.Fatalf("CreateUser failed: %v", err)
+	}
+	alice, err := userRepo.GetUserByUsername("alice")
+	if err != nil {
+		t.Fatalf("GetUserByUsername failed: %v", err)
+	}
+
+	book1, err := bookRepo.CreateBook(alice.ID, "Book 1")
+	if err != nil {
+		t.Fatalf("CreateBook failed: %v", err)
+	}
+	book2, err := bookRepo.CreateBook(alice.ID, "Book 2")
+	if err != nil {
+		t.Fatalf("CreateBook failed: %v", err)
+	}
+
+	// 存在しないbookIDを指定した場合はnilを返す
+	diaries, err := diaryRepo.GetDiariesByBookID(9999)
+	if err != nil {
+		t.Fatalf("GetDiariesByBookID failed: %v", err)
+	}
+	if diaries != nil {
+		t.Errorf("expected nil for non-existent bookID, got %v", diaries)
+	}
+
+	// 日記を追加
+	time1 := time.Date(2026, 1, 1, 10, 0, 0, 0, time.UTC)
+	time2 := time.Date(2026, 1, 2, 10, 0, 0, 0, time.UTC)
+	time3 := time.Date(2026, 1, 3, 10, 0, 0, 0, time.UTC)
+
+	if err := diaryRepo.CreateDiaryForBook(book1.ID, alice.ID, "/path/1.jpg", "日記1", time1); err != nil {
+		t.Fatalf("CreateDiaryForBook failed: %v", err)
+	}
+	if err := diaryRepo.CreateDiaryForBook(book1.ID, alice.ID, "/path/2.jpg", "日記2", time2); err != nil {
+		t.Fatalf("CreateDiaryForBook failed: %v", err)
+	}
+	if err := diaryRepo.CreateDiaryForBook(book2.ID, alice.ID, "/path/3.jpg", "日記3", time3); err != nil {
+		t.Fatalf("CreateDiaryForBook failed: %v", err)
+	}
+
+	// book1の日記を取得（2件）
+	diaries, err = diaryRepo.GetDiariesByBookID(book1.ID)
+	if err != nil {
+		t.Fatalf("GetDiariesByBookID failed: %v", err)
+	}
+	if len(diaries) != 2 {
+		t.Fatalf("expected 2 diaries for book1, got %d", len(diaries))
+	}
+
+	// 新着順（created_at DESC）であることを確認
+	if diaries[0].Content != "日記2" {
+		t.Errorf("expected first diary to be '日記2', got '%s'", diaries[0].Content)
+	}
+	if diaries[1].Content != "日記1" {
+		t.Errorf("expected second diary to be '日記1', got '%s'", diaries[1].Content)
+	}
+
+	// book2の日記を取得（1件）
+	diaries, err = diaryRepo.GetDiariesByBookID(book2.ID)
+	if err != nil {
+		t.Fatalf("GetDiariesByBookID failed: %v", err)
+	}
+	if len(diaries) != 1 {
+		t.Errorf("expected 1 diary for book2, got %d", len(diaries))
 	}
 }

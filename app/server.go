@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -84,7 +83,7 @@ func NewServer(repo DiaryRepository, userRepo UserRepository, bookRepo BookRepos
 	s.mux.HandleFunc("POST /logout", s.handleLogout)
 	s.mux.HandleFunc("GET /books", s.requireLogin(s.handleGetBooks))
 	s.mux.HandleFunc("POST /books", s.requireLogin(s.handlePostBooks))
-	s.mux.HandleFunc("GET /books/{id}", s.requireLogin(s.handleGetBook))
+	s.mux.HandleFunc("GET /books/{id}", s.handleGetBook)
 
 	HandlerFromMux(s, s.mux)
 
@@ -218,78 +217,13 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusFound)
 }
 
-// handleIndex は日記一覧ページを表示する
+// handleIndex は日記帳一覧ページを表示する
 func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
-	yearStr := r.URL.Query().Get("year")
-	monthStr := r.URL.Query().Get("month")
-	keyword := r.URL.Query().Get("q")
-
-	var diaries []Diary
-	var err error
-	selectedYear := 0
-	selectedMonth := 0
-
-	if yearStr != "" && monthStr != "" {
-		year, yearErr := strconv.Atoi(yearStr)
-		month, monthErr := strconv.Atoi(monthStr)
-		if yearErr == nil && monthErr == nil && year > 0 && month >= 1 && month <= 12 {
-			jst := time.FixedZone("Asia/Tokyo", 9*60*60)
-			startDateJST := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, jst)
-			endDateJST := startDateJST.AddDate(0, 1, 0).Add(-time.Nanosecond)
-			diaries, err = s.repo.GetDiariesInDateRange(startDateJST.UTC(), endDateJST.UTC())
-			selectedYear = year
-			selectedMonth = month
-		} else {
-			if keyword != "" {
-				diaries, err = s.repo.SearchDiaries(keyword)
-			} else {
-				diaries, err = s.repo.GetAllDiaries()
-			}
-		}
-	} else {
-		if keyword != "" {
-			diaries, err = s.repo.SearchDiaries(keyword)
-		} else {
-			diaries, err = s.repo.GetAllDiaries()
-		}
-	}
-
+	books, err := s.bookRepo.GetAllBooks()
 	if err != nil {
-		log.Printf("ERROR: failed to get diaries: %v", err)
+		log.Printf("ERROR: failed to get all books: %v", err)
 		s.renderError(w, http.StatusInternalServerError)
 		return
-	}
-
-	// 月別フィルタとキーワード検索を組み合わせた場合、インメモリでキーワード絞り込み
-	// SQLite の LIKE と挙動を合わせるため大小文字を区別しない比較を行う
-	if keyword != "" && selectedYear != 0 {
-		filtered := make([]Diary, 0, len(diaries))
-		kw := strings.ToLower(keyword)
-		for _, d := range diaries {
-			if strings.Contains(strings.ToLower(d.Content), kw) {
-				filtered = append(filtered, d)
-			}
-		}
-		diaries = filtered
-	}
-
-	availableMonths, err := s.repo.GetAvailableYearMonths()
-	if err != nil {
-		log.Printf("ERROR: failed to get available year months: %v", err)
-		s.renderError(w, http.StatusInternalServerError)
-		return
-	}
-
-	// フィルタ適用時はGetDiariesInDateRangeがASC順で返すため、全件表示と揃えてDESC順にソート
-	if selectedYear != 0 {
-		sort.Slice(diaries, func(i, j int) bool {
-			return diaries[i].CreatedAt.After(diaries[j].CreatedAt)
-		})
-	}
-
-	// ImagePathをファイル名のみに変換
-	for i := range diaries {
-		diaries[i].ImagePath = filepath.Base(diaries[i].ImagePath)
 	}
 
 	currentUser, err := s.getCurrentUser(r)
@@ -306,13 +240,9 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := map[string]interface{}{
-		"Diaries":         diaries,
-		"AvailableMonths": availableMonths,
-		"SelectedYear":    selectedYear,
-		"SelectedMonth":   selectedMonth,
-		"Keyword":         keyword,
-		"LoggedIn":        loggedIn,
-		"Username":        username,
+		"Books":    books,
+		"LoggedIn": loggedIn,
+		"Username": username,
 	}
 
 	if err := s.templates.ExecuteTemplate(w, "index.html", data); err != nil {
@@ -813,7 +743,7 @@ func (s *Server) handlePostBooks(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, fmt.Sprintf("/books/%d", book.ID), http.StatusFound)
 }
 
-// handleGetBook は日記帳詳細ページを表示する。作成者以外は403を返す
+// handleGetBook は日記帳詳細ページを表示する
 func (s *Server) handleGetBook(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
 	id, err := strconv.Atoi(idStr)
@@ -834,26 +764,36 @@ func (s *Server) handleGetBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := s.getCurrentUser(r)
+	diaries, err := s.repo.GetDiariesByBookID(id)
+	if err != nil {
+		log.Printf("ERROR: failed to get diaries for book %d: %v", id, err)
+		s.renderError(w, http.StatusInternalServerError)
+		return
+	}
+
+	// ImagePathをファイル名のみに変換
+	for i := range diaries {
+		diaries[i].ImagePath = filepath.Base(diaries[i].ImagePath)
+	}
+
+	currentUser, err := s.getCurrentUser(r)
 	if err != nil {
 		log.Printf("ERROR: failed to get current user: %v", err)
 		s.renderError(w, http.StatusInternalServerError)
 		return
 	}
-	if user == nil {
-		http.Redirect(w, r, "/login", http.StatusFound)
-		return
-	}
 
-	if user.ID != book.CreatorID {
-		s.renderError(w, http.StatusForbidden)
-		return
+	loggedIn := currentUser != nil
+	username := ""
+	if currentUser != nil {
+		username = currentUser.Username
 	}
 
 	data := map[string]interface{}{
 		"Book":     book,
-		"LoggedIn": true,
-		"Username": user.Username,
+		"Diaries":  diaries,
+		"LoggedIn": loggedIn,
+		"Username": username,
 	}
 
 	if err := s.templates.ExecuteTemplate(w, "book_detail.html", data); err != nil {
