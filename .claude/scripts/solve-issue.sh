@@ -6,9 +6,19 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# オプション解析
+USE_PRINT_MODE=false
+while getopts "p" opt; do
+  case "$opt" in
+    p) USE_PRINT_MODE=true ;;
+    *) echo "Usage: $0 [-p] <issue_number>" >&2; exit 1 ;;
+  esac
+done
+shift $((OPTIND - 1))
+
 # 引数チェック
 if [ $# -ne 1 ]; then
-  echo "Usage: $0 <issue_number>" >&2
+  echo "Usage: $0 [-p] <issue_number>" >&2
   exit 1
 fi
 
@@ -30,4 +40,8 @@ git checkout -b "${BRANCH_NAME}"
 echo "ブランチ ${BRANCH_NAME} を作成しました"
 
 # Claudeでissueを解決
-claude --dangerously-skip-permissions "/solve-issue ${ISSUE_NUMBER}"
+if "${USE_PRINT_MODE}"; then
+  claude --dangerously-skip-permissions -p "/solve-issue ${ISSUE_NUMBER}"
+else
+  claude --dangerously-skip-permissions "/solve-issue ${ISSUE_NUMBER}"
+fi

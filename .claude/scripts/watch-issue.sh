@@ -23,8 +23,8 @@ for issue_number in $issues; do
   # エラー時にラベルを削除するトラップを設定
   trap "gh issue edit \"$issue_number\" --remove-label \"in-progress-by-claude\" || true" ERR
 
-  # claudeコマンドを実行
-  claude --add-dir /workspaces -p "/solve-issue $issue_number"
+  # solve-issue.shを実行
+  "$(dirname "$0")/solve-issue.sh" -p "$issue_number"
 
   # トラップを解除
   trap - ERR
