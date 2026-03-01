@@ -139,8 +139,8 @@ func (r *SQLiteDiaryRepository) GetAllDiaries() ([]Diary, error) {
 // GetDiaryByID は指定IDの日記を返す。見つからない場合はnilを返す
 func (r *SQLiteDiaryRepository) GetDiaryByID(id int) (*Diary, error) {
 	var d Diary
-	err := r.db.QueryRow("SELECT id, image_path, content, created_at FROM diary WHERE id = ?", id).
-		Scan(&d.ID, &d.ImagePath, &d.Content, &d.CreatedAt)
+	err := r.db.QueryRow("SELECT id, image_path, content, created_at, book_id FROM diary WHERE id = ?", id).
+		Scan(&d.ID, &d.ImagePath, &d.Content, &d.CreatedAt, &d.BookID)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}

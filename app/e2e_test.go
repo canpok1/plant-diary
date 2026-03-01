@@ -4,17 +4,28 @@ package main
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/json"
+	"fmt"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 )
 
 // setupE2EServer はE2Eテスト用のHTTPサーバーを設定して起動する
 func setupE2EServer(t *testing.T) *httptest.Server {
+	t.Helper()
+
+	ts, _ := setupE2EServerWithDB(t)
+	return ts
+}
+
+// setupE2EServerWithDB はE2Eテスト用のHTTPサーバーとDBを設定して起動する
+func setupE2EServerWithDB(t *testing.T) (*httptest.Server, *sql.DB) {
 	t.Helper()
 
 	db := setupTestDB(t)
@@ -31,7 +42,31 @@ func setupE2EServer(t *testing.T) *httptest.Server {
 
 	ts := httptest.NewServer(srv)
 	t.Cleanup(ts.Close)
-	return ts
+	return ts, db
+}
+
+// loginAsUser はユーザーでログインしてセッションCookieを返す
+func loginAsUser(t *testing.T, ts *httptest.Server, username, password string) []*http.Cookie {
+	t.Helper()
+
+	client := &http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+
+	formData := url.Values{}
+	formData.Set("username", username)
+	formData.Set("password", password)
+	resp, err := client.PostForm(ts.URL+"/login", formData)
+	if err != nil {
+		t.Fatalf("POST /login failed: %v", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusFound {
+		t.Fatalf("login failed with status %d", resp.StatusCode)
+	}
+	return resp.Cookies()
 }
 
 // TestE2E_GetIndex はGET /がHTMLを返すことを検証する
@@ -318,5 +353,137 @@ func TestE2E_PostApiPhotos_Unauthorized(t *testing.T) {
 
 	if resp.StatusCode != http.StatusUnauthorized {
 		t.Errorf("expected status 401, got %d", resp.StatusCode)
+	}
+}
+
+// setupDiaryForOwner はオーナーユーザーと日記帳・日記を作成してdiaryIDを返す
+func setupDiaryForOwner(t *testing.T, ts *httptest.Server, db *sql.DB, ownerUsername, otherUsername string) int {
+	t.Helper()
+
+	// ユーザーを作成
+	for _, username := range []string{ownerUsername, otherUsername} {
+		body := fmt.Sprintf(`{"username": %q, "password": "password"}`, username)
+		resp, err := http.Post(ts.URL+"/api/users", "application/json", strings.NewReader(body))
+		if err != nil {
+			t.Fatalf("POST /api/users failed: %v", err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusCreated {
+			t.Fatalf("user creation failed with status %d", resp.StatusCode)
+		}
+	}
+
+	// オーナーユーザーを取得
+	userRepo := NewSQLiteUserRepository(db)
+	ownerUser, err := userRepo.GetUserByUsername(ownerUsername)
+	if err != nil || ownerUser == nil {
+		t.Fatalf("failed to get owner user: %v", err)
+	}
+
+	// 日記帳を作成
+	bookRepo := NewSQLiteBookRepository(db)
+	book, err := bookRepo.CreateBook(ownerUser.ID, "Test Book")
+	if err != nil {
+		t.Fatalf("failed to create book: %v", err)
+	}
+
+	// 日記を作成
+	diaryRepo := NewSQLiteDiaryRepository(db)
+	if err := diaryRepo.CreateDiaryForBook(book.ID, ownerUser.ID, "/photos/test.jpg", "テスト日記", time.Now()); err != nil {
+		t.Fatalf("failed to create diary: %v", err)
+	}
+
+	// 日記IDを取得
+	diaries, err := diaryRepo.GetDiariesByBookID(book.ID)
+	if err != nil || len(diaries) == 0 {
+		t.Fatalf("failed to get diaries: %v", err)
+	}
+	return diaries[0].ID
+}
+
+// TestE2E_DiaryEdit_OwnerCanEdit は日記帳作成者が日記を編集できることを検証する
+func TestE2E_DiaryEdit_OwnerCanEdit(t *testing.T) {
+	ts, db := setupE2EServerWithDB(t)
+
+	diaryID := setupDiaryForOwner(t, ts, db, "owner", "other")
+
+	client := &http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+
+	cookies := loginAsUser(t, ts, "owner", "password")
+
+	// GET /diary/{id}/edit が200を返すことを確認
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/diary/%d/edit", ts.URL, diaryID), nil)
+	if err != nil {
+		t.Fatalf("failed to create request: %v", err)
+	}
+	for _, c := range cookies {
+		req.AddCookie(c)
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("GET /diary/{id}/edit failed: %v", err)
+	}
+	resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("expected status 200 for owner, got %d", resp.StatusCode)
+	}
+}
+
+// TestE2E_DiaryEdit_NonOwnerForbidden は日記帳作成者以外が編集できないことを検証する
+func TestE2E_DiaryEdit_NonOwnerForbidden(t *testing.T) {
+	ts, db := setupE2EServerWithDB(t)
+
+	diaryID := setupDiaryForOwner(t, ts, db, "owner", "other")
+
+	client := &http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+
+	cookies := loginAsUser(t, ts, "other", "password")
+
+	// GET /diary/{id}/edit が403を返すことを確認
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/diary/%d/edit", ts.URL, diaryID), nil)
+	if err != nil {
+		t.Fatalf("failed to create request: %v", err)
+	}
+	for _, c := range cookies {
+		req.AddCookie(c)
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("GET /diary/{id}/edit failed: %v", err)
+	}
+	resp.Body.Close()
+
+	if resp.StatusCode != http.StatusForbidden {
+		t.Errorf("expected status 403 for non-owner, got %d", resp.StatusCode)
+	}
+
+	// POST /diary/{id}/edit が403を返すことを確認
+	formData := url.Values{}
+	formData.Set("content", "改ざんされた内容")
+	postReq, err := http.NewRequest("POST", fmt.Sprintf("%s/diary/%d/edit", ts.URL, diaryID), strings.NewReader(formData.Encode()))
+	if err != nil {
+		t.Fatalf("failed to create request: %v", err)
+	}
+	postReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	for _, c := range cookies {
+		postReq.AddCookie(c)
+	}
+	postResp, err := client.Do(postReq)
+	if err != nil {
+		t.Fatalf("POST /diary/{id}/edit failed: %v", err)
+	}
+	postResp.Body.Close()
+
+	if postResp.StatusCode != http.StatusForbidden {
+		t.Errorf("expected status 403 for non-owner POST, got %d", postResp.StatusCode)
 	}
 }
