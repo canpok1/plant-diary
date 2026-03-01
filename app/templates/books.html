@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>植物観察日記 - 日記帳一覧</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Meiryo", sans-serif;
+            background-color: #ffffff;
+            color: #333333;
+            line-height: 1.6;
+        }
+
+        header {
+            background-color: #4a7c59;
+            color: #ffffff;
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+
+        header h1 {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+
+        header h1 a {
+            color: #ffffff;
+            text-decoration: none;
+        }
+
+        header h1 a:hover {
+            text-decoration: underline;
+        }
+
+        header nav {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-left: auto;
+        }
+
+        header nav a {
+            color: #ffffff;
+            text-decoration: none;
+            font-size: 0.95rem;
+            opacity: 0.85;
+        }
+
+        header nav a:hover {
+            opacity: 1;
+            text-decoration: underline;
+        }
+
+        header nav .user-info {
+            font-size: 0.9rem;
+            opacity: 0.85;
+        }
+
+        header nav .logout-btn {
+            background: none;
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            border-radius: 4px;
+            color: #ffffff;
+            cursor: pointer;
+            font-size: 0.9rem;
+            opacity: 0.85;
+            padding: 4px 10px;
+        }
+
+        header nav .logout-btn:hover {
+            opacity: 1;
+            background-color: rgba(255, 255, 255, 0.15);
+        }
+
+        main {
+            max-width: 960px;
+            margin: 24px auto;
+            padding: 0 16px;
+        }
+
+        h2 {
+            font-size: 1.25rem;
+            font-weight: bold;
+            margin-bottom: 16px;
+            color: #333333;
+        }
+
+        .books-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 32px;
+        }
+
+        .books-table th {
+            background-color: #f5f5f5;
+            border: 1px solid #e0e0e0;
+            padding: 10px 16px;
+            text-align: left;
+            font-size: 0.9rem;
+            color: #555555;
+        }
+
+        .books-table td {
+            border: 1px solid #e0e0e0;
+            padding: 10px 16px;
+            font-size: 0.95rem;
+        }
+
+        .books-table tr:hover td {
+            background-color: #f9f9f9;
+        }
+
+        .books-table a {
+            color: #4a7c59;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .books-table a:hover {
+            text-decoration: underline;
+        }
+
+        .empty-message {
+            color: #888888;
+            padding: 24px 0;
+            font-size: 0.95rem;
+        }
+
+        .create-form {
+            background-color: #f9f9f9;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 24px;
+            max-width: 480px;
+        }
+
+        .create-form label {
+            display: block;
+            font-size: 0.9rem;
+            color: #555555;
+            margin-bottom: 6px;
+        }
+
+        .create-form input[type="text"] {
+            width: 100%;
+            padding: 8px 12px;
+            font-size: 0.95rem;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            background-color: #ffffff;
+            color: #333333;
+            margin-bottom: 12px;
+        }
+
+        .create-form input[type="text"]:focus {
+            outline: none;
+            border-color: #4a7c59;
+        }
+
+        .create-form button {
+            padding: 8px 20px;
+            font-size: 0.95rem;
+            border: none;
+            border-radius: 6px;
+            background-color: #4a7c59;
+            color: #ffffff;
+            cursor: pointer;
+        }
+
+        .create-form button:hover {
+            background-color: #3a6347;
+        }
+
+        @media screen and (max-width: 640px) {
+            header {
+                padding: 12px 16px;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 4px;
+            }
+
+            header h1 {
+                font-size: 1.25rem;
+            }
+
+            main {
+                margin: 16px auto;
+                padding: 0 12px;
+            }
+
+            .books-table {
+                font-size: 0.85rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1><a href="/">植物観察日記</a></h1>
+        <nav>
+            <a href="/books">日記帳</a>
+            <span class="user-info">{{.Username}}</span>
+            <form method="POST" action="/logout" style="display:inline">
+                <button type="submit" class="logout-btn">ログアウト</button>
+            </form>
+        </nav>
+    </header>
+    <main>
+        <h2>日記帳一覧</h2>
+        {{if .Books}}
+        <table class="books-table">
+            <thead>
+                <tr>
+                    <th>名前</th>
+                    <th>作成日</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .Books}}
+                <tr>
+                    <td>{{.Name}}</td>
+                    <td>{{(.CreatedAt | toJST).Format "2006年1月2日 15:04"}}</td>
+                    <td><a href="/books/{{.ID}}">詳細</a></td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+        {{else}}
+        <p class="empty-message">まだ日記帳がありません。</p>
+        {{end}}
+
+        <h2>新しい日記帳を作成</h2>
+        <form class="create-form" method="POST" action="/books">
+            <label for="name">日記帳の名前</label>
+            <input type="text" id="name" name="name" placeholder="例: わたしの植物日記" required>
+            <button type="submit">作成</button>
+        </form>
+    </main>
+</body>
+</html>
