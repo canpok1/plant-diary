@@ -317,44 +317,60 @@ func TestSQLiteDiaryRepository_GetLatestDiaryCreatedAt(t *testing.T) {
 
 func TestSQLiteDiaryRepository_GetDiariesInDateRange(t *testing.T) {
 	db := setupTestDB(t)
+	userRepo := NewSQLiteUserRepository(db)
+	bookRepo := NewSQLiteBookRepository(db)
 	repo := NewSQLiteDiaryRepository(db)
 
-	// 複数の日記を作成
+	// ユーザーと日記帳を作成
+	if err := userRepo.CreateUser("uuid-001", "alice", "hash"); err != nil {
+		t.Fatalf("CreateUser failed: %v", err)
+	}
+	alice, err := userRepo.GetUserByUsername("alice")
+	if err != nil {
+		t.Fatalf("GetUserByUsername failed: %v", err)
+	}
+	book1, err := bookRepo.CreateBook(alice.ID, "Book 1")
+	if err != nil {
+		t.Fatalf("CreateBook failed: %v", err)
+	}
+	book2, err := bookRepo.CreateBook(alice.ID, "Book 2")
+	if err != nil {
+		t.Fatalf("CreateBook failed: %v", err)
+	}
+
+	// 複数の日記を日記帳1に作成
 	time1 := time.Date(2026, 1, 1, 10, 0, 0, 0, time.UTC)
 	time2 := time.Date(2026, 1, 15, 10, 0, 0, 0, time.UTC)
 	time3 := time.Date(2026, 2, 1, 10, 0, 0, 0, time.UTC)
 	time4 := time.Date(2026, 2, 10, 10, 0, 0, 0, time.UTC)
 
-	err := repo.CreateDiary("/path/1.jpg", "日記1", time1)
-	if err != nil {
-		t.Fatalf("CreateDiary failed: %v", err)
+	if err := repo.CreateDiaryForBook(book1.ID, alice.ID, "/path/1.jpg", "日記1", time1); err != nil {
+		t.Fatalf("CreateDiaryForBook failed: %v", err)
+	}
+	if err := repo.CreateDiaryForBook(book1.ID, alice.ID, "/path/2.jpg", "日記2", time2); err != nil {
+		t.Fatalf("CreateDiaryForBook failed: %v", err)
+	}
+	if err := repo.CreateDiaryForBook(book1.ID, alice.ID, "/path/3.jpg", "日記3", time3); err != nil {
+		t.Fatalf("CreateDiaryForBook failed: %v", err)
+	}
+	if err := repo.CreateDiaryForBook(book1.ID, alice.ID, "/path/4.jpg", "日記4", time4); err != nil {
+		t.Fatalf("CreateDiaryForBook failed: %v", err)
+	}
+	// 日記帳2にも日記を作成（フィルタリングの確認用）
+	if err := repo.CreateDiaryForBook(book2.ID, alice.ID, "/path/5.jpg", "日記5", time2); err != nil {
+		t.Fatalf("CreateDiaryForBook failed: %v", err)
 	}
 
-	err = repo.CreateDiary("/path/2.jpg", "日記2", time2)
-	if err != nil {
-		t.Fatalf("CreateDiary failed: %v", err)
-	}
-
-	err = repo.CreateDiary("/path/3.jpg", "日記3", time3)
-	if err != nil {
-		t.Fatalf("CreateDiary failed: %v", err)
-	}
-
-	err = repo.CreateDiary("/path/4.jpg", "日記4", time4)
-	if err != nil {
-		t.Fatalf("CreateDiary failed: %v", err)
-	}
-
-	// 日付範囲内の日記を取得
+	// 日付範囲内の日記を取得（日記帳1のみ）
 	startDate := time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC)
 	endDate := time.Date(2026, 2, 5, 0, 0, 0, 0, time.UTC)
 
-	diaries, err := repo.GetDiariesInDateRange(startDate, endDate)
+	diaries, err := repo.GetDiariesInDateRange(book1.ID, startDate, endDate)
 	if err != nil {
 		t.Fatalf("GetDiariesInDateRange failed: %v", err)
 	}
 
-	// 2件（日記2と日記3）が取得されることを確認
+	// 2件（日記2と日記3）が取得されることを確認（日記帳2の日記5は含まれない）
 	if len(diaries) != 2 {
 		t.Fatalf("expected 2 diaries, got %d", len(diaries))
 	}
@@ -475,20 +491,34 @@ func TestSQLiteDiaryRepository_SearchDiaries(t *testing.T) {
 
 func TestSQLiteDiaryRepository_GetDiariesInDateRange_Empty(t *testing.T) {
 	db := setupTestDB(t)
+	userRepo := NewSQLiteUserRepository(db)
+	bookRepo := NewSQLiteBookRepository(db)
 	repo := NewSQLiteDiaryRepository(db)
+
+	// ユーザーと日記帳を作成
+	if err := userRepo.CreateUser("uuid-001", "alice", "hash"); err != nil {
+		t.Fatalf("CreateUser failed: %v", err)
+	}
+	alice, err := userRepo.GetUserByUsername("alice")
+	if err != nil {
+		t.Fatalf("GetUserByUsername failed: %v", err)
+	}
+	book, err := bookRepo.CreateBook(alice.ID, "Book 1")
+	if err != nil {
+		t.Fatalf("CreateBook failed: %v", err)
+	}
 
 	// 日記を1件作成
 	time1 := time.Date(2026, 1, 1, 10, 0, 0, 0, time.UTC)
-	err := repo.CreateDiary("/path/1.jpg", "日記1", time1)
-	if err != nil {
-		t.Fatalf("CreateDiary failed: %v", err)
+	if err := repo.CreateDiaryForBook(book.ID, alice.ID, "/path/1.jpg", "日記1", time1); err != nil {
+		t.Fatalf("CreateDiaryForBook failed: %v", err)
 	}
 
 	// 範囲外の日付で検索
 	startDate := time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC)
 	endDate := time.Date(2026, 2, 28, 0, 0, 0, 0, time.UTC)
 
-	diaries, err := repo.GetDiariesInDateRange(startDate, endDate)
+	diaries, err := repo.GetDiariesInDateRange(book.ID, startDate, endDate)
 	if err != nil {
 		t.Fatalf("GetDiariesInDateRange failed: %v", err)
 	}
