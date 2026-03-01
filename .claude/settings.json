@@ -101,7 +101,9 @@
     "type": "command",
     "command": "./.claude/statusline.sh"
   },
-  "enabledPlugins": {},
+  "enabledPlugins": {
+    "base-tools@canpok1-plugins": true
+  },
   "extraKnownMarketplaces": {
     "canpok1-plugins": {
       "source": {
