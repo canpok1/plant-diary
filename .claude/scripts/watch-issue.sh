@@ -1,33 +1,41 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# assign-to-claudeラベル付き、かつin-progress-by-claudeラベルが付いていないissueを取得（古い順）
-issues=$(gh issue list \
-  --label "assign-to-claude" \
-  --sort created \
-  --order asc \
-  --json number,labels \
-  --jq '.[] | select(.labels | map(.name) | contains(["in-progress-by-claude"]) | not) | .number')
+INTERVAL_SECONDS=60
 
-# 対象issueが存在しない場合は終了
-if [ -z "$issues" ]; then
-  echo "No issues to process"
-  exit 0
-fi
+# Ctrl-C（SIGINT）で正常終了するためのトラップ
+trap 'echo "Stopping watch-issue.sh..."; exit 0' INT
 
-# 各issueを処理
-for issue_number in $issues; do
-  echo "Processing issue #$issue_number"
+while true; do
+  # assign-to-claudeラベル付き、かつin-progress-by-claudeラベルが付いていないissueを1件取得（古い順）
+  issue_number=$(gh issue list \
+    --label "assign-to-claude" \
+    --sort created \
+    --order asc \
+    --json number,labels \
+    --jq '.[] | select(.labels | map(.name) | contains(["in-progress-by-claude"]) | not) | .number' \
+    | head -n 1)
 
-  # in-progress-by-claudeラベルを付与
-  gh issue edit "$issue_number" --add-label "in-progress-by-claude"
+  # 対象issueが存在しない場合
+  if [ -z "$issue_number" ]; then
+    echo "No issues to process"
+  else
+    echo "Processing issue #$issue_number"
 
-  # エラー時にラベルを削除するトラップを設定
-  trap "gh issue edit \"$issue_number\" --remove-label \"in-progress-by-claude\" || true" ERR
+    # in-progress-by-claudeラベルを付与
+    gh issue edit "$issue_number" --add-label "in-progress-by-claude"
 
-  # solve-issue.shを実行
-  "$(dirname "$0")/solve-issue.sh" -p "$issue_number"
+    # エラー時にラベルを削除するトラップを設定
+    trap "gh issue edit \"$issue_number\" --remove-label \"in-progress-by-claude\" || true" ERR
 
-  # トラップを解除
-  trap - ERR
+    # solve-issue.shを実行
+    "$(dirname "$0")/solve-issue.sh" -p "$issue_number"
+
+    # ERRトラップを解除
+    trap - ERR
+  fi
+
+  # 一定時間待機
+  echo "Waiting ${INTERVAL_SECONDS} seconds..."
+  sleep "$INTERVAL_SECONDS"
 done
