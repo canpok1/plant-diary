@@ -34,10 +34,10 @@ type Book struct {
 
 // BookView はトップページ表示用の日記帳情報
 type BookView struct {
-	ID             int
-	Name           string
-	LatestDiaryAt  time.Time // 最新日記の日時（ゼロ値は日記なし）
-	HasDiaries     bool      // 日記が存在する場合true
+	ID            int
+	Name          string
+	LatestDiaryAt time.Time // 最新日記の日時（ゼロ値は日記なし）
+	HasDiaries    bool      // 日記が存在する場合true
 }
 
 // User はユーザーを表す構造体
