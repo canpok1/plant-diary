@@ -5,6 +5,153 @@ import (
 	"time"
 )
 
+func TestMockBookRepository_CreateBook(t *testing.T) {
+	repo := NewMockBookRepository()
+
+	book, err := repo.CreateBook(1, "Test Book")
+	if err != nil {
+		t.Fatalf("CreateBook failed: %v", err)
+	}
+	if book == nil {
+		t.Fatal("expected book, got nil")
+	}
+	if book.ID == 0 {
+		t.Error("expected non-zero ID")
+	}
+	if book.CreatorID != 1 {
+		t.Errorf("expected CreatorID 1, got %d", book.CreatorID)
+	}
+	if book.Name != "Test Book" {
+		t.Errorf("expected Name 'Test Book', got '%s'", book.Name)
+	}
+	if book.UUID == "" {
+		t.Error("expected non-empty UUID")
+	}
+	if book.UploadKey == "" {
+		t.Error("expected non-empty UploadKey")
+	}
+}
+
+func TestMockBookRepository_GetBooksByCreatorID(t *testing.T) {
+	repo := NewMockBookRepository()
+
+	if _, err := repo.CreateBook(1, "Alice Book 1"); err != nil {
+		t.Fatalf("CreateBook failed: %v", err)
+	}
+	if _, err := repo.CreateBook(1, "Alice Book 2"); err != nil {
+		t.Fatalf("CreateBook failed: %v", err)
+	}
+	if _, err := repo.CreateBook(2, "Bob Book 1"); err != nil {
+		t.Fatalf("CreateBook failed: %v", err)
+	}
+
+	aliceBooks, err := repo.GetBooksByCreatorID(1)
+	if err != nil {
+		t.Fatalf("GetBooksByCreatorID failed: %v", err)
+	}
+	if len(aliceBooks) != 2 {
+		t.Errorf("expected 2 books for creator 1, got %d", len(aliceBooks))
+	}
+
+	bobBooks, err := repo.GetBooksByCreatorID(2)
+	if err != nil {
+		t.Fatalf("GetBooksByCreatorID failed: %v", err)
+	}
+	if len(bobBooks) != 1 {
+		t.Errorf("expected 1 book for creator 2, got %d", len(bobBooks))
+	}
+}
+
+func TestMockBookRepository_GetBookByID(t *testing.T) {
+	repo := NewMockBookRepository()
+
+	created, err := repo.CreateBook(1, "Test Book")
+	if err != nil {
+		t.Fatalf("CreateBook failed: %v", err)
+	}
+
+	book, err := repo.GetBookByID(created.ID)
+	if err != nil {
+		t.Fatalf("GetBookByID failed: %v", err)
+	}
+	if book == nil {
+		t.Fatal("expected book, got nil")
+	}
+	if book.Name != "Test Book" {
+		t.Errorf("expected Name 'Test Book', got '%s'", book.Name)
+	}
+
+	// 存在しないIDを取得
+	notFound, err := repo.GetBookByID(9999)
+	if err != nil {
+		t.Fatalf("GetBookByID failed: %v", err)
+	}
+	if notFound != nil {
+		t.Errorf("expected nil for non-existent ID, got %v", notFound)
+	}
+}
+
+func TestMockBookRepository_GetBookByUploadKey(t *testing.T) {
+	repo := NewMockBookRepository()
+
+	created, err := repo.CreateBook(1, "Test Book")
+	if err != nil {
+		t.Fatalf("CreateBook failed: %v", err)
+	}
+
+	book, err := repo.GetBookByUploadKey(created.UploadKey)
+	if err != nil {
+		t.Fatalf("GetBookByUploadKey failed: %v", err)
+	}
+	if book == nil {
+		t.Fatal("expected book, got nil")
+	}
+	if book.ID != created.ID {
+		t.Errorf("expected ID %d, got %d", created.ID, book.ID)
+	}
+
+	// 存在しないキーを取得
+	notFound, err := repo.GetBookByUploadKey("nonexistent")
+	if err != nil {
+		t.Fatalf("GetBookByUploadKey failed: %v", err)
+	}
+	if notFound != nil {
+		t.Errorf("expected nil for non-existent key, got %v", notFound)
+	}
+}
+
+func TestMockBookRepository_DeleteBook(t *testing.T) {
+	repo := NewMockBookRepository()
+
+	created, err := repo.CreateBook(1, "Test Book")
+	if err != nil {
+		t.Fatalf("CreateBook failed: %v", err)
+	}
+
+	if err := repo.DeleteBook(created.ID); err != nil {
+		t.Fatalf("DeleteBook failed: %v", err)
+	}
+
+	// 削除後に取得するとnilを返す
+	book, err := repo.GetBookByID(created.ID)
+	if err != nil {
+		t.Fatalf("GetBookByID failed: %v", err)
+	}
+	if book != nil {
+		t.Errorf("expected nil after deletion, got %v", book)
+	}
+
+	// 存在しないIDを削除するとエラー
+	if err := repo.DeleteBook(9999); err == nil {
+		t.Error("expected error for non-existent ID, got nil")
+	}
+}
+
+func TestMockBookRepository_ImplementsInterface(t *testing.T) {
+	// コンパイル時にインターフェースを満たすことを確認
+	var _ BookRepository = NewMockBookRepository()
+}
+
 func TestMockDiaryRepository_CreateDiary(t *testing.T) {
 	repo := NewMockDiaryRepository()
 

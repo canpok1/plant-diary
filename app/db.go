@@ -165,6 +165,15 @@ func (r *SQLiteDiaryRepository) CreateDiaryForUser(userID int, imagePath, conten
 	return err
 }
 
+// CreateDiaryForBook は指定日記帳・クリエイターの新しい日記エントリを作成する
+func (r *SQLiteDiaryRepository) CreateDiaryForBook(bookID, creatorID int, imagePath, content string, createdAt time.Time) error {
+	_, err := r.db.Exec(
+		"INSERT INTO diary (image_path, content, created_at, user_id, book_id) VALUES (?, ?, ?, ?, ?)",
+		imagePath, content, createdAt, creatorID, bookID,
+	)
+	return err
+}
+
 // UpdateDiaryContent は指定IDの日記のcontentを更新し、updated_atも現在時刻に更新する
 func (r *SQLiteDiaryRepository) UpdateDiaryContent(id int, content string) error {
 	result, err := r.db.Exec(
@@ -415,6 +424,117 @@ func (r *SQLiteSessionRepository) GetSessionByID(id string) (*Session, error) {
 func (r *SQLiteSessionRepository) DeleteSession(id string) error {
 	_, err := r.db.Exec("DELETE FROM sessions WHERE id = ?", id)
 	return err
+}
+
+// SQLiteBookRepository はSQLiteを使用したBookRepositoryの実装
+type SQLiteBookRepository struct {
+	db *sql.DB
+}
+
+// NewSQLiteBookRepository は新しいSQLiteBookRepositoryを生成する
+func NewSQLiteBookRepository(db *sql.DB) *SQLiteBookRepository {
+	return &SQLiteBookRepository{db: db}
+}
+
+// CreateBook は新しい日記帳を作成する
+func (r *SQLiteBookRepository) CreateBook(creatorID int, name string) (*Book, error) {
+	uuid, err := generateUUID()
+	if err != nil {
+		return nil, err
+	}
+	uploadKey, err := generateUUID()
+	if err != nil {
+		return nil, err
+	}
+
+	result, err := r.db.Exec(
+		"INSERT INTO books (uuid, creator_id, name, upload_key) VALUES (?, ?, ?, ?)",
+		uuid, creatorID, name, uploadKey,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.GetBookByID(int(id))
+}
+
+// GetBooksByCreatorID は指定クリエイターIDの日記帳一覧を返す
+func (r *SQLiteBookRepository) GetBooksByCreatorID(creatorID int) ([]Book, error) {
+	rows, err := r.db.Query(
+		"SELECT id, uuid, creator_id, name, upload_key, created_at FROM books WHERE creator_id = ?",
+		creatorID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var books []Book
+	for rows.Next() {
+		var b Book
+		if err := rows.Scan(&b.ID, &b.UUID, &b.CreatorID, &b.Name, &b.UploadKey, &b.CreatedAt); err != nil {
+			return nil, err
+		}
+		books = append(books, b)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return books, nil
+}
+
+// GetBookByID は指定IDの日記帳を返す。見つからない場合はnilを返す
+func (r *SQLiteBookRepository) GetBookByID(id int) (*Book, error) {
+	var b Book
+	err := r.db.QueryRow(
+		"SELECT id, uuid, creator_id, name, upload_key, created_at FROM books WHERE id = ?",
+		id,
+	).Scan(&b.ID, &b.UUID, &b.CreatorID, &b.Name, &b.UploadKey, &b.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &b, nil
+}
+
+// GetBookByUploadKey は指定upload_keyの日記帳を返す。見つからない場合はnilを返す
+func (r *SQLiteBookRepository) GetBookByUploadKey(uploadKey string) (*Book, error) {
+	var b Book
+	err := r.db.QueryRow(
+		"SELECT id, uuid, creator_id, name, upload_key, created_at FROM books WHERE upload_key = ?",
+		uploadKey,
+	).Scan(&b.ID, &b.UUID, &b.CreatorID, &b.Name, &b.UploadKey, &b.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &b, nil
+}
+
+// DeleteBook は指定IDの日記帳を削除する
+func (r *SQLiteBookRepository) DeleteBook(id int) error {
+	result, err := r.db.Exec("DELETE FROM books WHERE id = ?", id)
+	if err != nil {
+		return err
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return fmt.Errorf("book %d not found", id)
+	}
+	return nil
 }
 
 // GetDiariesInDateRange は指定日付範囲内の日記を古い順（created_at ASC）で返す
