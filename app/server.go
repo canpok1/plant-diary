@@ -756,6 +756,10 @@ func (s *Server) handleGetBooks(w http.ResponseWriter, r *http.Request) {
 		s.renderError(w, http.StatusInternalServerError)
 		return
 	}
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusFound)
+		return
+	}
 
 	books, err := s.bookRepo.GetBooksByCreatorID(user.ID)
 	if err != nil {
@@ -782,6 +786,10 @@ func (s *Server) handlePostBooks(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Printf("ERROR: failed to get current user: %v", err)
 		s.renderError(w, http.StatusInternalServerError)
+		return
+	}
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusFound)
 		return
 	}
 
@@ -830,6 +838,10 @@ func (s *Server) handleGetBook(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Printf("ERROR: failed to get current user: %v", err)
 		s.renderError(w, http.StatusInternalServerError)
+		return
+	}
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusFound)
 		return
 	}
 
