@@ -1,11 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-cleanup() {
-  git checkout main >/dev/null 2>&1 || true
-}
-trap cleanup EXIT
-
 # オプション解析
 USE_PRINT_MODE=false
 while getopts "p" opt; do
@@ -27,7 +22,6 @@ if ! [[ "${ISSUE_NUMBER}" =~ ^[0-9]+$ ]]; then
   echo "Error: issue_number must be numeric" >&2
   exit 1
 fi
-BRANCH_NAME="feature/issue${ISSUE_NUMBER}"
 
 echo "Issue #${ISSUE_NUMBER} の処理を開始します"
 
@@ -35,13 +29,9 @@ echo "Issue #${ISSUE_NUMBER} の処理を開始します"
 git checkout main
 git pull origin main
 
-# 作業ブランチを作成・切り替え
-git checkout -b "${BRANCH_NAME}"
-echo "ブランチ ${BRANCH_NAME} を作成しました"
-
-# Claudeでissueを解決
+# Claudeでissueを解決（--worktreeで自動的にブランチとワークツリーを作成）
 if "${USE_PRINT_MODE}"; then
-  claude --dangerously-skip-permissions -p "/solve-issue ${ISSUE_NUMBER}"
+  claude --worktree "issue-${ISSUE_NUMBER}" --dangerously-skip-permissions -p "/solve-issue ${ISSUE_NUMBER}"
 else
-  claude --dangerously-skip-permissions "/solve-issue ${ISSUE_NUMBER}"
+  claude --worktree "issue-${ISSUE_NUMBER}" --dangerously-skip-permissions "/solve-issue ${ISSUE_NUMBER}"
 fi
