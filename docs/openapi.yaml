@@ -11,8 +11,6 @@ paths:
     post:
       summary: ユーザーを作成する
       operationId: postApiUsers
-      security:
-        - ApiKeyAuth: []
       requestBody:
         required: true
         content:
@@ -38,8 +36,6 @@ paths:
     post:
       summary: 写真をアップロードする
       operationId: postApiPhotos
-      security:
-        - ApiKeyAuth: []
       requestBody:
         required: true
         content:
@@ -62,11 +58,6 @@ paths:
         '500':
           description: Internal Server Error
 components:
-  securitySchemes:
-    ApiKeyAuth:
-      type: apiKey
-      in: header
-      name: X-API-Key
   schemas:
     CreateUserRequest:
       type: object
@@ -92,13 +83,15 @@ components:
       type: object
       required:
         - photo
-        - user_uuid
+        - upload_key
       properties:
         photo:
           type: string
           format: binary
-        user_uuid:
+        upload_key:
           type: string
+          minLength: 32
+          maxLength: 32
         captured_at:
           type: string
           format: date-time

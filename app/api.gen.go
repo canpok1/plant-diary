@@ -6,16 +6,11 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"time"
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
-)
-
-const (
-	ApiKeyAuthScopes = "ApiKeyAuth.Scopes"
 )
 
 // CreateUserRequest defines model for CreateUserRequest.
@@ -28,7 +23,7 @@ type CreateUserRequest struct {
 type UploadPhotoRequest struct {
 	CapturedAt *time.Time         `json:"captured_at,omitempty"`
 	Photo      openapi_types.File `json:"photo"`
-	UserUuid   string             `json:"user_uuid"`
+	UploadKey  string             `json:"upload_key"`
 }
 
 // UploadPhotoResponse defines model for UploadPhotoResponse.
@@ -70,12 +65,6 @@ type MiddlewareFunc func(http.Handler) http.Handler
 // PostApiPhotos operation middleware
 func (siw *ServerInterfaceWrapper) PostApiPhotos(w http.ResponseWriter, r *http.Request) {
 
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, ApiKeyAuthScopes, []string{})
-
-	r = r.WithContext(ctx)
-
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PostApiPhotos(w, r)
 	}))
@@ -89,12 +78,6 @@ func (siw *ServerInterfaceWrapper) PostApiPhotos(w http.ResponseWriter, r *http.
 
 // PostApiUsers operation middleware
 func (siw *ServerInterfaceWrapper) PostApiUsers(w http.ResponseWriter, r *http.Request) {
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, ApiKeyAuthScopes, []string{})
-
-	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PostApiUsers(w, r)
