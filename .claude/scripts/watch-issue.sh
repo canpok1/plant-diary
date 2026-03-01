@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# assign-to-claudeラベル付き、かつin-progress-by-claudeラベルが付いていないissueを取得
+# assign-to-claudeラベル付き、かつin-progress-by-claudeラベルが付いていないissueを取得（古い順）
 issues=$(gh issue list \
   --label "assign-to-claude" \
+  --sort created \
+  --order asc \
   --json number,labels \
   --jq '.[] | select(.labels | map(.name) | contains(["in-progress-by-claude"]) | not) | .number')
 
