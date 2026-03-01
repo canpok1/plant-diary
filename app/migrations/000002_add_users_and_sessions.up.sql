@@ -14,5 +14,3 @@ CREATE TABLE IF NOT EXISTS sessions (
     expires_at DATETIME NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
-
-ALTER TABLE diary ADD COLUMN updated_at DATETIME;
