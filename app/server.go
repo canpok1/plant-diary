@@ -785,8 +785,10 @@ func (s *Server) handleGetBook(w http.ResponseWriter, r *http.Request) {
 
 	loggedIn := currentUser != nil
 	username := ""
+	isOwner := false
 	if currentUser != nil {
 		username = currentUser.Username
+		isOwner = currentUser.ID == book.CreatorID
 	}
 
 	data := map[string]interface{}{
@@ -794,6 +796,7 @@ func (s *Server) handleGetBook(w http.ResponseWriter, r *http.Request) {
 		"Diaries":  diaries,
 		"LoggedIn": loggedIn,
 		"Username": username,
+		"IsOwner":  isOwner,
 	}
 
 	if err := s.templates.ExecuteTemplate(w, "book_detail.html", data); err != nil {
