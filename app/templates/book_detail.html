@@ -193,6 +193,21 @@
             text-decoration: underline;
         }
 
+        .slideshow-link {
+            display: inline-block;
+            margin-bottom: 24px;
+            padding: 8px 16px;
+            font-size: 0.95rem;
+            color: #ffffff;
+            background-color: #4a7c59;
+            border-radius: 6px;
+            text-decoration: none;
+        }
+
+        .slideshow-link:hover {
+            background-color: #3a6347;
+        }
+
         .empty-message {
             text-align: center;
             color: #888888;
@@ -250,6 +265,10 @@
     <main>
         <p class="book-title">{{.Book.Name}}</p>
         <p class="book-meta">作成日時: {{(.Book.CreatedAt | toJST).Format "2006年1月2日 15:04"}}</p>
+
+        {{if .Diaries}}
+        <a class="slideshow-link" href="/books/{{.Book.ID}}/slideshow">スライドショーで見る</a>
+        {{end}}
 
         {{if .IsOwner}}
         <p class="section-label">アップロードキー</p>

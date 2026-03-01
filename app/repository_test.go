@@ -500,6 +500,106 @@ func TestMockDiaryRepository_GetDiariesInDateRange_Empty(t *testing.T) {
 	}
 }
 
+func TestMockDiaryRepository_GetDiariesByBookIDAsc(t *testing.T) {
+	repo := NewMockDiaryRepository()
+
+	// 存在しないbookIDを指定した場合はnilを返す
+	diaries, err := repo.GetDiariesByBookIDAsc(1, time.Time{}, time.Time{})
+	if err != nil {
+		t.Fatalf("GetDiariesByBookIDAsc failed: %v", err)
+	}
+	if diaries != nil {
+		t.Errorf("expected nil for non-existent bookID, got %v", diaries)
+	}
+
+	// 複数の日記帳に日記を作成
+	time1 := time.Date(2026, 1, 1, 10, 0, 0, 0, time.UTC)
+	time2 := time.Date(2026, 1, 2, 10, 0, 0, 0, time.UTC)
+	time3 := time.Date(2026, 1, 3, 10, 0, 0, 0, time.UTC)
+	time4 := time.Date(2026, 2, 1, 10, 0, 0, 0, time.UTC)
+
+	if err := repo.CreateDiaryForBook(1, 100, "/path/1.jpg", "日記1", time1); err != nil {
+		t.Fatalf("CreateDiaryForBook failed: %v", err)
+	}
+	if err := repo.CreateDiaryForBook(1, 100, "/path/2.jpg", "日記2", time2); err != nil {
+		t.Fatalf("CreateDiaryForBook failed: %v", err)
+	}
+	if err := repo.CreateDiaryForBook(1, 100, "/path/3.jpg", "日記3", time3); err != nil {
+		t.Fatalf("CreateDiaryForBook failed: %v", err)
+	}
+	if err := repo.CreateDiaryForBook(1, 100, "/path/4.jpg", "日記4", time4); err != nil {
+		t.Fatalf("CreateDiaryForBook failed: %v", err)
+	}
+	if err := repo.CreateDiaryForBook(2, 100, "/path/5.jpg", "日記5", time1); err != nil {
+		t.Fatalf("CreateDiaryForBook failed: %v", err)
+	}
+
+	// 全件取得（bookID=1の4件）
+	diaries, err = repo.GetDiariesByBookIDAsc(1, time.Time{}, time.Time{})
+	if err != nil {
+		t.Fatalf("GetDiariesByBookIDAsc failed: %v", err)
+	}
+	if len(diaries) != 4 {
+		t.Fatalf("expected 4 diaries for bookID 1, got %d", len(diaries))
+	}
+
+	// 古い順（created_at ASC）であることを確認
+	if diaries[0].Content != "日記1" {
+		t.Errorf("expected first diary to be '日記1', got '%s'", diaries[0].Content)
+	}
+	if diaries[3].Content != "日記4" {
+		t.Errorf("expected last diary to be '日記4', got '%s'", diaries[3].Content)
+	}
+
+	// fromフィルタ
+	diaries, err = repo.GetDiariesByBookIDAsc(1, time2, time.Time{})
+	if err != nil {
+		t.Fatalf("GetDiariesByBookIDAsc with from failed: %v", err)
+	}
+	if len(diaries) != 3 {
+		t.Fatalf("expected 3 diaries with from filter, got %d", len(diaries))
+	}
+	if diaries[0].Content != "日記2" {
+		t.Errorf("expected first diary to be '日記2', got '%s'", diaries[0].Content)
+	}
+
+	// toフィルタ
+	diaries, err = repo.GetDiariesByBookIDAsc(1, time.Time{}, time2)
+	if err != nil {
+		t.Fatalf("GetDiariesByBookIDAsc with to failed: %v", err)
+	}
+	if len(diaries) != 2 {
+		t.Fatalf("expected 2 diaries with to filter, got %d", len(diaries))
+	}
+	if diaries[1].Content != "日記2" {
+		t.Errorf("expected second diary to be '日記2', got '%s'", diaries[1].Content)
+	}
+
+	// from+toフィルタ
+	diaries, err = repo.GetDiariesByBookIDAsc(1, time2, time3)
+	if err != nil {
+		t.Fatalf("GetDiariesByBookIDAsc with from+to failed: %v", err)
+	}
+	if len(diaries) != 2 {
+		t.Fatalf("expected 2 diaries with from+to filter, got %d", len(diaries))
+	}
+	if diaries[0].Content != "日記2" {
+		t.Errorf("expected first diary to be '日記2', got '%s'", diaries[0].Content)
+	}
+	if diaries[1].Content != "日記3" {
+		t.Errorf("expected second diary to be '日記3', got '%s'", diaries[1].Content)
+	}
+
+	// 別の日記帳（bookID=2）は独立して取得できる
+	diaries, err = repo.GetDiariesByBookIDAsc(2, time.Time{}, time.Time{})
+	if err != nil {
+		t.Fatalf("GetDiariesByBookIDAsc for bookID 2 failed: %v", err)
+	}
+	if len(diaries) != 1 {
+		t.Fatalf("expected 1 diary for bookID 2, got %d", len(diaries))
+	}
+}
+
 func TestMockDiaryRepository_GetDiariesByBookID(t *testing.T) {
 	repo := NewMockDiaryRepository()
 

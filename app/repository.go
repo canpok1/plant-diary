@@ -97,6 +97,7 @@ type DiaryRepository interface {
 	GetAvailableYearMonths() ([]YearMonth, error)
 	SearchDiaries(keyword string) ([]Diary, error)
 	GetDiariesAsc(from, to time.Time) ([]Diary, error)
+	GetDiariesByBookIDAsc(bookID int, from, to time.Time) ([]Diary, error)
 }
 
 // MockDiaryRepository はメモリ上でデータを保持するモック実装
@@ -317,6 +318,34 @@ func (r *MockDiaryRepository) GetDiariesAsc(from, to time.Time) ([]Diary, error)
 		if from.IsZero() || (d.CreatedAt.Equal(from) || d.CreatedAt.After(from)) {
 			if to.IsZero() || (d.CreatedAt.Equal(to) || d.CreatedAt.Before(to)) {
 				result = append(result, *d)
+			}
+		}
+	}
+
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].CreatedAt.Before(result[j].CreatedAt)
+	})
+
+	return result, nil
+}
+
+// GetDiariesByBookIDAsc は指定日記帳IDの日記を古い順で返す。from/toがゼロ値の場合はその条件を無視する
+func (r *MockDiaryRepository) GetDiariesByBookIDAsc(bookID int, from, to time.Time) ([]Diary, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	diaryIDs, ok := r.bookDiaries[bookID]
+	if !ok {
+		return nil, nil
+	}
+
+	result := make([]Diary, 0)
+	for _, id := range diaryIDs {
+		if d, ok := r.diaries[id]; ok {
+			if from.IsZero() || (d.CreatedAt.Equal(from) || d.CreatedAt.After(from)) {
+				if to.IsZero() || (d.CreatedAt.Equal(to) || d.CreatedAt.Before(to)) {
+					result = append(result, *d)
+				}
 			}
 		}
 	}

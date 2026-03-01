@@ -983,6 +983,126 @@ func TestSQLiteBookRepository_ImplementsInterface(t *testing.T) {
 	var _ BookRepository = NewSQLiteBookRepository(db)
 }
 
+func TestSQLiteDiaryRepository_GetDiariesByBookIDAsc(t *testing.T) {
+	db := setupTestDB(t)
+	userRepo := NewSQLiteUserRepository(db)
+	bookRepo := NewSQLiteBookRepository(db)
+	diaryRepo := NewSQLiteDiaryRepository(db)
+
+	if err := userRepo.CreateUser("uuid-001", "alice", "hash"); err != nil {
+		t.Fatalf("CreateUser failed: %v", err)
+	}
+	alice, err := userRepo.GetUserByUsername("alice")
+	if err != nil {
+		t.Fatalf("GetUserByUsername failed: %v", err)
+	}
+
+	book1, err := bookRepo.CreateBook(alice.ID, "Book 1")
+	if err != nil {
+		t.Fatalf("CreateBook failed: %v", err)
+	}
+	book2, err := bookRepo.CreateBook(alice.ID, "Book 2")
+	if err != nil {
+		t.Fatalf("CreateBook failed: %v", err)
+	}
+
+	// 存在しないbookIDを指定した場合はnilを返す
+	diaries, err := diaryRepo.GetDiariesByBookIDAsc(9999, time.Time{}, time.Time{})
+	if err != nil {
+		t.Fatalf("GetDiariesByBookIDAsc failed: %v", err)
+	}
+	if diaries != nil {
+		t.Errorf("expected nil for non-existent bookID, got %v", diaries)
+	}
+
+	// 日記を追加
+	time1 := time.Date(2026, 1, 1, 10, 0, 0, 0, time.UTC)
+	time2 := time.Date(2026, 1, 2, 10, 0, 0, 0, time.UTC)
+	time3 := time.Date(2026, 1, 3, 10, 0, 0, 0, time.UTC)
+	time4 := time.Date(2026, 2, 1, 10, 0, 0, 0, time.UTC)
+
+	if err := diaryRepo.CreateDiaryForBook(book1.ID, alice.ID, "/path/1.jpg", "日記1", time1); err != nil {
+		t.Fatalf("CreateDiaryForBook failed: %v", err)
+	}
+	if err := diaryRepo.CreateDiaryForBook(book1.ID, alice.ID, "/path/2.jpg", "日記2", time2); err != nil {
+		t.Fatalf("CreateDiaryForBook failed: %v", err)
+	}
+	if err := diaryRepo.CreateDiaryForBook(book1.ID, alice.ID, "/path/3.jpg", "日記3", time3); err != nil {
+		t.Fatalf("CreateDiaryForBook failed: %v", err)
+	}
+	if err := diaryRepo.CreateDiaryForBook(book1.ID, alice.ID, "/path/4.jpg", "日記4", time4); err != nil {
+		t.Fatalf("CreateDiaryForBook failed: %v", err)
+	}
+	if err := diaryRepo.CreateDiaryForBook(book2.ID, alice.ID, "/path/5.jpg", "日記5", time1); err != nil {
+		t.Fatalf("CreateDiaryForBook failed: %v", err)
+	}
+
+	// 全件取得（book1の4件）
+	diaries, err = diaryRepo.GetDiariesByBookIDAsc(book1.ID, time.Time{}, time.Time{})
+	if err != nil {
+		t.Fatalf("GetDiariesByBookIDAsc failed: %v", err)
+	}
+	if len(diaries) != 4 {
+		t.Fatalf("expected 4 diaries for book1, got %d", len(diaries))
+	}
+
+	// 古い順（created_at ASC）であることを確認
+	if diaries[0].Content != "日記1" {
+		t.Errorf("expected first diary to be '日記1', got '%s'", diaries[0].Content)
+	}
+	if diaries[3].Content != "日記4" {
+		t.Errorf("expected last diary to be '日記4', got '%s'", diaries[3].Content)
+	}
+
+	// fromフィルタ
+	diaries, err = diaryRepo.GetDiariesByBookIDAsc(book1.ID, time2, time.Time{})
+	if err != nil {
+		t.Fatalf("GetDiariesByBookIDAsc with from failed: %v", err)
+	}
+	if len(diaries) != 3 {
+		t.Fatalf("expected 3 diaries with from filter, got %d", len(diaries))
+	}
+	if diaries[0].Content != "日記2" {
+		t.Errorf("expected first diary to be '日記2', got '%s'", diaries[0].Content)
+	}
+
+	// toフィルタ
+	diaries, err = diaryRepo.GetDiariesByBookIDAsc(book1.ID, time.Time{}, time2)
+	if err != nil {
+		t.Fatalf("GetDiariesByBookIDAsc with to failed: %v", err)
+	}
+	if len(diaries) != 2 {
+		t.Fatalf("expected 2 diaries with to filter, got %d", len(diaries))
+	}
+	if diaries[1].Content != "日記2" {
+		t.Errorf("expected second diary to be '日記2', got '%s'", diaries[1].Content)
+	}
+
+	// from+toフィルタ
+	diaries, err = diaryRepo.GetDiariesByBookIDAsc(book1.ID, time2, time3)
+	if err != nil {
+		t.Fatalf("GetDiariesByBookIDAsc with from+to failed: %v", err)
+	}
+	if len(diaries) != 2 {
+		t.Fatalf("expected 2 diaries with from+to filter, got %d", len(diaries))
+	}
+	if diaries[0].Content != "日記2" {
+		t.Errorf("expected first diary to be '日記2', got '%s'", diaries[0].Content)
+	}
+	if diaries[1].Content != "日記3" {
+		t.Errorf("expected second diary to be '日記3', got '%s'", diaries[1].Content)
+	}
+
+	// 別の日記帳（book2）は取得されない
+	diaries, err = diaryRepo.GetDiariesByBookIDAsc(book2.ID, time.Time{}, time.Time{})
+	if err != nil {
+		t.Fatalf("GetDiariesByBookIDAsc for book2 failed: %v", err)
+	}
+	if len(diaries) != 1 {
+		t.Fatalf("expected 1 diary for book2, got %d", len(diaries))
+	}
+}
+
 func TestSQLiteDiaryRepository_CreateDiaryForBook(t *testing.T) {
 	db := setupTestDB(t)
 	userRepo := NewSQLiteUserRepository(db)
