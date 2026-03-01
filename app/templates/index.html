@@ -231,6 +231,7 @@
         <nav>
             <a href="/slideshow">スライドショー</a>
             {{if .LoggedIn}}
+            <a href="/books">日記帳</a>
             <span class="user-info">{{.Username}}</span>
             <form method="POST" action="/logout" style="display:inline">
                 <button type="submit" class="logout-btn">ログアウト</button>

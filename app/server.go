@@ -748,19 +748,118 @@ func (s *Server) PostApiUsers(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// handleGetBooks は日記帳一覧ページを表示する（骨格）
+// handleGetBooks はログインユーザーの日記帳一覧ページを表示する
 func (s *Server) handleGetBooks(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "Not Implemented", http.StatusNotImplemented)
+	user, err := s.getCurrentUser(r)
+	if err != nil {
+		log.Printf("ERROR: failed to get current user: %v", err)
+		s.renderError(w, http.StatusInternalServerError)
+		return
+	}
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusFound)
+		return
+	}
+
+	books, err := s.bookRepo.GetBooksByCreatorID(user.ID)
+	if err != nil {
+		log.Printf("ERROR: failed to get books for user %d: %v", user.ID, err)
+		s.renderError(w, http.StatusInternalServerError)
+		return
+	}
+
+	data := map[string]interface{}{
+		"Books":    books,
+		"LoggedIn": true,
+		"Username": user.Username,
+	}
+
+	if err := s.templates.ExecuteTemplate(w, "books.html", data); err != nil {
+		log.Printf("ERROR: failed to render books template: %v", err)
+		s.renderError(w, http.StatusInternalServerError)
+	}
 }
 
-// handlePostBooks は日記帳を作成する（骨格）
+// handlePostBooks はフォームから name を受け取り日記帳を作成して詳細ページへリダイレクトする
 func (s *Server) handlePostBooks(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "Not Implemented", http.StatusNotImplemented)
+	user, err := s.getCurrentUser(r)
+	if err != nil {
+		log.Printf("ERROR: failed to get current user: %v", err)
+		s.renderError(w, http.StatusInternalServerError)
+		return
+	}
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusFound)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		s.renderError(w, http.StatusBadRequest)
+		return
+	}
+	name := r.FormValue("name")
+	if name == "" {
+		s.renderError(w, http.StatusBadRequest)
+		return
+	}
+
+	book, err := s.bookRepo.CreateBook(user.ID, name)
+	if err != nil {
+		log.Printf("ERROR: failed to create book for user %d: %v", user.ID, err)
+		s.renderError(w, http.StatusInternalServerError)
+		return
+	}
+
+	http.Redirect(w, r, fmt.Sprintf("/books/%d", book.ID), http.StatusFound)
 }
 
-// handleGetBook は日記帳詳細ページを表示する（骨格）
+// handleGetBook は日記帳詳細ページを表示する。作成者以外は403を返す
 func (s *Server) handleGetBook(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "Not Implemented", http.StatusNotImplemented)
+	idStr := r.PathValue("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		log.Printf("ERROR: invalid book id: %s", idStr)
+		s.renderError(w, http.StatusNotFound)
+		return
+	}
+
+	book, err := s.bookRepo.GetBookByID(id)
+	if err != nil {
+		log.Printf("ERROR: failed to get book %d: %v", id, err)
+		s.renderError(w, http.StatusInternalServerError)
+		return
+	}
+	if book == nil {
+		s.renderError(w, http.StatusNotFound)
+		return
+	}
+
+	user, err := s.getCurrentUser(r)
+	if err != nil {
+		log.Printf("ERROR: failed to get current user: %v", err)
+		s.renderError(w, http.StatusInternalServerError)
+		return
+	}
+	if user == nil {
+		http.Redirect(w, r, "/login", http.StatusFound)
+		return
+	}
+
+	if user.ID != book.CreatorID {
+		s.renderError(w, http.StatusForbidden)
+		return
+	}
+
+	data := map[string]interface{}{
+		"Book":     book,
+		"LoggedIn": true,
+		"Username": user.Username,
+	}
+
+	if err := s.templates.ExecuteTemplate(w, "book_detail.html", data); err != nil {
+		log.Printf("ERROR: failed to render book_detail template for book %d: %v", id, err)
+		s.renderError(w, http.StatusInternalServerError)
+	}
 }
 
 // renderError はエラーページをレンダリングする
@@ -769,6 +868,8 @@ func (s *Server) renderError(w http.ResponseWriter, statusCode int) {
 
 	var message string
 	switch statusCode {
+	case http.StatusForbidden:
+		message = "アクセスが拒否されました"
 	case http.StatusNotFound:
 		message = "ページが見つかりません"
 	case http.StatusInternalServerError:
