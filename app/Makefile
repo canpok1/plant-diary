@@ -14,6 +14,10 @@ lint:
 test:
 	go test -v -race -coverprofile=coverage.out ./...
 
+.PHONY: test-e2e
+test-e2e:
+	go test -v -tags e2e -race ./...
+
 .PHONY: build
 build:
 	go build -v ./...
