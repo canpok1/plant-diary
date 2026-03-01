@@ -78,116 +78,41 @@
             padding: 0 16px;
         }
 
-        .diary-list {
+        .book-list {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
             gap: 24px;
         }
 
-        .diary-card {
+        .book-card {
             border: 1px solid #e0e0e0;
             border-radius: 8px;
             overflow: hidden;
             background-color: #ffffff;
             transition: box-shadow 0.2s;
+            text-decoration: none;
+            color: inherit;
+            display: block;
         }
 
-        .diary-card:hover {
+        .book-card:hover {
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
         }
 
-        .diary-card img {
-            width: 100%;
-            max-width: 300px;
-            height: auto;
-            display: block;
-            margin: 0 auto;
+        .book-card-body {
+            padding: 20px 16px;
         }
 
-        .diary-card-body {
-            padding: 12px 16px;
-        }
-
-        .diary-card-date {
-            font-size: 0.85rem;
-            color: #888888;
+        .book-card-name {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #333333;
             margin-bottom: 8px;
         }
 
-        .diary-card-text {
-            font-size: 0.95rem;
-            color: #333333;
-            margin-bottom: 12px;
-        }
-
-        .diary-card-link {
-            display: inline-block;
-            font-size: 0.9rem;
-            color: #4a7c59;
-            text-decoration: none;
-            font-weight: bold;
-        }
-
-        .diary-card-link:hover {
-            text-decoration: underline;
-        }
-
-        .filter-form {
-            margin-bottom: 24px;
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .filter-form select {
-            padding: 8px 12px;
-            font-size: 0.95rem;
-            border: 1px solid #e0e0e0;
-            border-radius: 6px;
-            background-color: #ffffff;
-            color: #333333;
-            cursor: pointer;
-        }
-
-        .filter-form select:focus {
-            outline: none;
-            border-color: #4a7c59;
-        }
-
-        .search-form {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .search-form input[type="text"] {
-            padding: 8px 12px;
-            font-size: 0.95rem;
-            border: 1px solid #e0e0e0;
-            border-radius: 6px;
-            background-color: #ffffff;
-            color: #333333;
-            width: 200px;
-        }
-
-        .search-form input[type="text"]:focus {
-            outline: none;
-            border-color: #4a7c59;
-        }
-
-        .search-form button {
-            padding: 8px 16px;
-            font-size: 0.95rem;
-            border: none;
-            border-radius: 6px;
-            background-color: #4a7c59;
-            color: #ffffff;
-            cursor: pointer;
-        }
-
-        .search-form button:hover {
-            background-color: #3a6347;
+        .book-card-date {
+            font-size: 0.85rem;
+            color: #888888;
         }
 
         .empty-message {
@@ -214,13 +139,9 @@
                 padding: 0 12px;
             }
 
-            .diary-list {
+            .book-list {
                 grid-template-columns: 1fr;
                 gap: 16px;
-            }
-
-            .diary-card img {
-                max-width: 100%;
             }
         }
     </style>
@@ -231,7 +152,7 @@
         <nav>
             <a href="/slideshow">スライドショー</a>
             {{if .LoggedIn}}
-            <a href="/books">日記帳</a>
+            <a href="/books">日記帳管理</a>
             <span class="user-info">{{.Username}}</span>
             <form method="POST" action="/logout" style="display:inline">
                 <button type="submit" class="logout-btn">ログアウト</button>
@@ -242,65 +163,24 @@
         </nav>
     </header>
     <main>
-        <div class="filter-form">
-            <select onchange="applyMonthFilter(this.value)">
-                <option value=""{{if eq .SelectedYear 0}} selected{{end}}>全ての月</option>
-                {{range .AvailableMonths}}
-                <option value="{{.Year}}-{{printf "%02d" .Month}}"{{if and (eq .Year $.SelectedYear) (eq .Month $.SelectedMonth)}} selected{{end}}>{{.Year}}年{{.Month}}月</option>
-                {{end}}
-            </select>
-            <form class="search-form" onsubmit="applySearch(event)">
-                <input type="text" id="search-input" value="{{.Keyword}}" placeholder="キーワードで検索">
-                <button type="submit">検索</button>
-            </form>
-        </div>
-        {{if .Diaries}}
-        <div class="diary-list">
-            {{range .Diaries}}
-            <div class="diary-card">
-                <img src="/photos/{{.ImagePath}}" alt="植物の写真">
-                <div class="diary-card-body">
-                    <p class="diary-card-date">{{(.CreatedAt | toJST).Format "2006年1月2日"}}（{{.CreatedAt | toJST | weekdayJP}}）{{(.CreatedAt | toJST).Format "15:04"}}</p>
-                    <p class="diary-card-text">{{truncate .Content 50}}</p>
-                    <a class="diary-card-link" href="/diary/{{.ID}}">詳細を見る &rarr;</a>
+        {{if .Books}}
+        <div class="book-list">
+            {{range .Books}}
+            <a class="book-card" href="/books/{{.ID}}">
+                <div class="book-card-body">
+                    <p class="book-card-name">{{.Name}}</p>
+                    {{if .HasDiaries}}
+                    <p class="book-card-date">最新: {{(.LatestDiaryAt | toJST).Format "2006年1月2日 15:04"}}</p>
+                    {{else}}
+                    <p class="book-card-date">日記なし</p>
+                    {{end}}
                 </div>
-            </div>
+            </a>
             {{end}}
         </div>
         {{else}}
-        <p class="empty-message">まだ日記がありません。</p>
+        <p class="empty-message">日記帳がまだ登録されていません。</p>
         {{end}}
     </main>
-    <script>
-        function applyMonthFilter(value) {
-            var keyword = document.getElementById('search-input').value;
-            var params = [];
-            if (value) {
-                var parts = value.split('-');
-                params.push('year=' + parts[0]);
-                params.push('month=' + parts[1]);
-            }
-            if (keyword) {
-                params.push('q=' + encodeURIComponent(keyword));
-            }
-            window.location.href = params.length > 0 ? '/?' + params.join('&') : '/';
-        }
-
-        function applySearch(event) {
-            event.preventDefault();
-            var keyword = document.getElementById('search-input').value;
-            var params = [];
-            var selectedYear = {{.SelectedYear}};
-            var selectedMonth = {{.SelectedMonth}};
-            if (selectedYear && selectedMonth) {
-                params.push('year=' + selectedYear);
-                params.push('month=' + (selectedMonth < 10 ? '0' + selectedMonth : '' + selectedMonth));
-            }
-            if (keyword) {
-                params.push('q=' + encodeURIComponent(keyword));
-            }
-            window.location.href = params.length > 0 ? '/?' + params.join('&') : '/';
-        }
-    </script>
 </body>
 </html>

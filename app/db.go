@@ -505,6 +505,40 @@ func (r *SQLiteBookRepository) GetBookByID(id int) (*Book, error) {
 	return &b, nil
 }
 
+// GetAllBooks は全ての日記帳をBookView形式で最新日記日時とともに返す
+func (r *SQLiteBookRepository) GetAllBooks() ([]BookView, error) {
+	rows, err := r.db.Query(`
+		SELECT b.id, b.name,
+			(SELECT created_at FROM diary WHERE book_id = b.id ORDER BY created_at DESC LIMIT 1) as latest_diary_at
+		FROM books b
+		ORDER BY b.created_at DESC
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var result []BookView
+	for rows.Next() {
+		var bv BookView
+		var latestDiaryAt sql.NullTime
+		if err := rows.Scan(&bv.ID, &bv.Name, &latestDiaryAt); err != nil {
+			return nil, err
+		}
+		if latestDiaryAt.Valid {
+			bv.LatestDiaryAt = latestDiaryAt.Time
+			bv.HasDiaries = true
+		}
+
+		result = append(result, bv)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
 // GetBookByUploadKey は指定upload_keyの日記帳を返す。見つからない場合はnilを返す
 func (r *SQLiteBookRepository) GetBookByUploadKey(uploadKey string) (*Book, error) {
 	var b Book
@@ -535,6 +569,32 @@ func (r *SQLiteBookRepository) DeleteBook(id int) error {
 		return fmt.Errorf("book %d not found", id)
 	}
 	return nil
+}
+
+// GetDiariesByBookID は指定日記帳IDの日記を新着順（created_at DESC）で返す
+func (r *SQLiteDiaryRepository) GetDiariesByBookID(bookID int) ([]Diary, error) {
+	rows, err := r.db.Query(
+		"SELECT id, image_path, content, created_at FROM diary WHERE book_id = ? ORDER BY created_at DESC",
+		bookID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var diaries []Diary
+	for rows.Next() {
+		var d Diary
+		if err := rows.Scan(&d.ID, &d.ImagePath, &d.Content, &d.CreatedAt); err != nil {
+			return nil, err
+		}
+		diaries = append(diaries, d)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return diaries, nil
 }
 
 // GetDiariesInDateRange は指定日付範囲内の日記を古い順（created_at ASC）で返す

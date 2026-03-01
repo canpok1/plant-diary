@@ -94,7 +94,7 @@
         }
 
         main {
-            max-width: 720px;
+            max-width: 960px;
             margin: 0 auto;
             padding: 0 24px 48px;
         }
@@ -108,7 +108,7 @@
         .book-meta {
             color: #888888;
             font-size: 0.85rem;
-            margin-bottom: 32px;
+            margin-bottom: 16px;
         }
 
         .section-label {
@@ -135,6 +135,69 @@
             padding: 12px 16px;
             font-size: 0.85rem;
             color: #7a6400;
+            margin-bottom: 32px;
+        }
+
+        .diary-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 24px;
+            margin-top: 16px;
+        }
+
+        .diary-card {
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            overflow: hidden;
+            background-color: #ffffff;
+            transition: box-shadow 0.2s;
+        }
+
+        .diary-card:hover {
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+        }
+
+        .diary-card img {
+            width: 100%;
+            max-width: 300px;
+            height: auto;
+            display: block;
+            margin: 0 auto;
+        }
+
+        .diary-card-body {
+            padding: 12px 16px;
+        }
+
+        .diary-card-date {
+            font-size: 0.85rem;
+            color: #888888;
+            margin-bottom: 8px;
+        }
+
+        .diary-card-text {
+            font-size: 0.95rem;
+            color: #333333;
+            margin-bottom: 12px;
+        }
+
+        .diary-card-link {
+            display: inline-block;
+            font-size: 0.9rem;
+            color: #4a7c59;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .diary-card-link:hover {
+            text-decoration: underline;
+        }
+
+        .empty-message {
+            text-align: center;
+            color: #888888;
+            padding: 48px 0;
+            font-size: 1rem;
         }
 
         @media screen and (max-width: 640px) {
@@ -156,6 +219,15 @@
             main {
                 padding: 0 16px 32px;
             }
+
+            .diary-list {
+                grid-template-columns: 1fr;
+                gap: 16px;
+            }
+
+            .diary-card img {
+                max-width: 100%;
+            }
         }
     </style>
 </head>
@@ -163,21 +235,44 @@
     <header>
         <h1><a href="/">植物観察日記</a></h1>
         <nav>
-            <a href="/books">日記帳</a>
+            {{if .LoggedIn}}
+            <a href="/books">日記帳管理</a>
             <span class="user-info">{{.Username}}</span>
             <form method="POST" action="/logout" style="display:inline">
                 <button type="submit" class="logout-btn">ログアウト</button>
             </form>
+            {{else}}
+            <a href="/login">ログイン</a>
+            {{end}}
         </nav>
     </header>
-    <a class="back-link" href="/books">&larr; 日記帳一覧へ戻る</a>
+    <a class="back-link" href="/">&larr; 日記帳一覧へ戻る</a>
     <main>
         <p class="book-title">{{.Book.Name}}</p>
         <p class="book-meta">作成日時: {{(.Book.CreatedAt | toJST).Format "2006年1月2日 15:04"}}</p>
 
+        {{if .IsOwner}}
         <p class="section-label">アップロードキー</p>
         <div class="upload-key-box">{{.Book.UploadKey}}</div>
         <div class="security-notice">&#x26A0; このキーは外部に公開しないでください。</div>
+        {{end}}
+
+        {{if .Diaries}}
+        <div class="diary-list">
+            {{range .Diaries}}
+            <div class="diary-card">
+                <img src="/photos/{{.ImagePath}}" alt="植物の写真">
+                <div class="diary-card-body">
+                    <p class="diary-card-date">{{(.CreatedAt | toJST).Format "2006年1月2日"}}（{{.CreatedAt | toJST | weekdayJP}}）{{(.CreatedAt | toJST).Format "15:04"}}</p>
+                    <p class="diary-card-text">{{truncate .Content 50}}</p>
+                    <a class="diary-card-link" href="/diary/{{.ID}}">詳細を見る &rarr;</a>
+                </div>
+            </div>
+            {{end}}
+        </div>
+        {{else}}
+        <p class="empty-message">まだ日記がありません。</p>
+        {{end}}
     </main>
 </body>
 </html>
