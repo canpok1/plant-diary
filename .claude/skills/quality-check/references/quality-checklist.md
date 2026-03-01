@@ -62,12 +62,30 @@ go test -cover ./...
 - [ ] **パストラバーサル**: ファイルパスが検証されているか
 - [ ] **機密情報**: ハードコードされた認証情報がないか
 - [ ] **エラー情報**: 詳細すぎる情報を外部に漏らしていないか
+- [ ] **タイミング攻撃**: APIキー・トークン等の機密値の比較に `crypto/subtle.ConstantTimeCompare` を使用しているか（単純な `==` / `!=` 比較は不可）
 
 ```go
 // パストラバーサル対策の例
 cleanPath := filepath.Clean(userPath)
 if !strings.HasPrefix(cleanPath, "/safe/directory/") {
     return errors.New("invalid path")
+}
+```
+
+```go
+// タイミング攻撃対策の例
+import "crypto/subtle"
+
+// 良い例（定数時間比較）
+if subtle.ConstantTimeCompare([]byte(r.Header.Get("X-API-Key")), []byte(apiKey)) != 1 {
+    http.Error(w, "Unauthorized", http.StatusUnauthorized)
+    return
+}
+
+// 悪い例（タイミング攻撃に脆弱）
+if r.Header.Get("X-API-Key") != apiKey {
+    http.Error(w, "Unauthorized", http.StatusUnauthorized)
+    return
 }
 ```
 
