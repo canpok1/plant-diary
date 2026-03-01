@@ -154,6 +154,16 @@
             cursor: not-allowed;
         }
 
+        .slideshow-controls button.loop-off {
+            background-color: #ffffff;
+            color: #4a7c59;
+            border: 2px solid #4a7c59;
+        }
+
+        .slideshow-controls button.loop-off:hover {
+            background-color: #f0f7f2;
+        }
+
         .speed-control {
             display: flex;
             align-items: center;
@@ -253,6 +263,7 @@
                         <option value="5000">5秒</option>
                     </select>
                 </div>
+                <button id="btn-loop" onclick="toggleLoop()">ループ: ON</button>
             </div>
         </div>
         <script>
@@ -261,10 +272,19 @@
             var isPlaying = false;
             var intervalId = null;
             var speed = 1000;
+            var loopEnabled = true;
 
             function showSlide(index) {
                 if (photos.length === 0) return;
-                currentIndex = (index + photos.length) % photos.length;
+                if (loopEnabled) {
+                    currentIndex = (index + photos.length) % photos.length;
+                } else {
+                    if (index >= photos.length) {
+                        if (isPlaying) stopPlay();
+                        return;
+                    }
+                    currentIndex = Math.max(0, index);
+                }
                 var photo = photos[currentIndex];
                 document.getElementById('slideshow-img').src = photo.url;
                 var datetimeEl = document.getElementById('slideshow-datetime');
@@ -281,7 +301,22 @@
             }
 
             function nextSlide() {
+                if (!loopEnabled && currentIndex >= photos.length - 1) {
+                    return;
+                }
                 showSlide(currentIndex + 1);
+            }
+
+            function toggleLoop() {
+                loopEnabled = !loopEnabled;
+                var btn = document.getElementById('btn-loop');
+                if (loopEnabled) {
+                    btn.textContent = 'ループ: ON';
+                    btn.classList.remove('loop-off');
+                } else {
+                    btn.textContent = 'ループ: OFF';
+                    btn.classList.add('loop-off');
+                }
             }
 
             function togglePlay() {
