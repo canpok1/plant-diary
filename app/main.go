@@ -43,6 +43,9 @@ func main() {
 	// UserRepository の初期化（SQLite実装）
 	userRepo := NewSQLiteUserRepository(db)
 
+	// BookRepository の初期化（SQLite実装）
+	_ = NewSQLiteBookRepository(db)
+
 	// SessionRepository の初期化（SQLite実装）
 	sessionRepo := NewSQLiteSessionRepository(db)
 

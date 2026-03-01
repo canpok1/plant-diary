@@ -22,6 +22,16 @@ type Diary struct {
 	CreatedAt time.Time
 }
 
+// Book は日記帳を表す構造体
+type Book struct {
+	ID        int
+	UUID      string
+	CreatorID int
+	Name      string
+	UploadKey string
+	CreatedAt time.Time
+}
+
 // User はユーザーを表す構造体
 type User struct {
 	ID           int
@@ -29,6 +39,15 @@ type User struct {
 	Username     string
 	PasswordHash string
 	CreatedAt    time.Time
+}
+
+// BookRepository は日記帳データへのアクセスを定義するインターフェース
+type BookRepository interface {
+	CreateBook(creatorID int, name string) (*Book, error)
+	GetBooksByCreatorID(creatorID int) ([]Book, error)
+	GetBookByID(id int) (*Book, error)
+	GetBookByUploadKey(uploadKey string) (*Book, error)
+	DeleteBook(id int) error
 }
 
 // UserRepository はユーザーデータへのアクセスを定義するインターフェース
@@ -60,6 +79,7 @@ type DiaryRepository interface {
 	GetDiaryByID(id int) (*Diary, error)
 	CreateDiary(imagePath, content string, createdAt time.Time) error
 	CreateDiaryForUser(userID int, imagePath, content string, createdAt time.Time) error
+	CreateDiaryForBook(bookID, creatorID int, imagePath, content string, createdAt time.Time) error
 	UpdateDiaryContent(id int, content string) error
 	IsImageProcessed(imagePath string) (bool, error)
 	GetLatestDiaryCreatedAt() (time.Time, error)
@@ -135,6 +155,11 @@ func (r *MockDiaryRepository) UpdateDiaryContent(id int, content string) error {
 
 // CreateDiaryForUser は指定ユーザーの新しい日記エントリを作成する（モックではuserIDを無視）
 func (r *MockDiaryRepository) CreateDiaryForUser(userID int, imagePath, content string, createdAt time.Time) error {
+	return r.CreateDiary(imagePath, content, createdAt)
+}
+
+// CreateDiaryForBook は指定日記帳・クリエイターの新しい日記エントリを作成する（モックではbookID/creatorIDを無視）
+func (r *MockDiaryRepository) CreateDiaryForBook(bookID, creatorID int, imagePath, content string, createdAt time.Time) error {
 	return r.CreateDiary(imagePath, content, createdAt)
 }
 
@@ -278,4 +303,101 @@ func (r *MockDiaryRepository) GetDiariesInDateRange(startDate, endDate time.Time
 	}
 
 	return result, nil
+}
+
+// MockBookRepository はメモリ上でデータを保持するモック実装
+type MockBookRepository struct {
+	mu     sync.RWMutex
+	books  map[int]*Book
+	nextID int
+}
+
+// NewMockBookRepository は新しいMockBookRepositoryを生成する
+func NewMockBookRepository() *MockBookRepository {
+	return &MockBookRepository{
+		books:  make(map[int]*Book),
+		nextID: 1,
+	}
+}
+
+// CreateBook は新しい日記帳を作成する
+func (r *MockBookRepository) CreateBook(creatorID int, name string) (*Book, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	uuid, err := generateUUID()
+	if err != nil {
+		return nil, err
+	}
+	uploadKey, err := generateUUID()
+	if err != nil {
+		return nil, err
+	}
+
+	book := &Book{
+		ID:        r.nextID,
+		UUID:      uuid,
+		CreatorID: creatorID,
+		Name:      name,
+		UploadKey: uploadKey,
+		CreatedAt: time.Now(),
+	}
+	r.books[r.nextID] = book
+	r.nextID++
+
+	copy := *book
+	return &copy, nil
+}
+
+// GetBooksByCreatorID は指定クリエイターIDの日記帳一覧を返す
+func (r *MockBookRepository) GetBooksByCreatorID(creatorID int) ([]Book, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	result := make([]Book, 0)
+	for _, b := range r.books {
+		if b.CreatorID == creatorID {
+			result = append(result, *b)
+		}
+	}
+	return result, nil
+}
+
+// GetBookByID は指定IDの日記帳を返す。見つからない場合はnilを返す
+func (r *MockBookRepository) GetBookByID(id int) (*Book, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	b, ok := r.books[id]
+	if !ok {
+		return nil, nil
+	}
+	copy := *b
+	return &copy, nil
+}
+
+// GetBookByUploadKey は指定upload_keyの日記帳を返す。見つからない場合はnilを返す
+func (r *MockBookRepository) GetBookByUploadKey(uploadKey string) (*Book, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	for _, b := range r.books {
+		if b.UploadKey == uploadKey {
+			copy := *b
+			return &copy, nil
+		}
+	}
+	return nil, nil
+}
+
+// DeleteBook は指定IDの日記帳を削除する
+func (r *MockBookRepository) DeleteBook(id int) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if _, ok := r.books[id]; !ok {
+		return fmt.Errorf("book %d not found", id)
+	}
+	delete(r.books, id)
+	return nil
 }
