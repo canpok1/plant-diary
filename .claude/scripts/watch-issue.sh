@@ -10,8 +10,7 @@ while true; do
   # assign-to-claudeラベル付き、かつin-progress-by-claudeラベルが付いていないissueを1件取得（古い順）
   issue_number=$(gh issue list \
     --label "assign-to-claude" \
-    --sort created \
-    --order asc \
+    --search "sort:created-asc" \
     --json number,labels \
     --jq '.[] | select(.labels | map(.name) | contains(["in-progress-by-claude"]) | not) | .number' \
     | head -n 1)
