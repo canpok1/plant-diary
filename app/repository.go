@@ -20,6 +20,7 @@ type Diary struct {
 	ImagePath string
 	Content   string
 	CreatedAt time.Time
+	BookID    *int
 }
 
 // Book は日記帳を表す構造体
@@ -175,11 +176,13 @@ func (r *MockDiaryRepository) CreateDiaryForBook(bookID, creatorID int, imagePat
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
+	bookIDCopy := bookID
 	diary := &Diary{
 		ID:        r.nextID,
 		ImagePath: imagePath,
 		Content:   content,
 		CreatedAt: createdAt,
+		BookID:    &bookIDCopy,
 	}
 	r.diaries[r.nextID] = diary
 	r.bookDiaries[bookID] = append(r.bookDiaries[bookID], r.nextID)

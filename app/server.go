@@ -286,14 +286,27 @@ func (s *Server) handleDiary(w http.ResponseWriter, r *http.Request) {
 
 	loggedIn := currentUser != nil
 	username := ""
+	isOwner := false
 	if currentUser != nil {
 		username = currentUser.Username
+		if diary.BookID != nil {
+			book, err := s.bookRepo.GetBookByID(*diary.BookID)
+			if err != nil {
+				log.Printf("ERROR: failed to get book %d: %v", *diary.BookID, err)
+				s.renderError(w, http.StatusInternalServerError)
+				return
+			}
+			if book != nil {
+				isOwner = book.CreatorID == currentUser.ID
+			}
+		}
 	}
 
 	data := map[string]interface{}{
 		"Diary":    &diaryView,
 		"LoggedIn": loggedIn,
 		"Username": username,
+		"IsOwner":  isOwner,
 	}
 
 	if err := s.templates.ExecuteTemplate(w, "detail.html", data); err != nil {
@@ -331,15 +344,26 @@ func (s *Server) handleDiaryEditGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	username := ""
-	if currentUser != nil {
-		username = currentUser.Username
+	// 日記帳の作成者チェック
+	if diary.BookID == nil {
+		s.renderError(w, http.StatusForbidden)
+		return
+	}
+	book, err := s.bookRepo.GetBookByID(*diary.BookID)
+	if err != nil {
+		log.Printf("ERROR: failed to get book %d: %v", *diary.BookID, err)
+		s.renderError(w, http.StatusInternalServerError)
+		return
+	}
+	if book == nil || currentUser == nil || book.CreatorID != currentUser.ID {
+		s.renderError(w, http.StatusForbidden)
+		return
 	}
 
 	data := map[string]interface{}{
 		"Diary":    diary,
 		"LoggedIn": true,
-		"Username": username,
+		"Username": currentUser.Username,
 	}
 
 	if err := s.templates.ExecuteTemplate(w, "edit.html", data); err != nil {
@@ -373,6 +397,29 @@ func (s *Server) handleDiaryEditPost(w http.ResponseWriter, r *http.Request) {
 	}
 	if diary == nil {
 		s.renderError(w, http.StatusNotFound)
+		return
+	}
+
+	currentUser, err := s.getCurrentUser(r)
+	if err != nil {
+		log.Printf("ERROR: failed to get current user: %v", err)
+		s.renderError(w, http.StatusInternalServerError)
+		return
+	}
+
+	// 日記帳の作成者チェック
+	if diary.BookID == nil {
+		s.renderError(w, http.StatusForbidden)
+		return
+	}
+	book, err := s.bookRepo.GetBookByID(*diary.BookID)
+	if err != nil {
+		log.Printf("ERROR: failed to get book %d: %v", *diary.BookID, err)
+		s.renderError(w, http.StatusInternalServerError)
+		return
+	}
+	if book == nil || currentUser == nil || book.CreatorID != currentUser.ID {
+		s.renderError(w, http.StatusForbidden)
 		return
 	}
 
