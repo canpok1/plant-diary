@@ -645,7 +645,7 @@ func (s *Server) PostApiPhotos(w http.ResponseWriter, r *http.Request) {
 		startOfDay := time.Date(capturedAt.Year(), capturedAt.Month(), capturedAt.Day(), 0, 0, 0, 0, capturedAt.Location())
 		oneMonthAgo := startOfDay.AddDate(0, -1, 0)
 		endOfPrevDay := startOfDay.Add(-time.Nanosecond)
-		pastDiaries, err := s.repo.GetDiariesInDateRange(oneMonthAgo, endOfPrevDay)
+		pastDiaries, err := s.repo.GetDiariesInDateRange(book.ID, oneMonthAgo, endOfPrevDay)
 		if err != nil {
 			log.Printf("WARN: failed to get past diaries for %s: %v, continuing with empty history", imagePath, err)
 			pastDiaries = []Diary{}

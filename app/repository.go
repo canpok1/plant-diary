@@ -94,7 +94,7 @@ type DiaryRepository interface {
 	UpdateDiaryContent(id int, content string) error
 	IsImageProcessed(imagePath string) (bool, error)
 	GetLatestDiaryCreatedAt() (time.Time, error)
-	GetDiariesInDateRange(startDate, endDate time.Time) ([]Diary, error)
+	GetDiariesInDateRange(bookID int, startDate, endDate time.Time) ([]Diary, error)
 	GetAvailableYearMonths() ([]YearMonth, error)
 	SearchDiaries(keyword string) ([]Diary, error)
 	GetDiariesByBookIDAsc(bookID int, from, to time.Time) ([]Diary, error)
@@ -338,27 +338,30 @@ func (r *MockDiaryRepository) GetDiariesByBookIDAsc(bookID int, from, to time.Ti
 	return result, nil
 }
 
-// GetDiariesInDateRange は指定日付範囲内の日記を古い順で返す
-func (r *MockDiaryRepository) GetDiariesInDateRange(startDate, endDate time.Time) ([]Diary, error) {
+// GetDiariesInDateRange は指定日記帳・日付範囲内の日記を古い順で返す
+func (r *MockDiaryRepository) GetDiariesInDateRange(bookID int, startDate, endDate time.Time) ([]Diary, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
+	diaryIDs, ok := r.bookDiaries[bookID]
+	if !ok {
+		return []Diary{}, nil
+	}
+
 	result := make([]Diary, 0)
-	for _, d := range r.diaries {
-		if (d.CreatedAt.Equal(startDate) || d.CreatedAt.After(startDate)) &&
-			(d.CreatedAt.Equal(endDate) || d.CreatedAt.Before(endDate)) {
-			result = append(result, *d)
+	for _, id := range diaryIDs {
+		if d, ok := r.diaries[id]; ok {
+			if (d.CreatedAt.Equal(startDate) || d.CreatedAt.After(startDate)) &&
+				(d.CreatedAt.Equal(endDate) || d.CreatedAt.Before(endDate)) {
+				result = append(result, *d)
+			}
 		}
 	}
 
 	// 古い順（CreatedAt昇順）でソート
-	for i := 0; i < len(result); i++ {
-		for j := i + 1; j < len(result); j++ {
-			if result[j].CreatedAt.Before(result[i].CreatedAt) {
-				result[i], result[j] = result[j], result[i]
-			}
-		}
-	}
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].CreatedAt.Before(result[j].CreatedAt)
+	})
 
 	return result, nil
 }

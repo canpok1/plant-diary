@@ -597,9 +597,9 @@ func (r *SQLiteDiaryRepository) GetDiariesByBookIDAsc(bookID int, from, to time.
 	return diaries, nil
 }
 
-// GetDiariesInDateRange は指定日付範囲内の日記を古い順（created_at ASC）で返す
-func (r *SQLiteDiaryRepository) GetDiariesInDateRange(startDate, endDate time.Time) ([]Diary, error) {
-	rows, err := r.db.Query("SELECT id, image_path, content, created_at FROM diary WHERE created_at >= ? AND created_at <= ? ORDER BY created_at ASC", startDate, endDate)
+// GetDiariesInDateRange は指定日記帳・日付範囲内の日記を古い順（created_at ASC）で返す
+func (r *SQLiteDiaryRepository) GetDiariesInDateRange(bookID int, startDate, endDate time.Time) ([]Diary, error) {
+	rows, err := r.db.Query("SELECT id, image_path, content, created_at FROM diary WHERE book_id = ? AND created_at >= ? AND created_at <= ? ORDER BY created_at ASC", bookID, startDate, endDate)
 	if err != nil {
 		return nil, err
 	}
