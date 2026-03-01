@@ -1,7 +1,6 @@
 package main
 
 import (
-	"crypto/subtle"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -22,6 +21,7 @@ import (
 type Server struct {
 	repo        DiaryRepository
 	userRepo    UserRepository
+	bookRepo    BookRepository
 	sessionRepo SessionRepository
 	generator   DiaryGenerator
 	photosDir   string
@@ -30,7 +30,7 @@ type Server struct {
 }
 
 // NewServer は新しいServerを生成する
-func NewServer(repo DiaryRepository, userRepo UserRepository, sessionRepo SessionRepository, generator DiaryGenerator, photosDir string) (*Server, error) {
+func NewServer(repo DiaryRepository, userRepo UserRepository, bookRepo BookRepository, sessionRepo SessionRepository, generator DiaryGenerator, photosDir string) (*Server, error) {
 	// カスタムテンプレート関数を登録
 	funcMap := template.FuncMap{
 		"truncate": func(s string, length int) string {
@@ -64,6 +64,7 @@ func NewServer(repo DiaryRepository, userRepo UserRepository, sessionRepo Sessio
 	s := &Server{
 		repo:        repo,
 		userRepo:    userRepo,
+		bookRepo:    bookRepo,
 		sessionRepo: sessionRepo,
 		generator:   generator,
 		photosDir:   photosDir,
@@ -81,6 +82,9 @@ func NewServer(repo DiaryRepository, userRepo UserRepository, sessionRepo Sessio
 	s.mux.HandleFunc("GET /login", s.handleLoginGet)
 	s.mux.HandleFunc("POST /login", s.handleLoginPost)
 	s.mux.HandleFunc("POST /logout", s.handleLogout)
+	s.mux.HandleFunc("GET /books", s.requireLogin(s.handleGetBooks))
+	s.mux.HandleFunc("POST /books", s.requireLogin(s.handlePostBooks))
+	s.mux.HandleFunc("GET /books/{id}", s.requireLogin(s.handleGetBook))
 
 	HandlerFromMux(s, s.mux)
 
@@ -560,41 +564,27 @@ func (s *Server) handleSlideshow(w http.ResponseWriter, r *http.Request) {
 
 // PostApiPhotos は写真アップロードAPIのハンドラ（POST /api/photos）
 func (s *Server) PostApiPhotos(w http.ResponseWriter, r *http.Request) {
-	// UPLOAD_API_KEY が未設定の場合は 503
-	apiKey := os.Getenv("UPLOAD_API_KEY")
-	if apiKey == "" {
-		http.Error(w, "Service Unavailable", http.StatusServiceUnavailable)
-		return
-	}
-
-	// X-API-Key ヘッダーの検証（タイミング攻撃防止のため定数時間比較を使用）
-	if subtle.ConstantTimeCompare([]byte(r.Header.Get("X-API-Key")), []byte(apiKey)) != 1 {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	// multipart/form-data のパース（最大32MB）
 	if err := r.ParseMultipartForm(32 << 20); err != nil {
 		http.Error(w, "Bad Request", http.StatusBadRequest)
 		return
 	}
 
-	// user_uuid の取得・検証
-	userUUID := r.FormValue("user_uuid")
-	if len(userUUID) != 32 {
-		http.Error(w, "Bad Request: user_uuid must be 32 characters", http.StatusBadRequest)
+	// upload_key からBookを取得して認証
+	uploadKey := r.FormValue("upload_key")
+	if uploadKey == "" {
+		http.Error(w, "Bad Request: upload_key is required", http.StatusBadRequest)
 		return
 	}
 
-	// UUIDからユーザーを取得
-	user, err := s.userRepo.GetUserByUUID(userUUID)
+	book, err := s.bookRepo.GetBookByUploadKey(uploadKey)
 	if err != nil {
-		log.Printf("ERROR: failed to get user by UUID: %v", err)
+		log.Printf("ERROR: failed to get book by upload key: %v", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
-	if user == nil {
-		http.Error(w, "Bad Request: user not found", http.StatusBadRequest)
+	if book == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
@@ -617,17 +607,17 @@ func (s *Server) PostApiPhotos(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	// 保存先ディレクトリの作成
-	userDir := filepath.Join(s.photosDir, userUUID)
-	if err := os.MkdirAll(userDir, 0755); err != nil {
-		log.Printf("ERROR: failed to create user photo dir %s: %v", userDir, err)
+	// 保存先ディレクトリの作成（book.UUID ベース）
+	bookDir := filepath.Join(s.photosDir, book.UUID)
+	if err := os.MkdirAll(bookDir, 0755); err != nil {
+		log.Printf("ERROR: failed to create book photo dir %s: %v", bookDir, err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
 	// ファイル名生成（YYYYMMDD_HHMMSS_UTC.jpg）秒単位で衝突を回避
 	filename := capturedAt.Format("20060102_150405") + "_UTC.jpg"
-	imagePath := filepath.Join(userDir, filename)
+	imagePath := filepath.Join(bookDir, filename)
 
 	// ファイルの保存
 	dst, err := os.Create(imagePath)
@@ -682,7 +672,7 @@ func (s *Server) PostApiPhotos(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if err := s.repo.CreateDiaryForUser(user.ID, imagePath, content, capturedAt); err != nil {
+		if err := s.repo.CreateDiaryForBook(book.ID, book.CreatorID, imagePath, content, capturedAt); err != nil {
 			log.Printf("ERROR: failed to save diary for %s: %v", imagePath, err)
 			return
 		}
@@ -701,19 +691,6 @@ func (s *Server) PostApiPhotos(w http.ResponseWriter, r *http.Request) {
 
 // PostApiUsers はユーザー作成APIのハンドラ（POST /api/users）
 func (s *Server) PostApiUsers(w http.ResponseWriter, r *http.Request) {
-	// UPLOAD_API_KEY が未設定の場合は 503
-	apiKey := os.Getenv("UPLOAD_API_KEY")
-	if apiKey == "" {
-		http.Error(w, "Service Unavailable", http.StatusServiceUnavailable)
-		return
-	}
-
-	// X-API-Key ヘッダーの検証（タイミング攻撃防止のため定数時間比較を使用）
-	if subtle.ConstantTimeCompare([]byte(r.Header.Get("X-API-Key")), []byte(apiKey)) != 1 {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
 	// リクエストボディの解析
 	var req CreateUserRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -769,6 +746,21 @@ func (s *Server) PostApiUsers(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		log.Printf("ERROR: failed to encode response: %v", err)
 	}
+}
+
+// handleGetBooks は日記帳一覧ページを表示する（骨格）
+func (s *Server) handleGetBooks(w http.ResponseWriter, r *http.Request) {
+	http.Error(w, "Not Implemented", http.StatusNotImplemented)
+}
+
+// handlePostBooks は日記帳を作成する（骨格）
+func (s *Server) handlePostBooks(w http.ResponseWriter, r *http.Request) {
+	http.Error(w, "Not Implemented", http.StatusNotImplemented)
+}
+
+// handleGetBook は日記帳詳細ページを表示する（骨格）
+func (s *Server) handleGetBook(w http.ResponseWriter, r *http.Request) {
+	http.Error(w, "Not Implemented", http.StatusNotImplemented)
 }
 
 // renderError はエラーページをレンダリングする

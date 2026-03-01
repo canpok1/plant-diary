@@ -44,14 +44,14 @@ func main() {
 	userRepo := NewSQLiteUserRepository(db)
 
 	// BookRepository の初期化（SQLite実装）
-	_ = NewSQLiteBookRepository(db)
+	bookRepo := NewSQLiteBookRepository(db)
 
 	// SessionRepository の初期化（SQLite実装）
 	sessionRepo := NewSQLiteSessionRepository(db)
 
 	// HTTPサーバーの初期化と起動
 	photosDir := "data/photos"
-	srv, err := NewServer(repo, userRepo, sessionRepo, generator, photosDir)
+	srv, err := NewServer(repo, userRepo, bookRepo, sessionRepo, generator, photosDir)
 	if err != nil {
 		log.Fatalf("FATAL: failed to initialize server: %v", err)
 	}
