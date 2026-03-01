@@ -94,7 +94,7 @@ if !strings.HasPrefix(cleanPath, "/safe/directory/") {
 go mod tidy
 ```
 
-## 7. データベース操作との一貫性
+## 8. データベース操作との一貫性
 
 - [ ] **文字列比較の一貫性**: DB（SQLiteのLIKE等）と言語ネイティブ（strings.Contains等）の比較で大小文字区別が一致しているか
 - [ ] **インメモリフィルタ**: DBクエリ結果をさらにコード側でフィルタする場合、DBの挙動と一致しているか
