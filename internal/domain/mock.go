@@ -1,4 +1,4 @@
-package main
+package domain
 
 import (
 	"fmt"
@@ -6,99 +6,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"plant-diary/internal/utils"
 )
-
-// YearMonth は年月を表す構造体
-type YearMonth struct {
-	Year  int
-	Month int
-}
-
-// Diary は日記エントリを表す構造体
-type Diary struct {
-	ID        int
-	ImagePath string
-	Content   string
-	CreatedAt time.Time
-	BookID    *int
-}
-
-// Book は日記帳を表す構造体
-type Book struct {
-	ID        int
-	UUID      string
-	CreatorID int
-	Name      string
-	UploadKey string
-	CreatedAt time.Time
-}
-
-// BookView はトップページ表示用の日記帳情報
-type BookView struct {
-	ID            int
-	Name          string
-	LatestDiaryAt time.Time // 最新日記の日時（ゼロ値は日記なし）
-	HasDiaries    bool      // 日記が存在する場合true
-}
-
-// User はユーザーを表す構造体
-type User struct {
-	ID           int
-	UUID         string
-	Username     string
-	PasswordHash string
-	CreatedAt    time.Time
-}
-
-// BookRepository は日記帳データへのアクセスを定義するインターフェース
-type BookRepository interface {
-	CreateBook(creatorID int, name string) (*Book, error)
-	GetAllBooks() ([]BookView, error)
-	GetBooksByCreatorID(creatorID int) ([]Book, error)
-	GetBookByID(id int) (*Book, error)
-	GetBookByUploadKey(uploadKey string) (*Book, error)
-	DeleteBook(id int) error
-}
-
-// UserRepository はユーザーデータへのアクセスを定義するインターフェース
-type UserRepository interface {
-	CreateUser(uuid, username, passwordHash string) error
-	GetUserByUsername(username string) (*User, error)
-	GetUserByID(id int) (*User, error)
-	GetUserByUUID(uuid string) (*User, error)
-}
-
-// Session はセッションを表す構造体
-type Session struct {
-	ID        string
-	UserID    int
-	CreatedAt time.Time
-	ExpiresAt time.Time
-}
-
-// SessionRepository はセッションデータへのアクセスを定義するインターフェース
-type SessionRepository interface {
-	CreateSession(id string, userID int, expiresAt time.Time) error
-	GetSessionByID(id string) (*Session, error)
-	DeleteSession(id string) error
-}
-
-// DiaryRepository は日記データへのアクセスを定義するインターフェース
-type DiaryRepository interface {
-	GetAllDiaries() ([]Diary, error)
-	GetDiaryByID(id int) (*Diary, error)
-	GetDiariesByBookID(bookID int) ([]Diary, error)
-	CreateDiary(imagePath, content string, createdAt time.Time) error
-	CreateDiaryForUser(userID int, imagePath, content string, createdAt time.Time) error
-	CreateDiaryForBook(bookID, creatorID int, imagePath, content string, createdAt time.Time) error
-	UpdateDiaryContent(id int, content string) error
-	IsImageProcessed(imagePath string) (bool, error)
-	GetLatestDiaryCreatedAt() (time.Time, error)
-	GetDiariesInDateRange(bookID int, startDate, endDate time.Time) ([]Diary, error)
-	GetAvailableYearMonths() ([]YearMonth, error)
-	SearchDiaries(keyword string) ([]Diary, error)
-	GetDiariesByBookIDAsc(bookID int, from, to time.Time) ([]Diary, error)
-}
 
 // MockDiaryRepository はメモリ上でデータを保持するモック実装
 type MockDiaryRepository struct {
@@ -401,11 +311,11 @@ func (r *MockBookRepository) CreateBook(creatorID int, name string) (*Book, erro
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	uuid, err := generateUUID()
+	uuid, err := utils.GenerateUUID()
 	if err != nil {
 		return nil, err
 	}
-	uploadKey, err := generateUUID()
+	uploadKey, err := utils.GenerateUUID()
 	if err != nil {
 		return nil, err
 	}

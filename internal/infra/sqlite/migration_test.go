@@ -1,4 +1,4 @@
-package main
+package sqlite
 
 import (
 	"database/sql"
@@ -24,7 +24,7 @@ func setupMigrate(t *testing.T) (*sql.DB, *migrate.Migrate) {
 		t.Fatalf("failed to create migration driver: %v", err)
 	}
 
-	m, err := migrate.NewWithDatabaseInstance("file://migrations", "sqlite3", driver)
+	m, err := migrate.NewWithDatabaseInstance("file://../../../migrations", "sqlite3", driver)
 	if err != nil {
 		db.Close()
 		t.Fatalf("failed to create migrate instance: %v", err)

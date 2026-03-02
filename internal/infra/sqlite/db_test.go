@@ -1,9 +1,11 @@
-package main
+package sqlite
 
 import (
 	"database/sql"
 	"testing"
 	"time"
+
+	"plant-diary/internal/domain"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -239,7 +241,7 @@ func TestSQLiteDiaryRepository_IsImageProcessed(t *testing.T) {
 func TestSQLiteDiaryRepository_ImplementsInterface(t *testing.T) {
 	db := setupTestDB(t)
 	// コンパイル時にインターフェースを満たすことを確認
-	var _ DiaryRepository = NewSQLiteDiaryRepository(db)
+	var _ domain.DiaryRepository = NewSQLiteDiaryRepository(db)
 }
 
 func TestSQLiteDiaryRepository_CreateDiary_CustomCreatedAt(t *testing.T) {
@@ -628,7 +630,7 @@ func TestSQLiteUserRepository_GetUserByID(t *testing.T) {
 func TestSQLiteUserRepository_ImplementsInterface(t *testing.T) {
 	db := setupTestDB(t)
 	// コンパイル時にインターフェースを満たすことを確認
-	var _ UserRepository = NewSQLiteUserRepository(db)
+	var _ domain.UserRepository = NewSQLiteUserRepository(db)
 }
 
 func TestSQLiteSessionRepository_CreateAndGet(t *testing.T) {
@@ -724,7 +726,7 @@ func TestSQLiteSessionRepository_DeleteSession(t *testing.T) {
 func TestSQLiteSessionRepository_ImplementsInterface(t *testing.T) {
 	db := setupTestDB(t)
 	// コンパイル時にインターフェースを満たすことを確認
-	var _ SessionRepository = NewSQLiteSessionRepository(db)
+	var _ domain.SessionRepository = NewSQLiteSessionRepository(db)
 }
 
 func TestSQLiteBookRepository_CreateBook(t *testing.T) {
@@ -978,8 +980,7 @@ func TestSQLiteBookRepository_GetAllBooks(t *testing.T) {
 	}
 
 	// book1（日記あり）とbook2（日記なし）を確認
-	// 作成順（DESC）で返るため、book2が最初
-	var foundBook1, foundBook2 *BookView
+	var foundBook1, foundBook2 *domain.BookView
 	for i := range books {
 		if books[i].ID == book1.ID {
 			foundBook1 = &books[i]
@@ -1010,7 +1011,7 @@ func TestSQLiteBookRepository_GetAllBooks(t *testing.T) {
 func TestSQLiteBookRepository_ImplementsInterface(t *testing.T) {
 	db := setupTestDB(t)
 	// コンパイル時にインターフェースを満たすことを確認
-	var _ BookRepository = NewSQLiteBookRepository(db)
+	var _ domain.BookRepository = NewSQLiteBookRepository(db)
 }
 
 func TestSQLiteDiaryRepository_GetDiariesByBookIDAsc(t *testing.T) {

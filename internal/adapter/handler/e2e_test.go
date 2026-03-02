@@ -1,6 +1,6 @@
 //go:build e2e
 
-package main
+package handler
 
 import (
 	"bytes"
@@ -14,7 +14,60 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"plant-diary/internal/adapter"
+	"plant-diary/internal/infra/gemini"
+	"plant-diary/internal/infra/sqlite"
+
+	_ "github.com/mattn/go-sqlite3"
 )
+
+// setupE2ETestDB はE2Eテスト用のインメモリSQLiteデータベースを作成する
+func setupE2ETestDB(t *testing.T) *sql.DB {
+	t.Helper()
+	db, err := sql.Open("sqlite3", ":memory:")
+	if err != nil {
+		t.Fatalf("failed to open database: %v", err)
+	}
+	_, err = db.Exec(`
+		CREATE TABLE IF NOT EXISTS users (
+			id            INTEGER PRIMARY KEY AUTOINCREMENT,
+			uuid          TEXT NOT NULL UNIQUE,
+			username      TEXT NOT NULL UNIQUE,
+			password_hash TEXT NOT NULL,
+			created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+		);
+		CREATE TABLE IF NOT EXISTS books (
+			id         INTEGER PRIMARY KEY AUTOINCREMENT,
+			uuid       TEXT NOT NULL UNIQUE,
+			creator_id INTEGER NOT NULL REFERENCES users(id),
+			name       TEXT NOT NULL,
+			upload_key TEXT NOT NULL UNIQUE,
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+		);
+		CREATE TABLE IF NOT EXISTS diary (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			image_path TEXT NOT NULL UNIQUE,
+			content TEXT NOT NULL,
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			user_id INTEGER REFERENCES users(id),
+			book_id INTEGER REFERENCES books(id)
+		);
+		CREATE INDEX IF NOT EXISTS idx_created_at ON diary(created_at DESC);
+		CREATE TABLE IF NOT EXISTS sessions (
+			id         TEXT PRIMARY KEY,
+			user_id    INTEGER NOT NULL REFERENCES users(id),
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			expires_at DATETIME NOT NULL
+		);
+		CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
+	`)
+	if err != nil {
+		t.Fatalf("failed to create table: %v", err)
+	}
+	t.Cleanup(func() { db.Close() })
+	return db
+}
 
 // setupE2EServer はE2Eテスト用のHTTPサーバーを設定して起動する
 func setupE2EServer(t *testing.T) *httptest.Server {
@@ -28,14 +81,14 @@ func setupE2EServer(t *testing.T) *httptest.Server {
 func setupE2EServerWithDB(t *testing.T) (*httptest.Server, *sql.DB) {
 	t.Helper()
 
-	db := setupTestDB(t)
-	repo := NewSQLiteDiaryRepository(db)
-	userRepo := NewSQLiteUserRepository(db)
-	bookRepo := NewSQLiteBookRepository(db)
-	sessionRepo := NewSQLiteSessionRepository(db)
-	generator := &MockDiaryGenerator{}
+	db := setupE2ETestDB(t)
+	repo := sqlite.NewSQLiteDiaryRepository(db)
+	userRepo := sqlite.NewSQLiteUserRepository(db)
+	bookRepo := sqlite.NewSQLiteBookRepository(db)
+	sessionRepo := sqlite.NewSQLiteSessionRepository(db)
+	generator := &gemini.MockDiaryGenerator{}
 
-	srv, err := NewServer(repo, userRepo, bookRepo, sessionRepo, generator, t.TempDir())
+	srv, err := NewServer(repo, userRepo, bookRepo, sessionRepo, generator, "../../../templates", t.TempDir())
 	if err != nil {
 		t.Fatalf("failed to create server: %v", err)
 	}
@@ -124,7 +177,7 @@ func TestE2E_PostApiUsers_CreateUser(t *testing.T) {
 		t.Errorf("expected status 201, got %d", resp.StatusCode)
 	}
 
-	var result UserResponse
+	var result adapter.UserResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
@@ -374,21 +427,21 @@ func setupDiaryForOwner(t *testing.T, ts *httptest.Server, db *sql.DB, ownerUser
 	}
 
 	// オーナーユーザーを取得
-	userRepo := NewSQLiteUserRepository(db)
+	userRepo := sqlite.NewSQLiteUserRepository(db)
 	ownerUser, err := userRepo.GetUserByUsername(ownerUsername)
 	if err != nil || ownerUser == nil {
 		t.Fatalf("failed to get owner user: %v", err)
 	}
 
 	// 日記帳を作成
-	bookRepo := NewSQLiteBookRepository(db)
+	bookRepo := sqlite.NewSQLiteBookRepository(db)
 	book, err := bookRepo.CreateBook(ownerUser.ID, "Test Book")
 	if err != nil {
 		t.Fatalf("failed to create book: %v", err)
 	}
 
 	// 日記を作成
-	diaryRepo := NewSQLiteDiaryRepository(db)
+	diaryRepo := sqlite.NewSQLiteDiaryRepository(db)
 	if err := diaryRepo.CreateDiaryForBook(book.ID, ownerUser.ID, "/photos/test.jpg", "テスト日記", time.Now()); err != nil {
 		t.Fatalf("failed to create diary: %v", err)
 	}

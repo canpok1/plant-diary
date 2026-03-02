@@ -1,9 +1,11 @@
-package main
+package handler
 
 import (
 	"fmt"
 	"strings"
 	"time"
+
+	"plant-diary/internal/domain"
 )
 
 const (
@@ -12,7 +14,7 @@ const (
 )
 
 // buildDiaryPrompt は過去日記を含む動的プロンプトを生成する。
-func buildDiaryPrompt(pastDiaries []Diary) string {
+func buildDiaryPrompt(pastDiaries []domain.Diary) string {
 	if len(pastDiaries) == 0 {
 		return basePrompt
 	}
