@@ -610,8 +610,8 @@ func (s *Server) PostApiPhotos(w http.ResponseWriter, r *http.Request) {
 
 	// ファイル名生成（YYYYMMDD_HHMMSS_UTC.jpg）秒単位で衝突を回避
 	filename := capturedAt.Format("20060102_150405") + "_UTC.jpg"
-	diskImagePath := filepath.Join(bookDir, filename)  // ファイルシステム上のパス（AI生成・ファイル保存用）
-	dbImagePath := filepath.Join(book.UUID, filename)  // DB保存用相対パス（{Book.UUID}/{filename}）
+	diskImagePath := filepath.Join(bookDir, filename) // ファイルシステム上のパス（AI生成・ファイル保存用）
+	dbImagePath := filepath.Join(book.UUID, filename) // DB保存用相対パス（{Book.UUID}/{filename}）
 
 	// ファイルの保存
 	dst, err := os.Create(diskImagePath)
