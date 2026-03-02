@@ -76,7 +76,7 @@ func TestMigrations_AllDown(t *testing.T) {
 func TestMigrations_StepByStep(t *testing.T) {
 	_, m := setupMigrate(t)
 
-	const numMigrations = 5
+	const numMigrations = 6
 
 	// 1ステップずつUpを適用
 	for step := 1; step <= numMigrations; step++ {
