@@ -273,9 +273,7 @@ func (s *Server) handleDiary(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// ImagePathからファイル名のみを抽出（表示用コピー）
 	diaryView := *diary
-	diaryView.ImagePath = filepath.Base(diary.ImagePath)
 
 	currentUser, err := s.getCurrentUser(r)
 	if err != nil {
@@ -522,7 +520,6 @@ func (s *Server) handleBookSlideshow(w http.ResponseWriter, r *http.Request) {
 	}
 	photos := make([]photoItem, 0, len(diaries))
 	for i := range diaries {
-		diaries[i].ImagePath = filepath.Base(diaries[i].ImagePath)
 		t := diaries[i].CreatedAt.In(jstZone)
 		dateTime := fmt.Sprintf("%d年%d月%d日（%s）%s",
 			t.Year(), int(t.Month()), t.Day(),
@@ -613,20 +610,21 @@ func (s *Server) PostApiPhotos(w http.ResponseWriter, r *http.Request) {
 
 	// ファイル名生成（YYYYMMDD_HHMMSS_UTC.jpg）秒単位で衝突を回避
 	filename := capturedAt.Format("20060102_150405") + "_UTC.jpg"
-	imagePath := filepath.Join(bookDir, filename)
+	diskImagePath := filepath.Join(bookDir, filename) // ファイルシステム上のパス（AI生成・ファイル保存用）
+	dbImagePath := filepath.Join(book.UUID, filename) // DB保存用相対パス（{Book.UUID}/{filename}）
 
 	// ファイルの保存
-	dst, err := os.Create(imagePath)
+	dst, err := os.Create(diskImagePath)
 	if err != nil {
-		log.Printf("ERROR: failed to create photo file %s: %v", imagePath, err)
+		log.Printf("ERROR: failed to create photo file %s: %v", diskImagePath, err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
 	if _, err := io.Copy(dst, file); err != nil {
 		dst.Close()
-		os.Remove(imagePath)
-		log.Printf("ERROR: failed to save photo file %s: %v", imagePath, err)
+		os.Remove(diskImagePath)
+		log.Printf("ERROR: failed to save photo file %s: %v", diskImagePath, err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -647,33 +645,33 @@ func (s *Server) PostApiPhotos(w http.ResponseWriter, r *http.Request) {
 		endOfPrevDay := startOfDay.Add(-time.Nanosecond)
 		pastDiaries, err := s.repo.GetDiariesInDateRange(book.ID, oneMonthAgo, endOfPrevDay)
 		if err != nil {
-			log.Printf("WARN: failed to get past diaries for %s: %v, continuing with empty history", imagePath, err)
+			log.Printf("WARN: failed to get past diaries for %s: %v, continuing with empty history", diskImagePath, err)
 			pastDiaries = []Diary{}
 		}
 
 		prompt := buildDiaryPrompt(pastDiaries)
 
 		var content string
-		retryErr := Retry(DefaultRetryConfig(), fmt.Sprintf("generate diary for %s", imagePath), func() error {
+		retryErr := Retry(DefaultRetryConfig(), fmt.Sprintf("generate diary for %s", diskImagePath), func() error {
 			var genErr error
 			if genWithPrompt, ok := s.generator.(DiaryGeneratorWithPrompt); ok {
-				content, genErr = genWithPrompt.GenerateDiaryWithPrompt(imagePath, prompt)
+				content, genErr = genWithPrompt.GenerateDiaryWithPrompt(diskImagePath, prompt)
 			} else {
-				content, genErr = s.generator.GenerateDiary(imagePath)
+				content, genErr = s.generator.GenerateDiary(diskImagePath)
 			}
 			return genErr
 		})
 		if retryErr != nil {
-			log.Printf("ERROR: failed to generate diary for %s: %v", imagePath, retryErr)
+			log.Printf("ERROR: failed to generate diary for %s: %v", diskImagePath, retryErr)
 			return
 		}
 
-		if err := s.repo.CreateDiaryForBook(book.ID, book.CreatorID, imagePath, content, capturedAt); err != nil {
-			log.Printf("ERROR: failed to save diary for %s: %v", imagePath, err)
+		if err := s.repo.CreateDiaryForBook(book.ID, book.CreatorID, dbImagePath, content, capturedAt); err != nil {
+			log.Printf("ERROR: failed to save diary for %s: %v", diskImagePath, err)
 			return
 		}
 
-		log.Printf("INFO: diary created for %s (job_id: %s)", imagePath, jobID)
+		log.Printf("INFO: diary created for %s (job_id: %s)", diskImagePath, jobID)
 	}()
 
 	// 202 Accepted を返す
@@ -835,11 +833,6 @@ func (s *Server) handleGetBook(w http.ResponseWriter, r *http.Request) {
 		log.Printf("ERROR: failed to get diaries for book %d: %v", id, err)
 		s.renderError(w, http.StatusInternalServerError)
 		return
-	}
-
-	// ImagePathをファイル名のみに変換
-	for i := range diaries {
-		diaries[i].ImagePath = filepath.Base(diaries[i].ImagePath)
 	}
 
 	currentUser, err := s.getCurrentUser(r)
