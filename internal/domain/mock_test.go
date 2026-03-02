@@ -1,4 +1,4 @@
-package main
+package domain
 
 import (
 	"testing"
@@ -648,4 +648,9 @@ func TestMockDiaryRepository_GetDiariesByBookID(t *testing.T) {
 	if len(diaries) != 1 {
 		t.Errorf("expected 1 diary for bookID 2, got %d", len(diaries))
 	}
+}
+
+func TestMockDiaryRepository_ImplementsInterface(t *testing.T) {
+	// コンパイル時にインターフェースを満たすことを確認
+	var _ DiaryRepository = NewMockDiaryRepository()
 }

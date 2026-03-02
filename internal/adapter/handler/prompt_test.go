@@ -1,14 +1,16 @@
-package main
+package handler
 
 import (
 	"fmt"
 	"strings"
 	"testing"
 	"time"
+
+	"plant-diary/internal/domain"
 )
 
 func TestBuildDiaryPrompt_NoPastDiaries(t *testing.T) {
-	pastDiaries := []Diary{}
+	pastDiaries := []domain.Diary{}
 
 	prompt := buildDiaryPrompt(pastDiaries)
 
@@ -24,7 +26,7 @@ func TestBuildDiaryPrompt_WithPastDiaries(t *testing.T) {
 	time1 := time.Date(2026, 1, 20, 11, 10, 0, 0, time.UTC) // JST: 2026-01-20 20:10
 	time2 := time.Date(2026, 2, 1, 10, 30, 0, 0, time.UTC)  // JST: 2026-02-01 19:30
 
-	pastDiaries := []Diary{
+	pastDiaries := []domain.Diary{
 		{ID: 1, ImagePath: "/path/1.jpg", Content: "新しい芽が出ました。小さいですが、元気そうです。", CreatedAt: time1},
 		{ID: 2, ImagePath: "/path/2.jpg", Content: "葉が大きく成長しています。前回よりも色が濃くなりました。", CreatedAt: time2},
 	}
@@ -67,10 +69,10 @@ func TestBuildDiaryPrompt_WithPastDiaries(t *testing.T) {
 
 func TestBuildDiaryPrompt_ExceedsMaxEntries(t *testing.T) {
 	// 40件の過去日記を作成（maxPastDiariesInPromptを超える）
-	pastDiaries := make([]Diary, 40)
+	pastDiaries := make([]domain.Diary, 40)
 	baseTime := time.Date(2026, 1, 1, 10, 0, 0, 0, time.UTC)
 	for i := 0; i < 40; i++ {
-		pastDiaries[i] = Diary{
+		pastDiaries[i] = domain.Diary{
 			ID:        i + 1,
 			ImagePath: fmt.Sprintf("/path/%d.jpg", i+1),
 			Content:   fmt.Sprintf("日記%d番目", i+1),

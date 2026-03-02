@@ -1,10 +1,10 @@
 # Build stage
 FROM golang:1.26-alpine AS builder
 WORKDIR /app
-COPY app/go.mod app/go.sum ./
+COPY go.mod go.sum ./
 RUN apk add --no-cache gcc musl-dev && go mod download
-COPY app/ .
-RUN CGO_ENABLED=1 go build -o plant-diary .
+COPY . .
+RUN CGO_ENABLED=1 go build -o plant-diary ./cmd/server
 
 # Run stage
 FROM alpine:3.21

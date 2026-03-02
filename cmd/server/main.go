@@ -8,6 +8,11 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+
+	"plant-diary/internal/adapter/handler"
+	"plant-diary/internal/infra/gemini"
+	"plant-diary/internal/infra/sqlite"
+	"plant-diary/internal/usecase"
 )
 
 func main() {
@@ -16,42 +21,43 @@ func main() {
 	// DB初期化とマイグレーション実行
 	dbPath := "data/plant_log.db"
 	migrationsPath := "migrations"
-	db, err := InitDB(dbPath, migrationsPath)
+	db, err := sqlite.InitDB(dbPath, migrationsPath)
 	if err != nil {
 		log.Fatalf("FATAL: failed to initialize database: %v", err)
 	}
 	defer db.Close()
 
 	// DiaryGenerator の初期化
-	var generator DiaryGenerator
+	var generator usecase.DiaryGenerator
 	if apiKey := os.Getenv("GEMINI_API_KEY"); apiKey != "" {
-		geminiGen, err := NewGeminiDiaryGenerator()
+		geminiGen, err := gemini.NewGeminiDiaryGenerator()
 		if err != nil {
 			log.Fatalf("FATAL: failed to initialize Gemini API: %v", err)
 		}
 		generator = geminiGen
 		log.Println("INFO: Using GeminiDiaryGenerator")
 	} else {
-		generator = &MockDiaryGenerator{}
+		generator = &gemini.MockDiaryGenerator{}
 		log.Println("INFO: Using MockDiaryGenerator (GEMINI_API_KEY not set)")
 	}
 
 	// DiaryRepository の初期化（SQLite実装）
-	repo := NewSQLiteDiaryRepository(db)
+	repo := sqlite.NewSQLiteDiaryRepository(db)
 	log.Println("INFO: Using SQLiteDiaryRepository")
 
 	// UserRepository の初期化（SQLite実装）
-	userRepo := NewSQLiteUserRepository(db)
+	userRepo := sqlite.NewSQLiteUserRepository(db)
 
 	// BookRepository の初期化（SQLite実装）
-	bookRepo := NewSQLiteBookRepository(db)
+	bookRepo := sqlite.NewSQLiteBookRepository(db)
 
 	// SessionRepository の初期化（SQLite実装）
-	sessionRepo := NewSQLiteSessionRepository(db)
+	sessionRepo := sqlite.NewSQLiteSessionRepository(db)
 
 	// HTTPサーバーの初期化と起動
+	templatesDir := "templates"
 	photosDir := "data/photos"
-	srv, err := NewServer(repo, userRepo, bookRepo, sessionRepo, generator, photosDir)
+	srv, err := handler.NewServer(repo, userRepo, bookRepo, sessionRepo, generator, templatesDir, photosDir)
 	if err != nil {
 		log.Fatalf("FATAL: failed to initialize server: %v", err)
 	}
