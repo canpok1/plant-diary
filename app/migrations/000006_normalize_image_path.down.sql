@@ -1,4 +1,6 @@
--- このマイグレーションはデータの正規化であり、ロールバックは安全に行えない。
--- image_path の旧形式（data/photos/ プレフィックス付き）と新形式を区別する情報がDBに存在しないため、
--- 元の状態に戻すことができない。
-SELECT 1;
+-- diary.image_path に 'data/photos/' プレフィックスを付与して旧形式に戻す
+-- NOT LIKE 条件により、すでにプレフィックスが付いている行への二重付与を防ぐ
+-- 注意: migration 006 適用前から新形式で保存されていた行にも誤ってプレフィックスが付与される可能性がある
+UPDATE diary
+SET image_path = 'data/photos/' || image_path
+WHERE image_path NOT LIKE 'data/photos/%';
