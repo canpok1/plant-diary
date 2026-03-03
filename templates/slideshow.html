@@ -154,14 +154,19 @@
             cursor: not-allowed;
         }
 
-        .slideshow-controls button.loop-off {
-            background-color: #ffffff;
-            color: #4a7c59;
-            border: 2px solid #4a7c59;
+        .loop-control {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.95rem;
+            cursor: pointer;
         }
 
-        .slideshow-controls button.loop-off:hover {
-            background-color: #f0f7f2;
+        .loop-control input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+            accent-color: #4a7c59;
         }
 
         .speed-control {
@@ -263,7 +268,10 @@
                         <option value="5000">5秒</option>
                     </select>
                 </div>
-                <button id="btn-loop" onclick="toggleLoop()">ループ: ON</button>
+                <div class="loop-control">
+                    <input type="checkbox" id="chk-loop" checked onchange="toggleLoop()">
+                    <label for="chk-loop">ループ再生</label>
+                </div>
             </div>
         </div>
         <script>
@@ -308,15 +316,7 @@
             }
 
             function toggleLoop() {
-                loopEnabled = !loopEnabled;
-                var btn = document.getElementById('btn-loop');
-                if (loopEnabled) {
-                    btn.textContent = 'ループ: ON';
-                    btn.classList.remove('loop-off');
-                } else {
-                    btn.textContent = 'ループ: OFF';
-                    btn.classList.add('loop-off');
-                }
+                loopEnabled = document.getElementById('chk-loop').checked;
             }
 
             function togglePlay() {
