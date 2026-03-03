@@ -167,6 +167,50 @@ func (s *Server) handleGetBook(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// handleBookSettings は日記帳設定ページを表示する
+func (s *Server) handleBookSettings(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		log.Printf("ERROR: invalid book id: %s", idStr)
+		s.renderError(w, http.StatusNotFound)
+		return
+	}
+
+	book, err := s.bookRepo.GetBookByID(id)
+	if err != nil {
+		log.Printf("ERROR: failed to get book %d: %v", id, err)
+		s.renderError(w, http.StatusInternalServerError)
+		return
+	}
+	if book == nil {
+		s.renderError(w, http.StatusNotFound)
+		return
+	}
+
+	currentUser, err := s.getCurrentUser(r)
+	if err != nil {
+		log.Printf("ERROR: failed to get current user: %v", err)
+		s.renderError(w, http.StatusInternalServerError)
+		return
+	}
+
+	if currentUser == nil || currentUser.ID != book.CreatorID {
+		s.renderError(w, http.StatusForbidden)
+		return
+	}
+
+	data := map[string]interface{}{
+		"Book":     book,
+		"Username": currentUser.Username,
+	}
+
+	if err := s.templates.ExecuteTemplate(w, "book_settings.html", data); err != nil {
+		log.Printf("ERROR: failed to render book_settings template for book %d: %v", id, err)
+		s.renderError(w, http.StatusInternalServerError)
+	}
+}
+
 // handleBookSlideshow は日記帳別スライドショーページを表示する
 func (s *Server) handleBookSlideshow(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
