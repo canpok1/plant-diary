@@ -21,17 +21,17 @@ func setupMigrate(t *testing.T) (*sql.DB, *migrate.Migrate) {
 
 	driver, err := sqlite3.WithInstance(db, &sqlite3.Config{})
 	if err != nil {
-		db.Close()
+		db.Close() //nolint:errcheck
 		t.Fatalf("failed to create migration driver: %v", err)
 	}
 
 	m, err := migrate.NewWithDatabaseInstance("file://../../../migrations", "sqlite3", driver)
 	if err != nil {
-		db.Close()
+		db.Close() //nolint:errcheck
 		t.Fatalf("failed to create migrate instance: %v", err)
 	}
 
-	t.Cleanup(func() { db.Close() })
+	t.Cleanup(func() { db.Close() }) //nolint:errcheck
 
 	return db, m
 }
@@ -173,7 +173,7 @@ func migrationGetColumns(t *testing.T, db *sql.DB, table string) []string {
 	if err != nil {
 		t.Fatalf("failed to get table info for %s: %v", table, err)
 	}
-	defer rows.Close()
+	defer rows.Close() //nolint:errcheck
 
 	var columns []string
 	for rows.Next() {

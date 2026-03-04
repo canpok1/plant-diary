@@ -96,7 +96,7 @@ func (s *Server) PostApiPhotos(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Bad Request: photo field is required", http.StatusBadRequest)
 		return
 	}
-	defer file.Close()
+	defer file.Close() //nolint:errcheck
 
 	// 保存先ディレクトリの作成（book.UUID ベース）
 	bookDir := filepath.Join(s.photosDir, book.UUID)
@@ -120,13 +120,21 @@ func (s *Server) PostApiPhotos(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if _, err := io.Copy(dst, file); err != nil {
-		dst.Close()
-		os.Remove(diskImagePath)
+		if closeErr := dst.Close(); closeErr != nil {
+			log.Printf("WARN: failed to close photo file %s: %v", diskImagePath, closeErr)
+		}
+		if removeErr := os.Remove(diskImagePath); removeErr != nil {
+			log.Printf("WARN: failed to remove photo file %s: %v", diskImagePath, removeErr)
+		}
 		log.Printf("ERROR: failed to save photo file %s: %v", diskImagePath, err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
-	dst.Close()
+	if err := dst.Close(); err != nil {
+		log.Printf("ERROR: failed to close photo file %s: %v", diskImagePath, err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
 
 	// ジョブIDを生成
 	jobID, err := utils.GenerateUUID()

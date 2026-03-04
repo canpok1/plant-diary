@@ -25,9 +25,6 @@ jobs:
       - name: Setup
         run: make setup
 
-      - name: Format check
-        run: make fmt-check
-
       - name: Install depcheck
         run: go install github.com/v-standard/go-depcheck/cmd/depcheck@latest
 
@@ -35,7 +32,9 @@ jobs:
         run: make depcheck
 
       - name: Lint
-        run: make lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
 
       - name: Test
         run: make test

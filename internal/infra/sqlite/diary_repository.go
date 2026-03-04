@@ -24,7 +24,7 @@ func (r *SQLiteDiaryRepository) GetAllDiaries() ([]domain.Diary, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer rows.Close() //nolint:errcheck
 
 	var diaries []domain.Diary
 	for rows.Next() {
@@ -133,7 +133,7 @@ func (r *SQLiteDiaryRepository) GetAvailableYearMonths() ([]domain.YearMonth, er
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer rows.Close() //nolint:errcheck
 
 	var result []domain.YearMonth
 	for rows.Next() {
@@ -159,7 +159,7 @@ func (r *SQLiteDiaryRepository) SearchDiaries(keyword string) ([]domain.Diary, e
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer rows.Close() //nolint:errcheck
 
 	var diaries []domain.Diary
 	for rows.Next() {
@@ -185,7 +185,7 @@ func (r *SQLiteDiaryRepository) GetDiariesByBookID(bookID int) ([]domain.Diary, 
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer rows.Close() //nolint:errcheck
 
 	var diaries []domain.Diary
 	for rows.Next() {
@@ -220,7 +220,7 @@ func (r *SQLiteDiaryRepository) GetDiariesByBookIDAsc(bookID int, from, to time.
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer rows.Close() //nolint:errcheck
 
 	var diaries []domain.Diary
 	for rows.Next() {
@@ -243,7 +243,7 @@ func (r *SQLiteDiaryRepository) GetDiariesInDateRange(bookID int, startDate, end
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer rows.Close() //nolint:errcheck
 
 	var diaries []domain.Diary
 	for rows.Next() {
