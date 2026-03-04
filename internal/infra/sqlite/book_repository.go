@@ -137,6 +137,22 @@ func (r *SQLiteBookRepository) GetBookByUploadKey(uploadKey string) (*domain.Boo
 	return &b, nil
 }
 
+// UpdateBookName は指定IDの日記帳の名前を更新する
+func (r *SQLiteBookRepository) UpdateBookName(id int, name string) error {
+	result, err := r.db.Exec("UPDATE books SET name = ? WHERE id = ?", name, id)
+	if err != nil {
+		return err
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return fmt.Errorf("book %d not found", id)
+	}
+	return nil
+}
+
 // DeleteBook は指定IDの日記帳を削除する
 func (r *SQLiteBookRepository) DeleteBook(id int) error {
 	result, err := r.db.Exec("DELETE FROM books WHERE id = ?", id)

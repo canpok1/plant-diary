@@ -80,6 +80,7 @@ func NewServer(repo domain.DiaryRepository, userRepo domain.UserRepository, book
 	s.mux.HandleFunc("POST /books", s.requireLogin(s.handlePostBooks))
 	s.mux.HandleFunc("GET /books/{id}", s.handleGetBook)
 	s.mux.HandleFunc("GET /books/{id}/settings", s.requireLogin(s.handleBookSettings))
+	s.mux.HandleFunc("POST /books/{id}/settings", s.requireLogin(s.handleBookSettingsPost))
 	s.mux.HandleFunc("GET /books/{id}/slideshow", s.handleBookSlideshow)
 
 	adapter.HandlerFromMux(s, s.mux)

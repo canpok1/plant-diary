@@ -99,6 +99,10 @@ func (s *Server) handlePostBooks(w http.ResponseWriter, r *http.Request) {
 		s.renderError(w, http.StatusBadRequest)
 		return
 	}
+	if len([]rune(name)) > 50 {
+		s.renderError(w, http.StatusBadRequest)
+		return
+	}
 
 	book, err := s.bookRepo.CreateBook(user.ID, name)
 	if err != nil {
@@ -203,12 +207,83 @@ func (s *Server) handleBookSettings(w http.ResponseWriter, r *http.Request) {
 	data := map[string]interface{}{
 		"Book":     book,
 		"Username": currentUser.Username,
+		"FormName": book.Name,
+		"Success":  r.URL.Query().Get("success") == "1",
 	}
 
 	if err := s.templates.ExecuteTemplate(w, "book_settings.html", data); err != nil {
 		log.Printf("ERROR: failed to render book_settings template for book %d: %v", id, err)
 		s.renderError(w, http.StatusInternalServerError)
 	}
+}
+
+// handleBookSettingsPost は日記帳の名前を変更する
+func (s *Server) handleBookSettingsPost(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		log.Printf("ERROR: invalid book id: %s", idStr)
+		s.renderError(w, http.StatusNotFound)
+		return
+	}
+
+	book, err := s.bookRepo.GetBookByID(id)
+	if err != nil {
+		log.Printf("ERROR: failed to get book %d: %v", id, err)
+		s.renderError(w, http.StatusInternalServerError)
+		return
+	}
+	if book == nil {
+		s.renderError(w, http.StatusNotFound)
+		return
+	}
+
+	currentUser, err := s.getCurrentUser(r)
+	if err != nil {
+		log.Printf("ERROR: failed to get current user: %v", err)
+		s.renderError(w, http.StatusInternalServerError)
+		return
+	}
+
+	if currentUser == nil || currentUser.ID != book.CreatorID {
+		s.renderError(w, http.StatusForbidden)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		s.renderError(w, http.StatusBadRequest)
+		return
+	}
+	name := r.FormValue("name")
+
+	var errMsg string
+	if name == "" {
+		errMsg = "日記帳名は必須です"
+	} else if len([]rune(name)) > 50 {
+		errMsg = "日記帳名は50文字以内で入力してください"
+	}
+
+	if errMsg != "" {
+		data := map[string]interface{}{
+			"Book":     book,
+			"Username": currentUser.Username,
+			"FormName": name,
+			"Error":    errMsg,
+		}
+		if err := s.templates.ExecuteTemplate(w, "book_settings.html", data); err != nil {
+			log.Printf("ERROR: failed to render book_settings template for book %d: %v", id, err)
+			s.renderError(w, http.StatusInternalServerError)
+		}
+		return
+	}
+
+	if err := s.bookRepo.UpdateBookName(id, name); err != nil {
+		log.Printf("ERROR: failed to update book name for book %d: %v", id, err)
+		s.renderError(w, http.StatusInternalServerError)
+		return
+	}
+
+	http.Redirect(w, r, fmt.Sprintf("/books/%d/settings?success=1", id), http.StatusFound)
 }
 
 // handleBookSlideshow は日記帳別スライドショーページを表示する

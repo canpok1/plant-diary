@@ -376,6 +376,19 @@ func (r *MockBookRepository) GetBookByUploadKey(uploadKey string) (*Book, error)
 	return nil, nil
 }
 
+// UpdateBookName は指定IDの日記帳の名前を更新する
+func (r *MockBookRepository) UpdateBookName(id int, name string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	b, ok := r.books[id]
+	if !ok {
+		return fmt.Errorf("book %d not found", id)
+	}
+	b.Name = name
+	return nil
+}
+
 // DeleteBook は指定IDの日記帳を削除する
 func (r *MockBookRepository) DeleteBook(id int) error {
 	r.mu.Lock()
