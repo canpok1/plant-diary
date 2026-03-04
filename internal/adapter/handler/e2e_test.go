@@ -409,6 +409,182 @@ func TestE2E_PostApiPhotos_Unauthorized(t *testing.T) {
 	}
 }
 
+// setupBookForOwner はオーナーユーザーと日記帳を作成してbookIDを返す
+func setupBookForOwner(t *testing.T, ts *httptest.Server, db *sql.DB, ownerUsername, otherUsername string) int {
+	t.Helper()
+
+	// ユーザーを作成
+	for _, username := range []string{ownerUsername, otherUsername} {
+		body := fmt.Sprintf(`{"username": %q, "password": "password"}`, username)
+		resp, err := http.Post(ts.URL+"/api/users", "application/json", strings.NewReader(body))
+		if err != nil {
+			t.Fatalf("POST /api/users failed: %v", err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusCreated {
+			t.Fatalf("user creation failed with status %d", resp.StatusCode)
+		}
+	}
+
+	// オーナーユーザーを取得
+	userRepo := sqlite.NewSQLiteUserRepository(db)
+	ownerUser, err := userRepo.GetUserByUsername(ownerUsername)
+	if err != nil || ownerUser == nil {
+		t.Fatalf("failed to get owner user: %v", err)
+	}
+
+	// 日記帳を作成
+	bookRepo := sqlite.NewSQLiteBookRepository(db)
+	book, err := bookRepo.CreateBook(ownerUser.ID, "Test Book")
+	if err != nil {
+		t.Fatalf("failed to create book: %v", err)
+	}
+
+	return book.ID
+}
+
+// TestE2E_BookSettings_UpdateName_Success はオーナーが名前を変更できることを検証する
+func TestE2E_BookSettings_UpdateName_Success(t *testing.T) {
+	ts, db := setupE2EServerWithDB(t)
+
+	bookID := setupBookForOwner(t, ts, db, "owner", "other")
+
+	client := &http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+
+	cookies := loginAsUser(t, ts, "owner", "password")
+
+	formData := url.Values{}
+	formData.Set("name", "新しい日記帳名")
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s/books/%d/settings", ts.URL, bookID), strings.NewReader(formData.Encode()))
+	if err != nil {
+		t.Fatalf("failed to create request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	for _, c := range cookies {
+		req.AddCookie(c)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("POST /books/{id}/settings failed: %v", err)
+	}
+	resp.Body.Close()
+
+	if resp.StatusCode != http.StatusFound {
+		t.Errorf("expected status 302, got %d", resp.StatusCode)
+	}
+
+	location := resp.Header.Get("Location")
+	expected := fmt.Sprintf("/books/%d/settings?success=1", bookID)
+	if location != expected {
+		t.Errorf("expected redirect to %s, got %s", expected, location)
+	}
+}
+
+// TestE2E_BookSettings_UpdateName_EmptyName は空文字で送信するとエラーになることを検証する
+func TestE2E_BookSettings_UpdateName_EmptyName(t *testing.T) {
+	ts, db := setupE2EServerWithDB(t)
+
+	bookID := setupBookForOwner(t, ts, db, "owner", "other")
+
+	cookies := loginAsUser(t, ts, "owner", "password")
+
+	formData := url.Values{}
+	formData.Set("name", "")
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s/books/%d/settings", ts.URL, bookID), strings.NewReader(formData.Encode()))
+	if err != nil {
+		t.Fatalf("failed to create request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	for _, c := range cookies {
+		req.AddCookie(c)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("POST /books/{id}/settings failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// バリデーションエラーは設定画面を再表示（200）
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("expected status 200 for empty name, got %d", resp.StatusCode)
+	}
+}
+
+// TestE2E_BookSettings_UpdateName_TooLongName は51文字以上の名前で送信するとエラーになることを検証する
+func TestE2E_BookSettings_UpdateName_TooLongName(t *testing.T) {
+	ts, db := setupE2EServerWithDB(t)
+
+	bookID := setupBookForOwner(t, ts, db, "owner", "other")
+
+	cookies := loginAsUser(t, ts, "owner", "password")
+
+	// 51文字の名前
+	longName := strings.Repeat("あ", 51)
+	formData := url.Values{}
+	formData.Set("name", longName)
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s/books/%d/settings", ts.URL, bookID), strings.NewReader(formData.Encode()))
+	if err != nil {
+		t.Fatalf("failed to create request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	for _, c := range cookies {
+		req.AddCookie(c)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("POST /books/{id}/settings failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// バリデーションエラーは設定画面を再表示（200）
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("expected status 200 for too long name, got %d", resp.StatusCode)
+	}
+}
+
+// TestE2E_BookSettings_UpdateName_NonOwnerForbidden は非オーナーがPOSTすると403になることを検証する
+func TestE2E_BookSettings_UpdateName_NonOwnerForbidden(t *testing.T) {
+	ts, db := setupE2EServerWithDB(t)
+
+	bookID := setupBookForOwner(t, ts, db, "owner", "other")
+
+	client := &http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+
+	cookies := loginAsUser(t, ts, "other", "password")
+
+	formData := url.Values{}
+	formData.Set("name", "乗っ取り")
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s/books/%d/settings", ts.URL, bookID), strings.NewReader(formData.Encode()))
+	if err != nil {
+		t.Fatalf("failed to create request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	for _, c := range cookies {
+		req.AddCookie(c)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("POST /books/{id}/settings failed: %v", err)
+	}
+	resp.Body.Close()
+
+	if resp.StatusCode != http.StatusForbidden {
+		t.Errorf("expected status 403, got %d", resp.StatusCode)
+	}
+}
+
 // setupDiaryForOwner はオーナーユーザーと日記帳・日記を作成してdiaryIDを返す
 func setupDiaryForOwner(t *testing.T, ts *httptest.Server, db *sql.DB, ownerUsername, otherUsername string) int {
 	t.Helper()
