@@ -1,6 +1,6 @@
 ---
 name: create-issue
-description: ユーザーとの会話で仕様を整理し、GitHub Issueを作成する。実装は行わない。
+description: ユーザーが `/create-issue` で手動実行した場合のみ使用。ユーザーとの会話で仕様を整理し、GitHub Issueを作成する。実装は行わない。
 context: fork
 agent: general-purpose
 allowed-tools: Bash Read Grep Glob WebSearch WebFetch AskUserQuestion
