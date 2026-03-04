@@ -76,7 +76,7 @@ func NewServer(repo domain.DiaryRepository, userRepo domain.UserRepository, book
 	s.mux.HandleFunc("GET /login", s.handleLoginGet)
 	s.mux.HandleFunc("POST /login", s.handleLoginPost)
 	s.mux.HandleFunc("POST /logout", s.handleLogout)
-	s.mux.HandleFunc("GET /books", s.requireLogin(s.handleGetBooks))
+	s.mux.HandleFunc("GET /books/new", s.requireLogin(s.handleGetBooksNew))
 	s.mux.HandleFunc("POST /books", s.requireLogin(s.handlePostBooks))
 	s.mux.HandleFunc("GET /books/{id}", s.handleGetBook)
 	s.mux.HandleFunc("GET /books/{id}/settings", s.requireLogin(s.handleBookSettings))

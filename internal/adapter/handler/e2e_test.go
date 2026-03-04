@@ -298,8 +298,8 @@ func TestE2E_Login_InvalidCredentials(t *testing.T) {
 	}
 }
 
-// TestE2E_GetBooks_Unauthorized は未ログイン時にGET /booksが/loginへリダイレクトすることを検証する
-func TestE2E_GetBooks_Unauthorized(t *testing.T) {
+// TestE2E_GetBooksNew_Unauthorized は未ログイン時にGET /books/newが/loginへリダイレクトすることを検証する
+func TestE2E_GetBooksNew_Unauthorized(t *testing.T) {
 	ts := setupE2EServer(t)
 
 	client := &http.Client{
@@ -308,9 +308,9 @@ func TestE2E_GetBooks_Unauthorized(t *testing.T) {
 		},
 	}
 
-	resp, err := client.Get(ts.URL + "/books")
+	resp, err := client.Get(ts.URL + "/books/new")
 	if err != nil {
-		t.Fatalf("GET /books failed: %v", err)
+		t.Fatalf("GET /books/new failed: %v", err)
 	}
 	defer resp.Body.Close()
 
@@ -324,8 +324,8 @@ func TestE2E_GetBooks_Unauthorized(t *testing.T) {
 	}
 }
 
-// TestE2E_GetBooks_Authorized はログイン後にGET /booksが200を返すことを検証する
-func TestE2E_GetBooks_Authorized(t *testing.T) {
+// TestE2E_GetBooksNew_Authorized はログイン後にGET /books/newが200を返すことを検証する
+func TestE2E_GetBooksNew_Authorized(t *testing.T) {
 	ts := setupE2EServer(t)
 
 	// ユーザー作成
@@ -359,9 +359,9 @@ func TestE2E_GetBooks_Authorized(t *testing.T) {
 		t.Fatalf("login failed with status %d", loginResp.StatusCode)
 	}
 
-	// セッションCookieを使って /books にアクセス
+	// セッションCookieを使って /books/new にアクセス
 	cookies := loginResp.Cookies()
-	req, err := http.NewRequest("GET", ts.URL+"/books", nil)
+	req, err := http.NewRequest("GET", ts.URL+"/books/new", nil)
 	if err != nil {
 		t.Fatalf("failed to create request: %v", err)
 	}
@@ -371,7 +371,7 @@ func TestE2E_GetBooks_Authorized(t *testing.T) {
 
 	booksResp, err := client.Do(req)
 	if err != nil {
-		t.Fatalf("GET /books failed: %v", err)
+		t.Fatalf("GET /books/new failed: %v", err)
 	}
 	defer booksResp.Body.Close()
 
