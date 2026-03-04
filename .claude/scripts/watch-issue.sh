@@ -38,14 +38,11 @@ while true; do
     # in-progress-by-claudeラベルを付与
     gh issue edit "$issue_number" --add-label "in-progress-by-claude"
 
-    # エラー時にラベルを削除するトラップを設定
-    trap "gh issue edit \"$issue_number\" --remove-label \"in-progress-by-claude\" || true" ERR
+    # solve-issue.shを実行（エラーでも継続）
+    "$(dirname "$0")/solve-issue.sh" -p "$issue_number" || true
 
-    # solve-issue.shを実行
-    "$(dirname "$0")/solve-issue.sh" -p "$issue_number"
-
-    # ERRトラップを解除
-    trap - ERR
+    # 処理完了後、ラベルを外す（成否を問わず）
+    gh issue edit "$issue_number" --remove-label "in-progress-by-claude" || true
   fi
 
   # 一定時間待機
