@@ -10,6 +10,10 @@ fmt-check:
 lint:
 	go vet ./...
 
+.PHONY: depcheck
+depcheck:
+	go vet -vettool=$(shell which depcheck) ./...
+
 .PHONY: test
 test:
 	go test -v -race -coverprofile=coverage.out ./...
