@@ -40,5 +40,8 @@ data/
 # Generated DB schema docs
 docs/db/
 
+# Generated API docs
+docs/api/
+
 # Temp files
 tmp/
