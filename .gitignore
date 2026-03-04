@@ -36,3 +36,9 @@ data/
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# Generated DB schema docs
+docs/db/
+
+# Temp files
+tmp/

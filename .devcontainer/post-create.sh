@@ -10,3 +10,6 @@ if [ ! -f "$SCRIPT_DIR/.env" ] && [ -f "$SCRIPT_DIR/.env-template" ]; then
     cp "$SCRIPT_DIR/.env-template" "$SCRIPT_DIR/.env"
     echo ".env file created from .env-template"
 fi
+
+# install tbls
+go install github.com/k1LoW/tbls@latest

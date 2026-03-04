@@ -21,3 +21,11 @@ test-e2e:
 .PHONY: build
 build:
 	go build -v ./...
+
+.PHONY: doc-db
+doc-db:
+	mkdir -p tmp
+	for f in $$(ls migrations/*.up.sql | sort); do sqlite3 tmp/schema.db < $$f; done
+	tbls doc --force
+	rm -f tmp/schema.db
+	@rmdir --ignore-fail-on-non-empty tmp 2>/dev/null || true

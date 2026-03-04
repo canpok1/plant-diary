@@ -1,0 +1,2 @@
+dsn: "sqlite3://tmp/schema.db"
+docPath: docs/db
