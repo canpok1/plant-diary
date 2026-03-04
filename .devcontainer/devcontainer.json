@@ -10,7 +10,8 @@
 	},
 	"remoteUser": "vscode",
 	"mounts": [
-		"source=${devcontainerId}-claude-code-config,target=/home/vscode/.claude,type=volume"
+		"source=${devcontainerId}-claude-code-config,target=/home/vscode/.claude,type=volume",
+		"source=${localEnv:HOME}/.ssh,target=/home/vscode/.ssh,type=bind,readonly"
 	],
 	"remoteEnv": {
 		"WORKSPACE_DIR": "${containerWorkspaceFolder}"
@@ -21,7 +22,7 @@
 				"tkit.host-notifier"
 			],
 			"settings": {
-  	  			"hostNotifier.enable": true
+				"hostNotifier.enable": true
 			}
 		}
 	},
