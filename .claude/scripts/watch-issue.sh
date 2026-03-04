@@ -2,9 +2,10 @@
 set -euo pipefail
 
 INTERVAL_SECONDS=60
+waiting=false
 
 # Ctrl-C（SIGINT）で正常終了するためのトラップ
-trap 'echo "Stopping watch-issue.sh..."; exit 0' INT
+trap 'if [ "$waiting" = true ]; then echo ""; fi; echo "Stopping watch-issue.sh..."; exit 0' INT
 
 while true; do
   # assign-to-claudeラベル付き、かつin-progress-by-claudeラベルが付いていないissueを1件取得（古い順）
@@ -17,9 +18,22 @@ while true; do
 
   # 対象issueが存在しない場合
   if [ -z "$issue_number" ]; then
-    echo "No issues to process"
+    if [ "$waiting" = false ]; then
+      printf "Waiting for issues..."
+      waiting=true
+    else
+      printf "."
+    fi
   else
+    # Issue検出時: 待機中だった場合は改行
+    if [ "$waiting" = true ]; then
+      echo ""
+      waiting=false
+    fi
+
+    echo "----------------------------------------"
     echo "Processing issue #$issue_number"
+    echo "----------------------------------------"
 
     # in-progress-by-claudeラベルを付与
     gh issue edit "$issue_number" --add-label "in-progress-by-claude"
@@ -35,6 +49,5 @@ while true; do
   fi
 
   # 一定時間待機
-  echo "Waiting ${INTERVAL_SECONDS} seconds..."
   sleep "$INTERVAL_SECONDS"
 done
