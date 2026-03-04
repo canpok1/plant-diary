@@ -12,6 +12,7 @@
 
 - `managing-team`: 複数のClaudeエージェントで協力開発
 - `quality-check`: コミットやPR作成後のレビュー
+- `create-issue`: 仕様相談からGitHub Issueを作成
 
 これらのスキルは `.claude/skills/` 配下で管理されており、改善提案がある場合はこのリポジトリにIssueを作成してください。
 
