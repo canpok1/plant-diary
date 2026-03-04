@@ -37,7 +37,7 @@ func Retry(config RetryConfig, operation string, fn func() error) error {
 		config.SleepFunc = time.Sleep
 	}
 	if len(config.Intervals) < config.MaxRetries {
-		return fmt.Errorf("Intervals length (%d) is less than MaxRetries (%d)", len(config.Intervals), config.MaxRetries) //nolint:staticcheck
+		return fmt.Errorf("intervals length (%d) is less than MaxRetries (%d)", len(config.Intervals), config.MaxRetries)
 	}
 	totalAttempts := 1 + config.MaxRetries
 	for attempt := 1; attempt <= totalAttempts; attempt++ {
