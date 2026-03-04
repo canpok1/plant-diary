@@ -45,8 +45,8 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// handleGetBooks はログインユーザーの日記帳一覧ページを表示する
-func (s *Server) handleGetBooks(w http.ResponseWriter, r *http.Request) {
+// handleGetBooksNew は日記帳作成ページを表示する
+func (s *Server) handleGetBooksNew(w http.ResponseWriter, r *http.Request) {
 	user, err := s.getCurrentUser(r)
 	if err != nil {
 		log.Printf("ERROR: failed to get current user: %v", err)
@@ -58,15 +58,7 @@ func (s *Server) handleGetBooks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	books, err := s.bookRepo.GetBooksByCreatorID(user.ID)
-	if err != nil {
-		log.Printf("ERROR: failed to get books for user %d: %v", user.ID, err)
-		s.renderError(w, http.StatusInternalServerError)
-		return
-	}
-
 	data := map[string]interface{}{
-		"Books":    books,
 		"LoggedIn": true,
 		"Username": user.Username,
 	}

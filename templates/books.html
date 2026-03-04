@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>植物観察日記 - 日記帳一覧</title>
+    <title>植物観察日記 - 日記帳作成</title>
     <style>
         * {
             margin: 0;
@@ -94,47 +94,6 @@
             color: #333333;
         }
 
-        .books-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 32px;
-        }
-
-        .books-table th {
-            background-color: #f5f5f5;
-            border: 1px solid #e0e0e0;
-            padding: 10px 16px;
-            text-align: left;
-            font-size: 0.9rem;
-            color: #555555;
-        }
-
-        .books-table td {
-            border: 1px solid #e0e0e0;
-            padding: 10px 16px;
-            font-size: 0.95rem;
-        }
-
-        .books-table tr:hover td {
-            background-color: #f9f9f9;
-        }
-
-        .books-table a {
-            color: #4a7c59;
-            text-decoration: none;
-            font-weight: bold;
-        }
-
-        .books-table a:hover {
-            text-decoration: underline;
-        }
-
-        .empty-message {
-            color: #888888;
-            padding: 24px 0;
-            font-size: 0.95rem;
-        }
-
         .create-form {
             background-color: #f9f9f9;
             border: 1px solid #e0e0e0;
@@ -196,10 +155,6 @@
                 margin: 16px auto;
                 padding: 0 12px;
             }
-
-            .books-table {
-                font-size: 0.85rem;
-            }
         }
     </style>
 </head>
@@ -207,7 +162,7 @@
     <header>
         <h1><a href="/">植物観察日記</a></h1>
         <nav>
-            <a href="/books">日記帳</a>
+            <a href="/books/new">日記帳作成</a>
             <span class="user-info">{{.Username}}</span>
             <form method="POST" action="/logout" style="display:inline">
                 <button type="submit" class="logout-btn">ログアウト</button>
@@ -215,31 +170,7 @@
         </nav>
     </header>
     <main>
-        <h2>日記帳一覧</h2>
-        {{if .Books}}
-        <table class="books-table">
-            <thead>
-                <tr>
-                    <th>名前</th>
-                    <th>作成日</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                {{range .Books}}
-                <tr>
-                    <td>{{.Name}}</td>
-                    <td>{{(.CreatedAt | toJST).Format "2006年1月2日 15:04"}}</td>
-                    <td><a href="/books/{{.ID}}">詳細</a></td>
-                </tr>
-                {{end}}
-            </tbody>
-        </table>
-        {{else}}
-        <p class="empty-message">まだ日記帳がありません。</p>
-        {{end}}
-
-        <h2>新しい日記帳を作成</h2>
+        <h2>日記帳作成</h2>
         <form class="create-form" method="POST" action="/books">
             <label for="name">日記帳の名前</label>
             <input type="text" id="name" name="name" placeholder="例: わたしの植物日記" required>
