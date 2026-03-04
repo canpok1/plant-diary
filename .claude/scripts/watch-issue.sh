@@ -38,11 +38,17 @@ while true; do
     # in-progress-by-claudeラベルを付与
     gh issue edit "$issue_number" --add-label "in-progress-by-claude"
 
+    # 処理開始メッセージ
+    echo "Starting Claude for issue #$issue_number..."
+
     # solve-issue.shを実行（エラーでも継続）
     "$(dirname "$0")/solve-issue.sh" -p "$issue_number" || true
 
     # 処理完了後、ラベルを外す（成否を問わず）
     gh issue edit "$issue_number" --remove-label "in-progress-by-claude" || true
+
+    # 処理完了メッセージ
+    echo "Completed processing issue #$issue_number."
   fi
 
   # 一定時間待機
