@@ -28,6 +28,12 @@ jobs:
       - name: Format check
         run: make fmt-check
 
+      - name: Install depcheck
+        run: go install github.com/v-standard/go-depcheck/cmd/depcheck@latest
+
+      - name: Dependency check
+        run: make depcheck
+
       - name: Lint
         run: make lint
 

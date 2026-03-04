@@ -1,0 +1,23 @@
+ignorePatterns:
+  - '_test\.go$'
+  - 'mock\.go$'
+  - 'mock_.*\.go$'
+
+rules:
+  # Domain層: 他のどのレイヤーにも依存しない
+  - from: '^plant-diary/internal/domain'
+    to:
+      - '^plant-diary/internal/usecase'
+      - '^plant-diary/internal/adapter'
+      - '^plant-diary/internal/infra'
+
+  # Usecase層: Adapter層・Infra層に依存しない
+  - from: '^plant-diary/internal/usecase'
+    to:
+      - '^plant-diary/internal/adapter'
+      - '^plant-diary/internal/infra'
+
+  # Adapter層: Infra層に依存しない
+  - from: '^plant-diary/internal/adapter'
+    to:
+      - '^plant-diary/internal/infra'
