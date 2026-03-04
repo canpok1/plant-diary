@@ -2,6 +2,7 @@ package sqlite
 
 import (
 	"database/sql"
+	"path/filepath"
 	"testing"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -76,7 +77,11 @@ func TestMigrations_AllDown(t *testing.T) {
 func TestMigrations_StepByStep(t *testing.T) {
 	_, m := setupMigrate(t)
 
-	const numMigrations = 8
+	files, err := filepath.Glob("../../../migrations/*.up.sql")
+	if err != nil {
+		t.Fatalf("failed to glob migration files: %v", err)
+	}
+	numMigrations := len(files)
 
 	// 1ステップずつUpを適用
 	for step := 1; step <= numMigrations; step++ {
