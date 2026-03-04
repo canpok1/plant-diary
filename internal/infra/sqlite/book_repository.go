@@ -54,7 +54,7 @@ func (r *SQLiteBookRepository) GetBooksByCreatorID(creatorID int) ([]domain.Book
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer rows.Close() //nolint:errcheck
 
 	var books []domain.Book
 	for rows.Next() {
@@ -98,7 +98,7 @@ func (r *SQLiteBookRepository) GetAllBooks() ([]domain.BookView, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer rows.Close() //nolint:errcheck
 
 	var result []domain.BookView
 	for rows.Next() {

@@ -28,25 +28,25 @@ func InitDB(dbPath, migrationsPath string) (*sql.DB, error) {
 
 	// 接続確認
 	if err := db.Ping(); err != nil {
-		db.Close()
+		db.Close() //nolint:errcheck
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
 	// WALモード有効化（読み取り並行性向上）
 	if _, err := db.Exec("PRAGMA journal_mode=WAL"); err != nil {
-		db.Close()
+		db.Close() //nolint:errcheck
 		return nil, fmt.Errorf("failed to set WAL mode: %w", err)
 	}
 
 	// SQLiteバージョン確認（ALTER TABLE DROP COLUMNはSQLite 3.35.0以上が必要）
 	if err := checkSQLiteVersion(db); err != nil {
-		db.Close()
+		db.Close() //nolint:errcheck
 		return nil, err
 	}
 
 	// マイグレーション実行
 	if err := runMigrations(db, migrationsPath); err != nil {
-		db.Close()
+		db.Close() //nolint:errcheck
 		return nil, fmt.Errorf("failed to run migrations: %w", err)
 	}
 

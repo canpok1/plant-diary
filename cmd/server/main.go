@@ -25,7 +25,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("FATAL: failed to initialize database: %v", err)
 	}
-	defer db.Close()
+	defer db.Close() //nolint:errcheck
 
 	// DiaryGenerator の初期化
 	var generator usecase.DiaryGenerator

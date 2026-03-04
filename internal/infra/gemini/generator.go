@@ -53,7 +53,7 @@ func (g *GeminiDiaryGenerator) GenerateDiaryWithPrompt(imagePath string, prompt 
 		Backend: genai.BackendGeminiAPI,
 	})
 	if err != nil {
-		return "", fmt.Errorf("Gemini クライアントの作成に失敗: %w", err)
+		return "", fmt.Errorf("Gemini クライアントの作成に失敗: %w", err) //nolint:staticcheck
 	}
 
 	parts := []*genai.Part{
@@ -69,12 +69,12 @@ func (g *GeminiDiaryGenerator) GenerateDiaryWithPrompt(imagePath string, prompt 
 
 	resp, err := client.Models.GenerateContent(ctx, geminiModel, contents, nil)
 	if err != nil {
-		return "", fmt.Errorf("Gemini API の呼び出しに失敗: %w", err)
+		return "", fmt.Errorf("Gemini API の呼び出しに失敗: %w", err) //nolint:staticcheck
 	}
 
 	text := resp.Text()
 	if text == "" {
-		return "", fmt.Errorf("Gemini API から空のレスポンスが返されました")
+		return "", fmt.Errorf("Gemini API から空のレスポンスが返されました") //nolint:staticcheck
 	}
 
 	return text, nil
