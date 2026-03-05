@@ -3,7 +3,7 @@ name: tdd
 description: 実装タスクをTDDで進める場合に使用。テストリスト作成 → Red → Green → Refactor のサイクルをベビーステップで繰り返す。
 context: fork
 agent: general-purpose
-allowed-tools: Bash Read Grep Glob Write Edit
+allowed-tools: Bash, Read, Grep, Glob, Write, Edit
 disable-model-invocation: false
 user-invocable: true
 argument-hint: "[task-description]"

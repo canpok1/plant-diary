@@ -3,7 +3,7 @@ name: quality-check
 description: コミットやPR作成後に使用。linterでチェックできない設計・実装パターン（インターフェース設計、エラーハンドリング、テスト戦略等）をレビューしてフィードバックを提供する。
 context: fork
 agent: general-purpose
-allowed-tools: Bash Read Grep Glob SendMessage
+allowed-tools: Bash, Read, Grep, Glob, SendMessage
 disable-model-invocation: false
 user-invocable: true
 argument-hint: "[target-commit-or-pr]"
