@@ -3,7 +3,7 @@ name: managing-team
 description: 複数のClaudeエージェントで協力開発する際に使用。リーダーが実装から離れて進捗管理・チーム調整に専念し、チーム全体の生産性を向上させる。
 context: fork
 agent: general-purpose
-allowed-tools: TeamCreate TeamDelete TaskCreate TaskList TaskUpdate TaskGet SendMessage Bash Read Grep Glob WebSearch Skill
+allowed-tools: TeamCreate, TeamDelete, TaskCreate, TaskList, TaskUpdate, TaskGet, TaskOutput, TaskStop, SendMessage, Bash, Read, Grep, Glob, WebSearch, Skill
 disable-model-invocation: false
 user-invocable: true
 argument-hint: "[team-name] [task-description]"
