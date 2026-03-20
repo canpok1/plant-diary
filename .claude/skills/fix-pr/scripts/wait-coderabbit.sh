@@ -2,7 +2,11 @@
 # CodeRabbitのレビュー到着を待機し、rate limitがあれば解消後にreviewを投稿するスクリプト
 #
 # 使用方法:
-#   ./.claude/skills/fix-pr/scripts/wait-coderabbit.sh <PR番号>
+#   ./.claude/skills/fix-pr/scripts/wait-coderabbit.sh <PR番号> [既知のレビュー数]
+#
+# 引数:
+#   PR番号        : 必須。対象のPR番号
+#   既知のレビュー数: 省略可。この数を超えるレビューが来るまで待機する（デフォルト0）
 #
 # 環境変数（テスト用にオーバーライド可能）:
 #   POLL_INTERVAL: ポーリング間隔（秒）デフォルト30
@@ -16,34 +20,37 @@
 set -euo pipefail
 
 if [[ $# -lt 1 ]]; then
-    echo "Usage: $0 <PR番号>" >&2
+    echo "Usage: $0 <PR番号> [既知のレビュー数]" >&2
     exit 1
 fi
 
 PR_NUMBER="$1"
+KNOWN_REVIEW_COUNT="${2:-0}"
+
+# 第2引数が数値かどうかを検証
+if ! [[ "$KNOWN_REVIEW_COUNT" =~ ^[0-9]+$ ]]; then
+    echo "エラー: 既知のレビュー数は0以上の整数で指定してください: $KNOWN_REVIEW_COUNT" >&2
+    exit 1
+fi
+
 POLL_INTERVAL="${POLL_INTERVAL:-30}"
 MAX_POLLS="${MAX_POLLS:-10}"
 RATE_LIMIT_WAIT="${RATE_LIMIT_WAIT:-600}"
 
 REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
 
-# CodeRabbitのコメント数を取得
-get_coderabbit_comment_count() {
-    gh pr view --repo "$REPO" "$PR_NUMBER" --json comments --jq '[.comments[] | select(.author.login=="coderabbitai")] | length'
+# CodeRabbitのコメント+レビューの合計数を1回のAPI呼び出しで取得
+get_coderabbit_total_count() {
+    gh pr view --repo "$REPO" "$PR_NUMBER" --json comments,reviews \
+        --jq '([.comments[] | select(.author.login=="coderabbitai")] | length)
+            + ([.reviews[]  | select(.author.login=="coderabbitai")] | length)'
 }
 
-# CodeRabbitのレビュー数を取得
-get_coderabbit_review_count() {
-    gh pr view --repo "$REPO" "$PR_NUMBER" --json reviews --jq '[.reviews[] | select(.author.login=="coderabbitai")] | length'
-}
-
-# CodeRabbitのコメント/レビューが存在するかチェック
-has_coderabbit_response() {
-    local comment_count
-    local review_count
-    comment_count=$(get_coderabbit_comment_count)
-    review_count=$(get_coderabbit_review_count)
-    [[ "$comment_count" -gt 0 ]] || [[ "$review_count" -gt 0 ]]
+# CodeRabbitのコメント/レビューが既知の数より増えているかチェック
+has_new_coderabbit_response() {
+    local total
+    total=$(get_coderabbit_total_count)
+    [[ "$total" -gt "$KNOWN_REVIEW_COUNT" ]]
 }
 
 # CodeRabbitのコメントからrate limit情報をチェック（最新コメント/レビューのみ対象、1回のAPI呼び出しで取得）
@@ -64,9 +71,13 @@ check_rate_limit() {
 }
 
 # CodeRabbitのレビュー到着をポーリングで待機
-echo "CodeRabbitのレビュー到着を待機中..."
+if [[ "$KNOWN_REVIEW_COUNT" -gt 0 ]]; then
+    echo "CodeRabbitの新しいレビュー到着を待機中（既知のレビュー数: ${KNOWN_REVIEW_COUNT}）..."
+else
+    echo "CodeRabbitのレビュー到着を待機中..."
+fi
 for i in $(seq 1 "$MAX_POLLS"); do
-    if has_coderabbit_response; then
+    if has_new_coderabbit_response; then
         echo "CodeRabbitのレビューを検出しました。"
 
         # rate limitチェック
