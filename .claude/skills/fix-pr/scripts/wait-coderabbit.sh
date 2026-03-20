@@ -39,23 +39,17 @@ RATE_LIMIT_WAIT="${RATE_LIMIT_WAIT:-600}"
 
 REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
 
-# CodeRabbitのコメント数を取得
-get_coderabbit_comment_count() {
-    gh pr view --repo "$REPO" "$PR_NUMBER" --json comments --jq '[.comments[] | select(.author.login=="coderabbitai")] | length'
-}
-
-# CodeRabbitのレビュー数を取得
-get_coderabbit_review_count() {
-    gh pr view --repo "$REPO" "$PR_NUMBER" --json reviews --jq '[.reviews[] | select(.author.login=="coderabbitai")] | length'
+# CodeRabbitのコメント+レビューの合計数を1回のAPI呼び出しで取得
+get_coderabbit_total_count() {
+    gh pr view --repo "$REPO" "$PR_NUMBER" --json comments,reviews \
+        --jq '([.comments[] | select(.author.login=="coderabbitai")] | length)
+            + ([.reviews[]  | select(.author.login=="coderabbitai")] | length)'
 }
 
 # CodeRabbitのコメント/レビューが既知の数より増えているかチェック
 has_new_coderabbit_response() {
-    local comment_count
-    local review_count
-    comment_count=$(get_coderabbit_comment_count)
-    review_count=$(get_coderabbit_review_count)
-    local total=$(( comment_count + review_count ))
+    local total
+    total=$(get_coderabbit_total_count)
     [[ "$total" -gt "$KNOWN_REVIEW_COUNT" ]]
 }
 

@@ -133,6 +133,16 @@ gh api graphql -f query='
 
 #### 3. コミット・プッシュ
 
+プッシュ**前**に現在のCodeRabbitレビュー数を記録する（次のステップ1で使用するため）:
+
+```bash
+# プッシュ前にレビュー数を取得（1回のAPI呼び出しで取得）
+KNOWN_TOTAL=$(gh pr view --repo <REPO> <PR番号> --json comments,reviews \
+    --jq '([.comments[] | select(.author.login=="coderabbitai")] | length) + ([.reviews[] | select(.author.login=="coderabbitai")] | length)')
+```
+
+その後コミット・プッシュする:
+
 ```bash
 git add <修正したファイルパス...>
 git commit -m "fix: CodeRabbitの指摘を修正"
@@ -163,7 +173,7 @@ gh api repos/<OWNER>/<REPO>/pulls/comments/<COMMENT_ID>/replies \
 gh pr comment --repo <REPO> <PR番号> --body "@coderabbitai review"
 ```
 
-→ フロー先頭（ステップ1）に戻る
+→ フロー先頭（ステップ1）に戻る（ステップ1の `wait-coderabbit.sh` には、上記で記録した `KNOWN_TOTAL` を第2引数として渡すこと）
 
 ## 注意事項
 
