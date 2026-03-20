@@ -19,6 +19,7 @@ type Server struct {
 	userRepo    domain.UserRepository
 	bookRepo    domain.BookRepository
 	sessionRepo domain.SessionRepository
+	cameraRepo  domain.CameraRepository
 	generator   usecase.DiaryGenerator
 	photosDir   string
 	templates   *template.Template
@@ -26,7 +27,7 @@ type Server struct {
 }
 
 // NewServer は新しいServerを生成する
-func NewServer(repo domain.DiaryRepository, userRepo domain.UserRepository, bookRepo domain.BookRepository, sessionRepo domain.SessionRepository, generator usecase.DiaryGenerator, templatesDir string, photosDir string) (*Server, error) {
+func NewServer(repo domain.DiaryRepository, userRepo domain.UserRepository, bookRepo domain.BookRepository, sessionRepo domain.SessionRepository, generator usecase.DiaryGenerator, cameraRepo domain.CameraRepository, templatesDir string, photosDir string) (*Server, error) {
 	// カスタムテンプレート関数を登録
 	funcMap := template.FuncMap{
 		"truncate": func(s string, length int) string {
@@ -61,6 +62,7 @@ func NewServer(repo domain.DiaryRepository, userRepo domain.UserRepository, book
 		userRepo:    userRepo,
 		bookRepo:    bookRepo,
 		sessionRepo: sessionRepo,
+		cameraRepo:  cameraRepo,
 		generator:   generator,
 		photosDir:   photosDir,
 		templates:   tmpl,
@@ -82,6 +84,17 @@ func NewServer(repo domain.DiaryRepository, userRepo domain.UserRepository, book
 	s.mux.HandleFunc("GET /books/{id}/settings", s.requireLogin(s.handleBookSettings))
 	s.mux.HandleFunc("POST /books/{id}/settings", s.requireLogin(s.handleBookSettingsPost))
 	s.mux.HandleFunc("GET /books/{id}/slideshow", s.handleBookSlideshow)
+
+	// カメラ管理ルート
+	s.mux.HandleFunc("GET /cameras", s.requireLogin(s.handleGetCameras))
+	s.mux.HandleFunc("GET /cameras/new", s.requireLogin(s.handleGetCamerasNew))
+	s.mux.HandleFunc("POST /cameras", s.requireLogin(s.handlePostCameras))
+	s.mux.HandleFunc("GET /cameras/{id}/settings", s.requireLogin(s.handleGetCameraSettings))
+	s.mux.HandleFunc("POST /cameras/{id}/settings", s.requireLogin(s.handlePostCameraSettings))
+	s.mux.HandleFunc("POST /cameras/{id}/delete", s.requireLogin(s.handlePostCameraDelete))
+
+	// スクリプト設定API
+	s.mux.HandleFunc("GET /api/script-config", s.handleGetScriptConfig)
 
 	adapter.HandlerFromMux(s, s.mux)
 

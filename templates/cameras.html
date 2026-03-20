@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>植物観察日記 - カメラ一覧</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Meiryo", sans-serif;
+            background-color: #ffffff;
+            color: #333333;
+            line-height: 1.6;
+        }
+
+        header {
+            background-color: #4a7c59;
+            color: #ffffff;
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+
+        header h1 {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+
+        header h1 a {
+            color: #ffffff;
+            text-decoration: none;
+        }
+
+        header h1 a:hover {
+            text-decoration: underline;
+        }
+
+        header nav {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-left: auto;
+        }
+
+        header nav a {
+            color: #ffffff;
+            text-decoration: none;
+            font-size: 0.95rem;
+            opacity: 0.85;
+        }
+
+        header nav a:hover {
+            opacity: 1;
+            text-decoration: underline;
+        }
+
+        header nav .user-info {
+            font-size: 0.9rem;
+            opacity: 0.85;
+        }
+
+        header nav .logout-btn {
+            background: none;
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            border-radius: 4px;
+            color: #ffffff;
+            cursor: pointer;
+            font-size: 0.9rem;
+            opacity: 0.85;
+            padding: 4px 10px;
+        }
+
+        header nav .logout-btn:hover {
+            opacity: 1;
+            background-color: rgba(255, 255, 255, 0.15);
+        }
+
+        main {
+            max-width: 960px;
+            margin: 24px auto;
+            padding: 0 16px;
+        }
+
+        .page-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+        }
+
+        h2 {
+            font-size: 1.25rem;
+            font-weight: bold;
+            color: #333333;
+        }
+
+        .add-btn {
+            background-color: #4a7c59;
+            border: none;
+            border-radius: 6px;
+            color: #ffffff;
+            cursor: pointer;
+            font-size: 0.95rem;
+            padding: 8px 16px;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .add-btn:hover {
+            background-color: #3a6347;
+        }
+
+        .camera-list {
+            list-style: none;
+        }
+
+        .camera-item {
+            background-color: #f9f9f9;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 16px 20px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .camera-name {
+            font-size: 1rem;
+            font-weight: bold;
+            color: #333333;
+        }
+
+        .camera-meta {
+            font-size: 0.85rem;
+            color: #777777;
+            margin-top: 4px;
+        }
+
+        .camera-actions a {
+            color: #4a7c59;
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+
+        .camera-actions a:hover {
+            text-decoration: underline;
+        }
+
+        .empty-message {
+            color: #777777;
+            font-size: 0.95rem;
+            text-align: center;
+            padding: 40px 0;
+        }
+
+        @media screen and (max-width: 640px) {
+            header {
+                padding: 12px 16px;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 4px;
+            }
+
+            header h1 {
+                font-size: 1.25rem;
+            }
+
+            main {
+                margin: 16px auto;
+                padding: 0 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1><a href="/">植物観察日記</a></h1>
+        <nav>
+            <a href="/books/new">日記帳作成</a>
+            <a href="/cameras">カメラ</a>
+            <span class="user-info">{{.Username}}</span>
+            <form method="POST" action="/logout" style="display:inline">
+                <button type="submit" class="logout-btn">ログアウト</button>
+            </form>
+        </nav>
+    </header>
+    <main>
+        <div class="page-header">
+            <h2>カメラ一覧</h2>
+            <a class="add-btn" href="/cameras/new">+ カメラを追加</a>
+        </div>
+
+        {{if .Cameras}}
+        <ul class="camera-list">
+            {{range .Cameras}}
+            <li class="camera-item">
+                <div>
+                    <div class="camera-name">{{.Name}}</div>
+                    <div class="camera-meta">スクリプトキー: 設定画面で確認</div>
+                </div>
+                <div class="camera-actions">
+                    <a href="/cameras/{{.ID}}/settings">設定</a>
+                </div>
+            </li>
+            {{end}}
+        </ul>
+        {{else}}
+        <p class="empty-message">カメラが登録されていません。「+ カメラを追加」から登録してください。</p>
+        {{end}}
+    </main>
+</body>
+</html>
