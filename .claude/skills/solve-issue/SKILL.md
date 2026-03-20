@@ -94,6 +94,7 @@ GitHub Issue $ARGUMENTS を対応します。
   - 上記いずれにも該当しない場合（既存PRが存在しない場合）: ステップ6に進む
 6. `/monologue` を実行してから、`commit-commands:commit-push-pr` スキルでPRを作成する
   - PR本文に必ず `Closes #$ARGUMENTS` を含めること（マージ時にIssueが自動クローズされる）
+  - `commit-commands:commit-push-pr` スキルへPR本文を渡す際は `--body "Closes #$ARGUMENTS\n\n{説明}"` のように明示すること
 7. `/monologue` を実行してから、`/fix-pr` スキルでCI待機・レビュー対応・マージを行う
   - 引数にPR番号を渡す
 8. `/monologue` を実行してから、`/retro` スキルで振り返りを行う
