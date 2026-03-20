@@ -91,8 +91,32 @@ gh pr view --repo <REPO> <PR番号> --json reviews,comments --jq '
   }
 '
 
-# インラインレビューコメント（差分上のコメント）を取得
-gh api repos/<REPO>/pulls/<PR番号>/comments --jq '[.[] | select(.user.login=="coderabbitai") | {path: .path, line: .line, body: .body}]'
+# 未解決のインラインレビューコメント（差分上のコメント）をGraphQLで取得
+gh api graphql -f query='
+  query($owner: String!, $repo: String!, $pr: Int!) {
+    repository(owner: $owner, name: $repo) {
+      pullRequest(number: $pr) {
+        reviewThreads(first: 100) {
+          nodes {
+            isResolved
+            path
+            line
+            comments(first: 1) {
+              nodes {
+                author { login }
+                body
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+' -f owner=<OWNER> -f repo=<REPO> -F pr=<PR番号> \
+  --jq '.data.repository.pullRequest.reviewThreads.nodes
+        | map(select(.isResolved == false
+                     and (.comments.nodes[0].author.login == "coderabbitai")))
+        | map({path: .path, line: .line, body: .comments.nodes[0].body})'
 ```
 
 #### 2. 指摘内容の修正
@@ -107,7 +131,7 @@ gh api repos/<REPO>/pulls/<PR番号>/comments --jq '[.[] | select(.user.login=="
 #### 3. コミット・プッシュ
 
 ```bash
-git add -A
+git add <修正したファイルパス...>
 git commit -m "fix: CodeRabbitの指摘を修正"
 git push
 ```
