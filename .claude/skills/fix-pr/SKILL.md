@@ -103,7 +103,7 @@ gh api graphql -f query='
             line
             comments(first: 1) {
               nodes {
-                databaseId
+                fullDatabaseId
                 author { login }
                 body
               }
@@ -117,7 +117,7 @@ gh api graphql -f query='
   --jq '.data.repository.pullRequest.reviewThreads.nodes
         | map(select(.isResolved == false
                      and (.comments.nodes[0].author.login == "coderabbitai")))
-        | map({id: .comments.nodes[0].databaseId, path: .path, line: .line, body: .comments.nodes[0].body})'
+        | map({id: .comments.nodes[0].fullDatabaseId, path: .path, line: .line, body: .comments.nodes[0].body})'
 ```
 #### 2. 指摘内容の修正
 
@@ -138,13 +138,13 @@ git push
 
 #### 4. 返信・再レビュー依頼
 
-修正をプッシュ後、ステップ1で取得した各レビューコメントのスレッドに返信する。
+修正をプッシュ後、上記（手順1）で取得した各レビューコメントのスレッドに返信する。
 
 **スレッド返信のルール**:
 - レビューコメントへの返信は、**PRコメントではなくスレッドに対して行う**こと
   - PRコメント（誤った方法）: `gh pr comment --repo <REPO> <PR番号> --body "..."`
   - スレッド返信（正しい方法）: `gh api repos/<OWNER>/<REPO>/pulls/comments/<COMMENT_ID>/replies -X POST -f body="..."`
-- `<COMMENT_ID>` はステップ1のGraphQL取得結果の `id` フィールドを使用する
+- `<COMMENT_ID>` は上記（手順1）のGraphQL取得結果の `id` フィールドを使用する
 - 返信には必ず**レビュワーへのメンション**を付与すること（例: `@coderabbitai`）
 - 複数のコメントがある場合は、各コメントのIDに対してそれぞれ返信を行う
 
