@@ -101,6 +101,18 @@ docker compose up -d
 
 撮影した画像は `data/photos/YYYYMMDD_HHMM.jpg` として保存されます。Worker が1分以内に画像を検出し、Gemini API で日記を自動生成します。
 
+### 明るさ自動調整で撮影する（推奨）
+
+サーバーから輝度設定・登録先日記帳を取得し、自動調整しながら撮影・アップロードします。
+管理画面でカメラを登録してから `--script-key` を取得してください。
+
+```bash
+./scripts/capture_auto.sh --api-url http://192.168.1.10:8080 --script-key <32文字キー>
+```
+
+- `--api-url`: サーバーのベースURL
+- `--script-key`: 管理画面（`/cameras/{id}/settings`）で確認できるスクリプトキー
+
 ### crontab で定期撮影を設定する
 
 毎日12時に自動撮影する例：
@@ -112,14 +124,14 @@ crontab -e
 以下の行を追加します。
 
 ```cron
-0 12 * * * /path/to/plant-diary/scripts/capture.sh
+0 12 * * * /path/to/plant-diary/scripts/capture_auto.sh --api-url http://192.168.1.10:8080 --script-key <32文字キー>
 ```
 
 複数回撮影したい場合の例（朝8時と夕方17時）：
 
 ```cron
-0 8 * * * /path/to/plant-diary/scripts/capture.sh
-0 17 * * * /path/to/plant-diary/scripts/capture.sh
+0 8 * * * /path/to/plant-diary/scripts/capture_auto.sh --api-url http://192.168.1.10:8080 --script-key <32文字キー>
+0 17 * * * /path/to/plant-diary/scripts/capture_auto.sh --api-url http://192.168.1.10:8080 --script-key <32文字キー>
 ```
 
 ### 日記を閲覧する

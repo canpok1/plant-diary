@@ -28,6 +28,16 @@ type SessionRepository interface {
 	DeleteSession(id string) error
 }
 
+// CameraRepository はカメラ設定データへのアクセスを定義するインターフェース
+type CameraRepository interface {
+	CreateCamera(name string, bookID int) (*Camera, error)
+	GetAllCameras() ([]Camera, error)
+	GetCameraByID(id int) (*Camera, error)
+	GetCameraByScriptKey(scriptKey string) (*Camera, error)
+	UpdateCamera(id int, name string, targetBrightness, brightnessTolerance float64, maxAdjustRetries, bookID int) error
+	DeleteCamera(id int) error
+}
+
 // DiaryRepository は日記データへのアクセスを定義するインターフェース
 type DiaryRepository interface {
 	GetAllDiaries() ([]Diary, error)

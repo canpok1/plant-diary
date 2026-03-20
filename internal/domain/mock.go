@@ -276,6 +276,137 @@ func (r *MockDiaryRepository) GetDiariesInDateRange(bookID int, startDate, endDa
 	return result, nil
 }
 
+// MockUserRepository はメモリ上でデータを保持するユーザーモック実装
+type MockUserRepository struct {
+	mu     sync.RWMutex
+	users  map[int]*User
+	nextID int
+}
+
+// NewMockUserRepository は新しいMockUserRepositoryを生成する
+func NewMockUserRepository() *MockUserRepository {
+	return &MockUserRepository{
+		users:  make(map[int]*User),
+		nextID: 1,
+	}
+}
+
+// CreateUser は新しいユーザーを作成する
+func (r *MockUserRepository) CreateUser(uuid, username, passwordHash string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	for _, u := range r.users {
+		if u.Username == username {
+			return fmt.Errorf("username %s already exists", username)
+		}
+	}
+
+	user := &User{
+		ID:           r.nextID,
+		UUID:         uuid,
+		Username:     username,
+		PasswordHash: passwordHash,
+		CreatedAt:    time.Now(),
+	}
+	r.users[r.nextID] = user
+	r.nextID++
+	return nil
+}
+
+// GetUserByUsername は指定usernameのユーザーを返す。見つからない場合はnilを返す
+func (r *MockUserRepository) GetUserByUsername(username string) (*User, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	for _, u := range r.users {
+		if u.Username == username {
+			copy := *u
+			return &copy, nil
+		}
+	}
+	return nil, nil
+}
+
+// GetUserByID は指定IDのユーザーを返す。見つからない場合はnilを返す
+func (r *MockUserRepository) GetUserByID(id int) (*User, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	u, ok := r.users[id]
+	if !ok {
+		return nil, nil
+	}
+	copy := *u
+	return &copy, nil
+}
+
+// GetUserByUUID は指定UUIDのユーザーを返す。見つからない場合はnilを返す
+func (r *MockUserRepository) GetUserByUUID(uuid string) (*User, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	for _, u := range r.users {
+		if u.UUID == uuid {
+			copy := *u
+			return &copy, nil
+		}
+	}
+	return nil, nil
+}
+
+// MockSessionRepository はメモリ上でデータを保持するセッションモック実装
+type MockSessionRepository struct {
+	mu       sync.RWMutex
+	sessions map[string]*Session
+}
+
+// NewMockSessionRepository は新しいMockSessionRepositoryを生成する
+func NewMockSessionRepository() *MockSessionRepository {
+	return &MockSessionRepository{
+		sessions: make(map[string]*Session),
+	}
+}
+
+// CreateSession は新しいセッションを作成する
+func (r *MockSessionRepository) CreateSession(id string, userID int, expiresAt time.Time) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.sessions[id] = &Session{
+		ID:        id,
+		UserID:    userID,
+		CreatedAt: time.Now(),
+		ExpiresAt: expiresAt,
+	}
+	return nil
+}
+
+// GetSessionByID は指定IDのセッションを返す。見つからない場合はnilを返す
+func (r *MockSessionRepository) GetSessionByID(id string) (*Session, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	s, ok := r.sessions[id]
+	if !ok {
+		return nil, nil
+	}
+	if s.ExpiresAt.Before(time.Now()) {
+		return nil, nil
+	}
+	copy := *s
+	return &copy, nil
+}
+
+// DeleteSession は指定IDのセッションを削除する
+func (r *MockSessionRepository) DeleteSession(id string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	delete(r.sessions, id)
+	return nil
+}
+
 // MockBookRepository はメモリ上でデータを保持するモック実装
 type MockBookRepository struct {
 	mu     sync.RWMutex
@@ -398,5 +529,115 @@ func (r *MockBookRepository) DeleteBook(id int) error {
 		return fmt.Errorf("book %d not found", id)
 	}
 	delete(r.books, id)
+	return nil
+}
+
+// MockCameraRepository はメモリ上でデータを保持するモック実装
+type MockCameraRepository struct {
+	mu      sync.RWMutex
+	cameras map[int]*Camera
+	nextID  int
+}
+
+// NewMockCameraRepository は新しいMockCameraRepositoryを生成する
+func NewMockCameraRepository() *MockCameraRepository {
+	return &MockCameraRepository{
+		cameras: make(map[int]*Camera),
+		nextID:  1,
+	}
+}
+
+// CreateCamera は新しいカメラを作成する
+func (r *MockCameraRepository) CreateCamera(name string, bookID int) (*Camera, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	scriptKey, err := utils.GenerateUUID()
+	if err != nil {
+		return nil, err
+	}
+
+	camera := &Camera{
+		ID:                  r.nextID,
+		Name:                name,
+		ScriptKey:           scriptKey,
+		TargetBrightness:    0.475,
+		BrightnessTolerance: 0.175,
+		MaxAdjustRetries:    5,
+		BookID:              bookID,
+		CreatedAt:           time.Now(),
+	}
+	r.cameras[r.nextID] = camera
+	r.nextID++
+
+	copy := *camera
+	return &copy, nil
+}
+
+// GetAllCameras は全てのカメラを返す
+func (r *MockCameraRepository) GetAllCameras() ([]Camera, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	result := make([]Camera, 0, len(r.cameras))
+	for _, c := range r.cameras {
+		result = append(result, *c)
+	}
+	return result, nil
+}
+
+// GetCameraByID は指定IDのカメラを返す。見つからない場合はnilを返す
+func (r *MockCameraRepository) GetCameraByID(id int) (*Camera, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	c, ok := r.cameras[id]
+	if !ok {
+		return nil, nil
+	}
+	copy := *c
+	return &copy, nil
+}
+
+// GetCameraByScriptKey は指定script_keyのカメラを返す。見つからない場合はnilを返す
+func (r *MockCameraRepository) GetCameraByScriptKey(scriptKey string) (*Camera, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	for _, c := range r.cameras {
+		if c.ScriptKey == scriptKey {
+			copy := *c
+			return &copy, nil
+		}
+	}
+	return nil, nil
+}
+
+// UpdateCamera は指定IDのカメラ設定を更新する
+func (r *MockCameraRepository) UpdateCamera(id int, name string, targetBrightness, brightnessTolerance float64, maxAdjustRetries, bookID int) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	c, ok := r.cameras[id]
+	if !ok {
+		return fmt.Errorf("camera %d not found", id)
+	}
+	c.Name = name
+	c.TargetBrightness = targetBrightness
+	c.BrightnessTolerance = brightnessTolerance
+	c.MaxAdjustRetries = maxAdjustRetries
+	c.BookID = bookID
+	return nil
+}
+
+// DeleteCamera は指定IDのカメラを削除する
+func (r *MockCameraRepository) DeleteCamera(id int) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if _, ok := r.cameras[id]; !ok {
+		return fmt.Errorf("camera %d not found", id)
+	}
+	delete(r.cameras, id)
 	return nil
 }

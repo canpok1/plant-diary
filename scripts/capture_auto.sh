@@ -7,22 +7,15 @@ set -euo pipefail
 # crontab で定期実行することを想定。
 #
 # === 使い方 ===
-# 基本: ./scripts/capture_auto.sh
-# 目標輝度を指定: ./scripts/capture_auto.sh 0.5
-# 目標輝度と最大試行回数を指定: ./scripts/capture_auto.sh 0.5 8
-# API登録付き: ./scripts/capture_auto.sh 0.5 8 --api-url http://192.168.1.10:8080 --upload-key your32charkey
+# ./scripts/capture_auto.sh --api-url http://192.168.1.10:8080 --script-key <32文字キー>
 #
-#   引数1: TARGET_BRIGHTNESS（省略時: 0.475）
-#          0〜1の浮動小数点値で目標とする平均輝度を指定する。
-#          許容誤差（BRIGHTNESS_TOLERANCE）はスクリプト内の定数で調整できる。
-#   引数2: MAX_ADJUST_RETRIES（省略時: 5）
-#          明るさ調整の最大試行回数を指定する。
-#   --api-url: APIのベースURL。--upload-key とセットで指定する（省略可）。
-#   --upload-key: 日記帳のアップロードキー（32文字）。--api-url とセットで指定する（省略可）。
+#   --api-url: APIのベースURL（必須）
+#   --script-key: スクリプトキー（32文字）（必須）
 #
 # === 前提条件 ===
 # - fswebcam がインストールされていること
 # - ImageMagick（convert コマンド）がインストールされていること
+# - curl がインストールされていること
 # - カメラが Auto Exposure / Exposure Time, Absolute をサポートしていること
 
 # === 設定 ===
@@ -35,8 +28,7 @@ RESOLUTION="1280x720"
 JPEG_QUALITY="95"
 DELAY="1"  # カメラ安定のための遅延（秒）
 
-# 明るさ自動調整パラメータ
-BRIGHTNESS_TOLERANCE="0.175"  # 目標輝度からの許容誤差（TARGET_BRIGHTNESS ± この値が適正範囲）
+# 露出調整パラメータ
 DEFAULT_EXPOSURE=250
 EXPOSURE_MIN=10
 EXPOSURE_MAX=5000
@@ -44,8 +36,7 @@ EXPOSURE_FILE="${PROJECT_DIR}/data/last_exposure.txt"
 
 # 引数のパース
 DIARY_API_URL=""
-DIARY_UPLOAD_KEY=""
-POSITIONAL=()
+DIARY_SCRIPT_KEY=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --api-url)
@@ -54,38 +45,25 @@ while [[ $# -gt 0 ]]; do
         exit 1
       fi
       DIARY_API_URL="$2"; shift 2 ;;
-    --upload-key)
+    --script-key)
       if [[ -z "${2:-}" || "$2" == --* ]]; then
-        echo "ERROR: --upload-key には値が必要です。" >&2
+        echo "ERROR: --script-key には値が必要です。" >&2
         exit 1
       fi
-      DIARY_UPLOAD_KEY="$2"; shift 2 ;;
-    *) POSITIONAL+=("$1"); shift ;;
+      DIARY_SCRIPT_KEY="$2"; shift 2 ;;
+    *)
+      echo "ERROR: 不明な引数: $1" >&2
+      exit 1 ;;
   esac
 done
-set -- "${POSITIONAL[@]+"${POSITIONAL[@]}"}"
 
-TARGET_BRIGHTNESS="${1:-0.475}"
-MAX_ADJUST_RETRIES="${2:-5}"
-
-# 引数バリデーション
-if ! [[ "${TARGET_BRIGHTNESS}" =~ ^(0(\.[0-9]+)?|1(\.0+)?)$ ]]; then
-    echo "ERROR: TARGET_BRIGHTNESS は 0〜1 の数値で指定してください。" >&2
+# 必須引数のバリデーション
+if [ -z "${DIARY_API_URL}" ]; then
+    echo "ERROR: --api-url は必須です。" >&2
     exit 1
 fi
-
-if ! [[ "${MAX_ADJUST_RETRIES}" =~ ^[1-9][0-9]*$ ]]; then
-    echo "ERROR: MAX_ADJUST_RETRIES は 1 以上の整数で指定してください。" >&2
-    exit 1
-fi
-
-# フラグのバリデーション（片方だけの指定はエラー）
-if [ -n "${DIARY_API_URL}" ] && [ -z "${DIARY_UPLOAD_KEY}" ]; then
-    echo "ERROR: --api-url を指定する場合は --upload-key も必要です。" >&2
-    exit 1
-fi
-if [ -z "${DIARY_API_URL}" ] && [ -n "${DIARY_UPLOAD_KEY}" ]; then
-    echo "ERROR: --upload-key を指定する場合は --api-url も必要です。" >&2
+if [ -z "${DIARY_SCRIPT_KEY}" ]; then
+    echo "ERROR: --script-key は必須です。" >&2
     exit 1
 fi
 
@@ -183,6 +161,51 @@ if ! command -v bc &> /dev/null; then
     exit 1
 fi
 
+# curl の存在確認
+if ! command -v curl &> /dev/null; then
+    log_message "ERROR: curl が見つかりません。sudo apt install curl でインストールしてください。"
+    echo "ERROR: curl が見つかりません。" >&2
+    exit 1
+fi
+
+# python3 の存在確認
+if ! command -v python3 &> /dev/null; then
+    log_message "ERROR: python3 が見つかりません。sudo apt install python3 でインストールしてください。"
+    echo "ERROR: python3 が見つかりません。" >&2
+    exit 1
+fi
+
+# サーバーからスクリプト設定を取得
+log_message "INFO: サーバーから設定を取得中..."
+SCRIPT_CONFIG_JSON=$(curl -s -f \
+    -H "Authorization: Bearer ${DIARY_SCRIPT_KEY}" \
+    "${DIARY_API_URL}/api/script-config") || {
+    log_message "ERROR: 設定の取得に失敗しました。サーバーURLやスクリプトキーを確認してください。"
+    echo "ERROR: 設定の取得に失敗しました。" >&2
+    exit 1
+}
+
+# JSON から各設定値を取得（python3 を1回呼び出してまとめて解析）
+{
+    IFS= read -r TARGET_BRIGHTNESS
+    IFS= read -r BRIGHTNESS_TOLERANCE
+    IFS= read -r MAX_ADJUST_RETRIES
+    IFS= read -r DIARY_UPLOAD_KEY
+} < <(echo "${SCRIPT_CONFIG_JSON}" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+print(d['target_brightness'])
+print(d['brightness_tolerance'])
+print(d['max_adjust_retries'])
+print(d['upload_key'])
+") || {
+    log_message "ERROR: レスポンスの解析に失敗しました。"
+    echo "ERROR: レスポンスの解析に失敗しました。" >&2
+    exit 1
+}
+
+log_message "INFO: 設定を取得しました（target_brightness=${TARGET_BRIGHTNESS}, brightness_tolerance=${BRIGHTNESS_TOLERANCE}, max_adjust_retries=${MAX_ADJUST_RETRIES}）"
+
 # 適正輝度範囲の算出
 BRIGHTNESS_MIN=$(echo "${TARGET_BRIGHTNESS} - ${BRIGHTNESS_TOLERANCE}" | bc -l)
 BRIGHTNESS_MAX=$(echo "${TARGET_BRIGHTNESS} + ${BRIGHTNESS_TOLERANCE}" | bc -l)
@@ -247,13 +270,11 @@ for ((i = 1; i <= MAX_ADJUST_RETRIES; i++)); do
         log_message "INFO: Captured ${FINAL_OUTPUT}"
         echo "撮影成功: ${FINAL_OUTPUT}"
 
-        # API登録（--api-url と --upload-key が両方指定された場合のみ）
-        if [ -n "${DIARY_API_URL}" ]; then
-            curl -s -X POST \
-              -F "photo=@${FINAL_OUTPUT}" \
-              -F "upload_key=${DIARY_UPLOAD_KEY}" \
-              "${DIARY_API_URL}/api/photos" || log_message "WARN: API upload failed (photo saved locally)"
-        fi
+        # API登録
+        curl -fsS -X POST \
+          -F "photo=@${FINAL_OUTPUT}" \
+          -F "upload_key=${DIARY_UPLOAD_KEY}" \
+          "${DIARY_API_URL}/api/photos" || log_message "WARN: API upload failed (photo saved locally)"
 
         exit 0
     fi
@@ -310,10 +331,8 @@ log_message "INFO: 露出値を保存: ${BEST_EXPOSURE}"
 log_message "INFO: Captured ${FINAL_OUTPUT}"
 echo "撮影成功: ${FINAL_OUTPUT}"
 
-# API登録（--api-url と --upload-key が両方指定された場合のみ）
-if [ -n "${DIARY_API_URL}" ]; then
-    curl -s -X POST \
-      -F "photo=@${FINAL_OUTPUT}" \
-      -F "upload_key=${DIARY_UPLOAD_KEY}" \
-      "${DIARY_API_URL}/api/photos" || log_message "WARN: API upload failed (photo saved locally)"
-fi
+# API登録
+curl -fsS -X POST \
+  -F "photo=@${FINAL_OUTPUT}" \
+  -F "upload_key=${DIARY_UPLOAD_KEY}" \
+  "${DIARY_API_URL}/api/photos" || log_message "WARN: API upload failed (photo saved locally)"
