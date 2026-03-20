@@ -86,7 +86,7 @@ while true; do
     echo "Queue is empty. Running assign-issues..."
     echo "----------------------------------------"
 
-    "${SCRIPT_DIR}/assign-issues.sh" -c "$ASSIGN_COUNT" || true
+    "${SCRIPT_DIR}/assign-issues.sh" -p -c "$ASSIGN_COUNT" || true
   else
     # キューにIssueがある場合
     if [ "$waiting" = false ]; then
