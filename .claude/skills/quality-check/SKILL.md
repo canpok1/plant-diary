@@ -30,6 +30,7 @@ argument-hint: "[target-commit-or-pr]"
 2. **linterチェック（自動）**
    ```bash
    golangci-lint run
+   shellcheck scripts/*.sh .claude/**/*.sh
    ```
 
 3. **テスト実行**
