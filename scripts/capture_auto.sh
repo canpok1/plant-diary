@@ -151,7 +151,7 @@ float_gt() {
 float_abs_diff() {
     local diff
     diff=$(echo "$1 - $2" | bc -l)
-    echo "$diff" | sed 's/^-//'
+    echo "${diff#-}"
 }
 
 # === メイン処理 ===
