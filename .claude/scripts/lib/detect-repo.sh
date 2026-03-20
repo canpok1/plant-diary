@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# リモートURLからowner/repoを取得し、REPO変数にセットする
+# gh repo viewでカレントディレクトリのリポジトリからowner/repoを取得し、REPO変数にセットする
 
 REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
 if [ -z "$REPO" ]; then
