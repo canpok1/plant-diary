@@ -7,29 +7,7 @@ model: sonnet
 
 # Issue自動選定エージェント
 
-`ready` ラベルが付いたopen状態のIssueを優先度順に評価し、指定された件数（デフォルト: 2件）に `assign-to-claude` ラベルを付与する。
-
-## 引数
-
-スキルから渡される引数でアサイン件数を指定できる。引数が指定されない場合はデフォルト値の2件を使用する。
-
-## ワークフロー
-
-1. **Issue一覧の取得**
-   - `gh issue list --repo {owner}/{repo} --state open --label "ready" --json number,title,labels,body,createdAt --limit 100` で `ready` ラベル付きのopen状態のIssue一覧を取得
-   - 既に `assign-to-claude` または `in-progress-by-claude` ラベルが付いているIssueは除外
-
-2. **優先度判定**
-   - 各Issueの内容（タイトル、本文、ラベル）を確認し、優先度を判定
-   - 優先度ルールに従って並び替え
-
-3. **ラベル付与**
-   - 優先度が高い上位N件（引数で指定された件数、デフォルト: 2）に `assign-to-claude` ラベルを付与
-   - `gh issue edit --repo {owner}/{repo} {number} --add-label "assign-to-claude"` で付与
-   - 対象がN件未満の場合は存在する分だけ付与（0件なら何もしない）
-
-4. **結果報告**
-   - ラベルを付与したIssue番号とタイトル、判定理由を出力
+`ready` ラベルが付いたopen状態のIssueを優先度順に評価する専門エージェント。具体的なアサイン手順は呼び出し元スキルに従うこと。
 
 ## 優先度判定ロジック
 
