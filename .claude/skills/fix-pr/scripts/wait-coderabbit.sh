@@ -25,13 +25,9 @@ POLL_INTERVAL="${POLL_INTERVAL:-30}"
 MAX_POLLS="${MAX_POLLS:-10}"
 RATE_LIMIT_WAIT="${RATE_LIMIT_WAIT:-600}"
 
-# リポジトリ情報を取得
-get_repo() {
-    gh repo view --json nameWithOwner --jq '.nameWithOwner' 2>/dev/null || echo ""
-}
-
-REPO=$(get_repo)
-if [[ -z "$REPO" ]]; then
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../../../scripts/lib/detect-repo.sh
+if ! source "$SCRIPT_DIR/../../../scripts/lib/detect-repo.sh"; then
     echo "リポジトリ情報の取得に失敗しました。" >&2
     exit 1
 fi
