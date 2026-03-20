@@ -18,8 +18,11 @@ PR $ARGUMENTS に対して、CI待機・レビュー対応・マージを行い�
 ### ステップ1: wait-coderabbit.sh を実行
 
 ```bash
-./.claude/skills/fix-pr/scripts/wait-coderabbit.sh <PR番号>
+./.claude/skills/fix-pr/scripts/wait-coderabbit.sh <PR番号> [既知のレビュー数]
 ```
+
+- 第2引数（既知のレビュー数）: 省略可。この数を超えるレビューが来るまで待機する（デフォルト0）
+  - 再レビュー依頼後など、すでにレビューが存在する状態で新しいレビューを待つ場合に指定する
 
 | 終了コード | アクション |
 |---|---|
