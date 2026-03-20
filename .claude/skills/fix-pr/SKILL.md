@@ -1,6 +1,6 @@
 ---
 name: fix-pr
-description: PR のCI待機・レビュー対応・マージを行うスキル。solve-issue のステップ7〜11を分離したもの。
+description: PR のCI待機・レビュー対応・マージを行うスキル。solve-issue のステップ7を分離したもの。
 context: fork
 agent: general-purpose
 allowed-tools: Skill, Bash, Read, Grep, Glob, Write, Edit

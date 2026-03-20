@@ -61,8 +61,7 @@ GitHub Issue $ARGUMENTS を対応します。
 | 5. 重複チェック | 条件付き | 既存PRが見つかった場合のみ記録 |
 | 6. PR作成 | 追記 | PR番号とURL |
 | 7. fix-pr | 追記 | CI待機・レビュー対応・マージの結果 |
-| 8. クリーンアップ | なし | 定型作業のため省略 |
-| 9. 振り返り | 追記 | 作成したIssue番号（あれば） |
+| 8. 振り返り | 追記 | 作成したIssue番号（あれば） |
 
 0. Issue の状態を確認する
   - `gh issue view $ARGUMENTS --json state --jq .state` で対象IssueのOPEN/CLOSED状態を確認する
@@ -84,7 +83,7 @@ GitHub Issue $ARGUMENTS を対応します。
   - ブランチ名検索（第一手段）: `gh pr list --repo {owner}/{repo} --head "worktree-issue-{番号}" --state all`
   - テキスト検索（フォールバック）: `gh pr list --repo {owner}/{repo} --search "#{番号}" --state all`
   - 両方の結果を合わせて、以下の優先順位で判断する:
-    1. **merged状態のPRが存在する場合**: 既に対応済みのため、以下の手順でIssueをクローズし、処理をスキップして完了する（ステップ9の振り返りのみ実施する）
+    1. **merged状態のPRが存在する場合**: 既に対応済みのため、以下の手順でIssueをクローズし、処理をスキップして完了する（ステップ8の振り返りのみ実施する）
        - merged PRの情報を取得: `gh pr list --repo {owner}/{repo} --search "#{番号}" --state merged --json number,url --jq '.[0]'`
        - Issueをコメント付きでクローズ: `gh issue close {番号} --repo {owner}/{repo} --comment "対応済みPR #{PR番号} が既にマージされているためクローズします。\n\nPR: {PR URL}"`
     2. **open状態のPRが存在する場合**: 新しいPRを作成せず、既存PRに対してステップ7（fix-pr）を継続する
