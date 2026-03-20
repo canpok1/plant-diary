@@ -92,7 +92,7 @@ GitHub Issue $ARGUMENTS を対応します。
        - PR番号の取得例: `gh pr list --repo {owner}/{repo} --head "worktree-issue-{番号}" --state open --json number --jq '.[0].number'`
     3. **closed状態（マージされずにクローズ）のPRのみ存在する場合**: 既存PRなしとして扱い、ステップ6に進む
   - 上記いずれにも該当しない場合（既存PRが存在しない場合）: ステップ6に進む
-6. `/monologue` を実行してから、`commit-push-pr` スキルでPRを作成する
+6. `/monologue` を実行してから、`commit-commands:commit-push-pr` スキルでPRを作成する
   - PR本文に必ず `Closes #$ARGUMENTS` を含めること（マージ時にIssueが自動クローズされる）
 7. `/monologue` を実行してから、`/fix-pr` スキルでCI待機・レビュー対応・マージを行う
   - 引数にPR番号を渡す
