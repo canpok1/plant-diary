@@ -271,7 +271,7 @@ for ((i = 1; i <= MAX_ADJUST_RETRIES; i++)); do
         echo "撮影成功: ${FINAL_OUTPUT}"
 
         # API登録
-        curl -s -X POST \
+        curl -fsS -X POST \
           -F "photo=@${FINAL_OUTPUT}" \
           -F "upload_key=${DIARY_UPLOAD_KEY}" \
           "${DIARY_API_URL}/api/photos" || log_message "WARN: API upload failed (photo saved locally)"
@@ -332,7 +332,7 @@ log_message "INFO: Captured ${FINAL_OUTPUT}"
 echo "撮影成功: ${FINAL_OUTPUT}"
 
 # API登録
-curl -s -X POST \
+curl -fsS -X POST \
   -F "photo=@${FINAL_OUTPUT}" \
   -F "upload_key=${DIARY_UPLOAD_KEY}" \
   "${DIARY_API_URL}/api/photos" || log_message "WARN: API upload failed (photo saved locally)"

@@ -3,8 +3,11 @@ package handler
 import (
 	"fmt"
 	"log"
+	"math"
 	"net/http"
 	"strconv"
+
+	"plant-diary/internal/domain"
 )
 
 // handleGetCameras は GET /cameras のハンドラ（カメラ一覧）
@@ -16,11 +19,25 @@ func (s *Server) handleGetCameras(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cameras, err := s.cameraRepo.GetAllCameras()
+	allCameras, err := s.cameraRepo.GetAllCameras()
 	if err != nil {
 		log.Printf("ERROR: failed to get all cameras: %v", err)
 		s.renderError(w, http.StatusInternalServerError)
 		return
+	}
+
+	// 現在のユーザーが所有するカメラのみに絞り込む
+	var cameras []domain.Camera
+	for _, cam := range allCameras {
+		book, err := s.bookRepo.GetBookByID(cam.BookID)
+		if err != nil {
+			log.Printf("ERROR: failed to get book %d for camera %d: %v", cam.BookID, cam.ID, err)
+			continue
+		}
+		if book == nil || book.CreatorID != user.ID {
+			continue
+		}
+		cameras = append(cameras, cam)
 	}
 
 	data := map[string]interface{}{
@@ -65,6 +82,13 @@ func (s *Server) handleGetCamerasNew(w http.ResponseWriter, r *http.Request) {
 
 // handlePostCameras は POST /cameras のハンドラ（カメラ登録）
 func (s *Server) handlePostCameras(w http.ResponseWriter, r *http.Request) {
+	user, err := s.getCurrentUser(r)
+	if err != nil {
+		log.Printf("ERROR: failed to get current user: %v", err)
+		s.renderError(w, http.StatusInternalServerError)
+		return
+	}
+
 	if err := r.ParseForm(); err != nil {
 		s.renderError(w, http.StatusBadRequest)
 		return
@@ -80,6 +104,18 @@ func (s *Server) handlePostCameras(w http.ResponseWriter, r *http.Request) {
 	bookID, err := strconv.Atoi(bookIDStr)
 	if err != nil || bookID <= 0 {
 		s.renderError(w, http.StatusBadRequest)
+		return
+	}
+
+	// 指定した book が現在のユーザーのものであることを確認
+	book, err := s.bookRepo.GetBookByID(bookID)
+	if err != nil {
+		log.Printf("ERROR: failed to get book %d: %v", bookID, err)
+		s.renderError(w, http.StatusInternalServerError)
+		return
+	}
+	if book == nil || book.CreatorID != user.ID {
+		s.renderError(w, http.StatusNotFound)
 		return
 	}
 
@@ -118,6 +154,18 @@ func (s *Server) handleGetCameraSettings(w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		log.Printf("ERROR: failed to get current user: %v", err)
 		s.renderError(w, http.StatusInternalServerError)
+		return
+	}
+
+	// カメラが現在のユーザーの book に属していることを確認
+	book, err := s.bookRepo.GetBookByID(camera.BookID)
+	if err != nil {
+		log.Printf("ERROR: failed to get book %d: %v", camera.BookID, err)
+		s.renderError(w, http.StatusInternalServerError)
+		return
+	}
+	if book == nil || book.CreatorID != user.ID {
+		s.renderError(w, http.StatusNotFound)
 		return
 	}
 
@@ -163,6 +211,25 @@ func (s *Server) handlePostCameraSettings(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	user, err := s.getCurrentUser(r)
+	if err != nil {
+		log.Printf("ERROR: failed to get current user: %v", err)
+		s.renderError(w, http.StatusInternalServerError)
+		return
+	}
+
+	// カメラが現在のユーザーの book に属していることを確認
+	cameraBook, err := s.bookRepo.GetBookByID(camera.BookID)
+	if err != nil {
+		log.Printf("ERROR: failed to get book %d: %v", camera.BookID, err)
+		s.renderError(w, http.StatusInternalServerError)
+		return
+	}
+	if cameraBook == nil || cameraBook.CreatorID != user.ID {
+		s.renderError(w, http.StatusNotFound)
+		return
+	}
+
 	if err := r.ParseForm(); err != nil {
 		s.renderError(w, http.StatusBadRequest)
 		return
@@ -180,10 +247,18 @@ func (s *Server) handlePostCameraSettings(w http.ResponseWriter, r *http.Request
 		s.renderError(w, http.StatusBadRequest)
 		return
 	}
+	if math.IsNaN(targetBrightness) || math.IsInf(targetBrightness, 0) || targetBrightness < 0 || targetBrightness > 1 {
+		s.renderError(w, http.StatusBadRequest)
+		return
+	}
 
 	brightnessToleranceStr := r.FormValue("brightness_tolerance")
 	brightnessTolerance, err := strconv.ParseFloat(brightnessToleranceStr, 64)
 	if err != nil {
+		s.renderError(w, http.StatusBadRequest)
+		return
+	}
+	if math.IsNaN(brightnessTolerance) || math.IsInf(brightnessTolerance, 0) || brightnessTolerance < 0 || brightnessTolerance > 1 {
 		s.renderError(w, http.StatusBadRequest)
 		return
 	}
@@ -199,6 +274,18 @@ func (s *Server) handlePostCameraSettings(w http.ResponseWriter, r *http.Request
 	bookID, err := strconv.Atoi(bookIDStr)
 	if err != nil || bookID <= 0 {
 		s.renderError(w, http.StatusBadRequest)
+		return
+	}
+
+	// 更新先 book も現在のユーザーのものであることを確認
+	newBook, err := s.bookRepo.GetBookByID(bookID)
+	if err != nil {
+		log.Printf("ERROR: failed to get book %d: %v", bookID, err)
+		s.renderError(w, http.StatusInternalServerError)
+		return
+	}
+	if newBook == nil || newBook.CreatorID != user.ID {
+		s.renderError(w, http.StatusNotFound)
 		return
 	}
 
@@ -228,6 +315,25 @@ func (s *Server) handlePostCameraDelete(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	if camera == nil {
+		s.renderError(w, http.StatusNotFound)
+		return
+	}
+
+	user, err := s.getCurrentUser(r)
+	if err != nil {
+		log.Printf("ERROR: failed to get current user: %v", err)
+		s.renderError(w, http.StatusInternalServerError)
+		return
+	}
+
+	// カメラが現在のユーザーの book に属していることを確認
+	book, err := s.bookRepo.GetBookByID(camera.BookID)
+	if err != nil {
+		log.Printf("ERROR: failed to get book %d: %v", camera.BookID, err)
+		s.renderError(w, http.StatusInternalServerError)
+		return
+	}
+	if book == nil || book.CreatorID != user.ID {
 		s.renderError(w, http.StatusNotFound)
 		return
 	}
