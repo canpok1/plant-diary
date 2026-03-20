@@ -27,14 +27,14 @@ source "$SCRIPT_DIR/lib/detect-repo.sh"
 # 現在のGitHubユーザーを取得
 source "$SCRIPT_DIR/lib/current-user.sh"
 
-# assign-to-claudeラベルが付いていないopen Issueを取得（古い順、ASSIGN_COUNT件）
+# assign-to-claudeラベルが付いておらずreadyラベルが付いているopen Issueを取得（古い順、ASSIGN_COUNT件）
 issue_numbers=$(gh issue list \
   --repo "$REPO" \
   --author "$CURRENT_USER" \
   --state open \
   --search "sort:created-asc" \
   --json number,labels \
-  --jq '.[] | select(.labels | map(.name) | contains(["assign-to-claude"]) | not) | .number' \
+  --jq '.[] | (.labels | map(.name)) as $names | select(($names | contains(["assign-to-claude"]) | not) and ($names | contains(["ready"]))) | .number' \
   | head -n "$ASSIGN_COUNT")
 
 if [ -z "$issue_numbers" ]; then
