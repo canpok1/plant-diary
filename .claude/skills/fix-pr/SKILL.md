@@ -154,7 +154,7 @@ KNOWN_TOTAL=$(gh pr view --repo <REPO> <PR番号> --json comments,reviews \
 ```bash
 git add <修正したファイルパス...>
 git commit -m "fix: CodeRabbitの指摘を修正"
-git push
+git push origin HEAD
 ```
 
 #### 4. 返信・再レビュー依頼

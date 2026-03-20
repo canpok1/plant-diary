@@ -40,7 +40,7 @@ if [[ "$MERGE_BASE" != "$REMOTE_MAIN" ]]; then
         exit 1
     fi
     echo "mainをマージしました。プッシュします..."
-    if ! git push 2>/dev/null; then
+    if ! git push origin HEAD; then
         echo "プッシュに失敗しました。" >&2
         exit 3
     fi
