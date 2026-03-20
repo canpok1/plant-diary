@@ -1,6 +1,7 @@
 ---
 name: retro
 description: 直前の作業内容を振り返り、改善点を分析してGitHub Issueを作成します。作業完了後に使用してください。
+allowed-tools: Skill, Agent, Bash, Read, Grep, Glob
 user-invocable: true
 ---
 
