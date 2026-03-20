@@ -20,12 +20,8 @@ while getopts "pc:" opt; do
 done
 
 SCRIPT_DIR=$(dirname "$0")
-
-# リモートURLからowner/repoを取得
-source "$SCRIPT_DIR/lib/detect-repo.sh"
-
-# 現在のGitHubユーザーを取得
-source "$SCRIPT_DIR/lib/current-user.sh"
+CURRENT_USER=$(gh api user --jq .login)
+REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
 
 # assign-to-claudeラベルが付いておらずreadyラベルが付いているopen Issueを取得（古い順、ASSIGN_COUNT件）
 issue_numbers=$(gh issue list \

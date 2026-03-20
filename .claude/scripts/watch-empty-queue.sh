@@ -62,11 +62,8 @@ fi
 # Ctrl-C（SIGINT）で正常終了するためのトラップ
 trap 'if [ "$waiting" = true ]; then echo ""; fi; echo "Stopping watch-empty-queue.sh..."; exit 0' INT
 
-# リモートURLからowner/repoを取得
-source "$SCRIPT_DIR/lib/detect-repo.sh"
-
-# 現在のGitHubユーザーを取得
-source "$SCRIPT_DIR/lib/current-user.sh"
+CURRENT_USER=$(gh api user --jq .login)
+REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
 
 while true; do
   # assign-to-claudeラベル付きopen Issueの件数を確認
