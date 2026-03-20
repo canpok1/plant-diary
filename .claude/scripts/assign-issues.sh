@@ -32,6 +32,7 @@ issue_numbers=$(gh issue list \
   --repo "$REPO" \
   --author "$CURRENT_USER" \
   --state open \
+  --search "sort:created-asc" \
   --json number,labels \
   --jq '.[] | select(.labels | map(.name) | contains(["assign-to-claude"]) | not) | .number' \
   | head -n "$ASSIGN_COUNT")
