@@ -102,7 +102,8 @@
     "command": "./.claude/statusline.sh"
   },
   "enabledPlugins": {
-    "commit-commands@claude-plugins-official": true
+    "commit-commands@claude-plugins-official": true,
+    "base-tools@canpok1-plugins": true
   },
   "extraKnownMarketplaces": {}
 }
