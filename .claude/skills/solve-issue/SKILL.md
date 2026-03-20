@@ -93,6 +93,7 @@ GitHub Issue $ARGUMENTS を対応します。
     3. **closed状態（マージされずにクローズ）のPRのみ存在する場合**: 既存PRなしとして扱い、ステップ6に進む
   - 上記いずれにも該当しない場合（既存PRが存在しない場合）: ステップ6に進む
 6. `/monologue` を実行してから、`commit-push-pr` スキルでPRを作成する
+  - PR本文に必ず `Closes #$ARGUMENTS` を含めること（マージ時にIssueが自動クローズされる）
 7. `/monologue` を実行してから、`/fix-pr` スキルでCI待機・レビュー対応・マージを行う
   - 引数にPR番号を渡す
 8. `/monologue` を実行してから、`/retro` スキルで振り返りを行う
