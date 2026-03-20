@@ -15,10 +15,10 @@ GitHub Issue $ARGUMENTS を対応します。
 
 ### メモファイルの仕様
 
-- **配置先**: `.claude/memo/`（存在しなければ `mkdir -p` で作成）
+- **配置先**: `tmp/memo/`（存在しなければ `mkdir -p` で作成）
 - **ファイル名**: 現在のブランチ名をサニタイズ + `.md`
   - サニタイズ: `/:*?"<>|\` をハイフン `-` に変換
-  - 取得: `BRANCH=$(git rev-parse --abbrev-ref HEAD); MEMO_FILE=".claude/memo/$(echo "$BRANCH" | tr '/:*?"<>|\\' '-').md"`
+  - 取得: `BRANCH=$(git rev-parse --abbrev-ref HEAD); MEMO_FILE="tmp/memo/$(echo "$BRANCH" | tr '/:*?"<>|\\' '-').md"`
 - **既存ファイル**: 上書きせず、Readで読み取って追記（既存内容を保持）
 - **書き込み方法**: Readツールで現在の内容を読み取り、Writeツールで更新
 
