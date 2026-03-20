@@ -44,4 +44,4 @@ docs/db/
 docs/api/
 
 # Temp files
-tmp/
+.tmp/

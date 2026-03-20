@@ -8,7 +8,7 @@ SCRIPT_DIR=$(dirname "$0")
 WORKSPACE_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # ロックファイル用ディレクトリの準備
-LOCK_DIR="$WORKSPACE_DIR/tmp/locks"
+LOCK_DIR="$WORKSPACE_DIR/.tmp/locks"
 mkdir -p "$LOCK_DIR"
 
 # Ctrl-C（SIGINT）で正常終了するためのトラップ

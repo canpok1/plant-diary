@@ -48,7 +48,7 @@ SCRIPT_DIR=$(dirname "$0")
 WORKSPACE_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # ロックファイルの準備
-LOCK_DIR="$WORKSPACE_DIR/tmp/locks"
+LOCK_DIR="$WORKSPACE_DIR/.tmp/locks"
 mkdir -p "$LOCK_DIR"
 LOCK_FILE="$LOCK_DIR/watch-empty-queue.lock"
 
