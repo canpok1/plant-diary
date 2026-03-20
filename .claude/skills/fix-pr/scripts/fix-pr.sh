@@ -21,7 +21,10 @@ PR_NUMBER="$1"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=../../../scripts/lib/detect-repo.sh
-source "$SCRIPT_DIR/../../../scripts/lib/detect-repo.sh"
+if ! source "$SCRIPT_DIR/../../../scripts/lib/detect-repo.sh"; then
+    echo "リポジトリ情報の取得に失敗しました。" >&2
+    exit 3
+fi
 
 # ========================================
 # Step 1: ブランチ最新化チェック
