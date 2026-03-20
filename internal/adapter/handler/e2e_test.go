@@ -86,9 +86,10 @@ func setupE2EServerWithDB(t *testing.T) (*httptest.Server, *sql.DB) {
 	userRepo := sqlite.NewSQLiteUserRepository(db)
 	bookRepo := sqlite.NewSQLiteBookRepository(db)
 	sessionRepo := sqlite.NewSQLiteSessionRepository(db)
+	cameraRepo := sqlite.NewSQLiteCameraRepository(db)
 	generator := &gemini.MockDiaryGenerator{}
 
-	srv, err := NewServer(repo, userRepo, bookRepo, sessionRepo, generator, "../../../templates", t.TempDir())
+	srv, err := NewServer(repo, userRepo, bookRepo, sessionRepo, generator, cameraRepo, "../../../templates", t.TempDir())
 	if err != nil {
 		t.Fatalf("failed to create server: %v", err)
 	}
