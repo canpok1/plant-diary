@@ -3,47 +3,41 @@ set -euo pipefail
 
 # オプション解析
 USE_PRINT_MODE=false
-ASSIGN_COUNT=1
-
+ASSIGN_COUNT=2
 while getopts "pc:" opt; do
   case "$opt" in
     p) USE_PRINT_MODE=true ;;
-    c)
-      if ! [[ "${OPTARG}" =~ ^[0-9]+$ ]]; then
-        echo "Error: -c requires a numeric value" >&2
-        exit 1
-      fi
-      ASSIGN_COUNT="${OPTARG}"
-      ;;
-    *) echo "Usage: $0 [-p] [-c count]" >&2; exit 1 ;;
+    c) ASSIGN_COUNT="$OPTARG" ;;
+    *) echo "Usage: $0 [-p] [-c assign_count]" >&2; exit 1 ;;
   esac
 done
 
-SCRIPT_DIR=$(dirname "$0")
+if ! [[ "${ASSIGN_COUNT}" =~ ^[0-9]+$ ]]; then
+  echo "Error: assign_count must be numeric" >&2
+  exit 1
+fi
+
+echo "Issue自動選定を開始します"
+
 CURRENT_USER=$(gh api user --jq .login)
 REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
 
-# assign-to-claudeラベルが付いておらずreadyラベルが付いているopen Issueを取得（古い順、ASSIGN_COUNT件）
-issue_numbers=$(gh issue list \
-  --repo "$REPO" \
-  --author "$CURRENT_USER" \
-  --state open \
-  --search "sort:created-asc" \
-  --json number,labels \
-  --jq '.[] | (.labels | map(.name)) as $names | select(($names | contains(["assign-to-claude"]) | not) and ($names | contains(["ready"]))) | .number' \
-  | head -n "$ASSIGN_COUNT")
-
-if [ -z "$issue_numbers" ]; then
-  echo "割り当て可能なIssueがありません"
+# readyラベル付きかつ割り当て済みラベルなしのIssue数を確認し、0件ならスキップ
+ASSIGNABLE_COUNT=$(gh issue list --repo "$REPO" --state open --label "ready" --author "$CURRENT_USER" --json number,labels \
+  --jq '[.[] | select(.labels | map(.name) | all(. != "assign-to-claude" and . != "in-progress-by-claude"))] | length')
+if [ "$ASSIGNABLE_COUNT" -eq 0 ]; then
+  echo "割り当て可能なIssueがないため、スキップします"
   exit 0
 fi
 
-while IFS= read -r issue_number; do
-  if "${USE_PRINT_MODE}"; then
-    echo "[dry-run] Issue #${issue_number} に assign-to-claude ラベルを付与します"
-  else
-    echo "Issue #${issue_number} に assign-to-claude ラベルを付与します..."
-    gh issue edit --repo "$REPO" "$issue_number" --add-label "assign-to-claude"
-    echo "Issue #${issue_number} をキューに追加しました"
-  fi
-done <<< "$issue_numbers"
+# Claudeでissueを選定・ラベル付与（コード変更不要のため--worktreeは不使用）
+SKILL_ARGS="/assign-issues ${ASSIGN_COUNT}"
+if "${USE_PRINT_MODE}"; then
+  claude --dangerously-skip-permissions \
+    -p "$SKILL_ARGS" \
+    --output-format stream-json --verbose --include-partial-messages | \
+    jq -rj 'if .type == "stream_event" and .event.delta.type? == "text_delta" then .event.delta.text elif .type == "result" then .result else empty end'
+  echo
+else
+  claude --dangerously-skip-permissions "$SKILL_ARGS"
+fi
