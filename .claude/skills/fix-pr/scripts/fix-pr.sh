@@ -19,16 +19,9 @@ fi
 
 PR_NUMBER="$1"
 
-# リポジトリ情報を取得
-get_repo() {
-    gh repo view --json nameWithOwner --jq '.nameWithOwner' 2>/dev/null || echo ""
-}
-
-REPO=$(get_repo)
-if [[ -z "$REPO" ]]; then
-    echo "リポジトリ情報の取得に失敗しました。" >&2
-    exit 3
-fi
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../../../scripts/lib/detect-repo.sh
+source "$SCRIPT_DIR/../../../scripts/lib/detect-repo.sh"
 
 # ========================================
 # Step 1: ブランチ最新化チェック
