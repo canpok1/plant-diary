@@ -76,12 +76,53 @@ gh pr view --repo <REPO> <PR番号> --json comments --jq '[.comments[] | select(
 - **approve漏れの場合**: PRに `@coderabbitai approve` コメントを投稿 → フロー先頭（ステップ1）に戻る
 - **approve漏れではない場合**: ステップ3bへ進む
 
-### ステップ3b: レビューコメント対応（exit 2の場合）
+### ステップ3b: CodeRabbitの指摘を修正（exit 2の場合）
 
-`/pr-comments` スキルでレビューコメントを取得し対応 → コミット・プッシュ → フロー先頭（ステップ1）に戻る（※ステップ1のwait-coderabbit.shがCHANGES_REQUESTED検知時に `@coderabbitai resolve` を自動投稿する）
+CodeRabbitの指摘内容を取得・分析し、修正を実装する。
+
+#### 1. 指摘内容の取得
+
+```bash
+# CodeRabbitのレビューコメント（インラインコメント含む）を取得
+gh pr view --repo <REPO> <PR番号> --json reviews,comments --jq '
+  {
+    reviews: [.reviews[] | select(.author.login=="coderabbitai")],
+    comments: [.comments[] | select(.author.login=="coderabbitai")]
+  }
+'
+
+# インラインレビューコメント（差分上のコメント）を取得
+gh api repos/<REPO>/pulls/<PR番号>/comments --jq '[.[] | select(.user.login=="coderabbitai") | {path: .path, line: .line, body: .body}]'
+```
+
+#### 2. 指摘内容の修正
+
+取得したレビューコメントを分析し、AIが判断して修正を実装する。
+
+- ファイルパスと行番号からコードを特定し、問題を修正する
+- コードの品質・スタイル指摘: 実際にコードを修正する
+- ロジックの問題: 修正内容を判断して実装する
+- ドキュメント・コメントの指摘: テキストを修正する
+
+#### 3. コミット・プッシュ
+
+```bash
+git add -A
+git commit -m "fix: CodeRabbitの指摘を修正"
+git push
+```
+
+#### 4. 再レビュー依頼
+
+修正をプッシュ後、CodeRabbitに再レビューを依頼する:
+
+```bash
+gh pr comment --repo <REPO> <PR番号> --body "@coderabbitai review"
+```
+
+→ フロー先頭（ステップ1）に戻る
 
 ## 注意事項
 
-- レビューコメント対応時は `/pr-comments` スキルを使用すること
 - コンフリクト解消時はコミットメッセージにIssue番号を含めること
 - マージ完了後のクリーンアップ（ブランチ削除等）はこのスキルの責務外（GitHub側の自動削除設定に任せる）
