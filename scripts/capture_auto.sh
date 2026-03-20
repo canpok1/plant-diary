@@ -168,6 +168,13 @@ if ! command -v curl &> /dev/null; then
     exit 1
 fi
 
+# python3 の存在確認
+if ! command -v python3 &> /dev/null; then
+    log_message "ERROR: python3 が見つかりません。sudo apt install python3 でインストールしてください。"
+    echo "ERROR: python3 が見つかりません。" >&2
+    exit 1
+fi
+
 # サーバーからスクリプト設定を取得
 log_message "INFO: サーバーから設定を取得中..."
 SCRIPT_CONFIG_JSON=$(curl -s -f \
@@ -178,24 +185,21 @@ SCRIPT_CONFIG_JSON=$(curl -s -f \
     exit 1
 }
 
-# JSON から各設定値を取得（python3 を使用）
-TARGET_BRIGHTNESS=$(echo "${SCRIPT_CONFIG_JSON}" | python3 -c "import sys,json; print(json.load(sys.stdin)['target_brightness'])") || {
-    log_message "ERROR: target_brightness の解析に失敗しました。"
-    echo "ERROR: レスポンスの解析に失敗しました。" >&2
-    exit 1
-}
-BRIGHTNESS_TOLERANCE=$(echo "${SCRIPT_CONFIG_JSON}" | python3 -c "import sys,json; print(json.load(sys.stdin)['brightness_tolerance'])") || {
-    log_message "ERROR: brightness_tolerance の解析に失敗しました。"
-    echo "ERROR: レスポンスの解析に失敗しました。" >&2
-    exit 1
-}
-MAX_ADJUST_RETRIES=$(echo "${SCRIPT_CONFIG_JSON}" | python3 -c "import sys,json; print(json.load(sys.stdin)['max_adjust_retries'])") || {
-    log_message "ERROR: max_adjust_retries の解析に失敗しました。"
-    echo "ERROR: レスポンスの解析に失敗しました。" >&2
-    exit 1
-}
-DIARY_UPLOAD_KEY=$(echo "${SCRIPT_CONFIG_JSON}" | python3 -c "import sys,json; print(json.load(sys.stdin)['upload_key'])") || {
-    log_message "ERROR: upload_key の解析に失敗しました。"
+# JSON から各設定値を取得（python3 を1回呼び出してまとめて解析）
+{
+    IFS= read -r TARGET_BRIGHTNESS
+    IFS= read -r BRIGHTNESS_TOLERANCE
+    IFS= read -r MAX_ADJUST_RETRIES
+    IFS= read -r DIARY_UPLOAD_KEY
+} < <(echo "${SCRIPT_CONFIG_JSON}" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+print(d['target_brightness'])
+print(d['brightness_tolerance'])
+print(d['max_adjust_retries'])
+print(d['upload_key'])
+") || {
+    log_message "ERROR: レスポンスの解析に失敗しました。"
     echo "ERROR: レスポンスの解析に失敗しました。" >&2
     exit 1
 }

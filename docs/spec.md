@@ -85,9 +85,29 @@ echo "$(date): Captured ${OUTPUT}" >> /var/log/plant-diary-capture.log
 0 12 * * * /path/to/plant-diary/scripts/capture.sh
 ```
 
+### 4.2 明るさ自動調整付き撮影プロセス (Host側)
 
+サーバーからカメラ設定を取得し、輝度を自動調整しながら撮影・アップロードする。
 
-### 4.2 日記生成プロセス (Worker側)
+1. **設定取得**: `GET /api/script-config`（Bearer認証）でサーバーから設定を取得。
+   - `target_brightness` / `brightness_tolerance` / `max_adjust_retries` / `upload_key`
+   - 取得失敗時はスクリプトを即終了（撮影スキップ）。
+2. **輝度調整撮影**: 取得した設定値を使って最大 `max_adjust_retries` 回撮影を試みる。
+3. **アップロード**: 取得した `upload_key` で `POST /api/photos` にアップロード。
+
+#### スクリプト例 (`scripts/capture_auto.sh`)
+
+```bash
+./scripts/capture_auto.sh --api-url http://192.168.1.10:8080 --script-key <32文字キー>
+```
+
+#### カメラ管理
+
+管理画面 `/cameras` でカメラを登録・設定できる。
+- カメラ登録時にサーバーが `script_key`（32文字）を自動生成する。
+- `book_id` で登録先日記帳を切り替えられる（スクリプト側の変更不要）。
+
+### 4.4 日記生成プロセス (Worker側)
 
 1. **新着検知**: `data/photos/` に未処理の画像があるか確認。
 2. **AI解析**:
@@ -100,7 +120,7 @@ echo "$(date): Captured ${OUTPUT}" >> /var/log/plant-diary-capture.log
 
 
 
-### 4.3 Web公開機能 (Server側)
+### 4.5 Web公開機能 (Server側)
 
 1. **一覧表示**: 過去の日記をカレンダー逆順（新着順）でリスト表示。
 2. **詳細表示**: 高解像度画像と日記本文の閲覧。
