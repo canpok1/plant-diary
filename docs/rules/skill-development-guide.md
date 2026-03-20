@@ -265,7 +265,10 @@ description: |
 
 ### 正式名称の確認方法
 
-- **プラグインスキル**: `settings.json` の `enabledPlugins` セクションでプラグイン名を確認し、`{plugin-name}:{command-name}` 形式で記述する
+- **プラグインスキル**: `{namespace}:{skill-name}` 形式で記述する
+  - `namespace`: プラグインの `.claude-plugin/plugin.json` 内の `name` フィールドから取得
+  - `skill-name`: プラグインの `skills/{skill-name}/SKILL.md` のディレクトリ名、またはその SKILL.md 内の `name` フィールドから取得
+  - ※ `settings.json` の `enabledPlugins` はプラグインの有効化フラグであり、スキル名の決定元ではない
 - **ローカルスキル**: `.claude/skills/{skill-name}/SKILL.md` の `name` フィールドで確認し、`/{name}` 形式で記述する
 
 ### 良い例 ✅
