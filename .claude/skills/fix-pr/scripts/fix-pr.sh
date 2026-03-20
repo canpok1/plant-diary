@@ -25,6 +25,10 @@ get_repo() {
 }
 
 REPO=$(get_repo)
+if [[ -z "$REPO" ]]; then
+    echo "リポジトリ情報の取得に失敗しました。" >&2
+    exit 3
+fi
 
 # ========================================
 # Step 1: ブランチ最新化チェック
@@ -45,7 +49,10 @@ if [[ "$MERGE_BASE" != "$REMOTE_MAIN" ]]; then
         exit 1
     fi
     echo "mainをマージしました。プッシュします..."
-    git push 2>/dev/null || true
+    if ! git push 2>/dev/null; then
+        echo "プッシュに失敗しました。" >&2
+        exit 3
+    fi
 else
     echo "ブランチは最新です。"
 fi
@@ -95,8 +102,9 @@ if [[ "$MERGE_EXIT" -eq 0 ]]; then
 fi
 
 # マージ失敗の原因を判定
-if echo "$MERGE_OUTPUT" | grep -qi "unresolved review\|review.*required\|required.*approv.*review\|review.*not.*resolved\|CHANGES_REQUESTED"; then
-    echo "未解決レビューが原因でマージできません。" >&2
+REVIEW_DECISION=$(gh pr view --repo "$REPO" "$PR_NUMBER" --json reviewDecision --jq '.reviewDecision // ""' 2>/dev/null || echo "")
+if [[ "$REVIEW_DECISION" == "CHANGES_REQUESTED" || "$REVIEW_DECISION" == "REVIEW_REQUIRED" ]]; then
+    echo "未解決レビューが原因でマージできません。（reviewDecision: $REVIEW_DECISION）" >&2
     echo "$MERGE_OUTPUT" >&2
     exit 2
 fi

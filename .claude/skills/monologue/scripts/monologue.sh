@@ -18,7 +18,7 @@ if ! [[ "$PROBABILITY" =~ ^[0-9]+$ ]] || [ "$PROBABILITY" -lt 1 ] || [ "$PROBABI
   exit 1
 fi
 
-if ! [[ "$SPEAKER" =~ ^[0-9]+$ ]]; then
+if ! [[ "$SPEAKER" =~ ^[0-9]+$ ]] || [ "$SPEAKER" -lt 1 ]; then
   echo "[ERROR] スピーカーIDは正の整数で指定してください: '$SPEAKER'"
   exit 1
 fi

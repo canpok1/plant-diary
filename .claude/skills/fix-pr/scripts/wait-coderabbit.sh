@@ -31,6 +31,10 @@ get_repo() {
 }
 
 REPO=$(get_repo)
+if [[ -z "$REPO" ]]; then
+    echo "リポジトリ情報の取得に失敗しました。" >&2
+    exit 1
+fi
 
 # CodeRabbitのコメント数を取得
 get_coderabbit_comment_count() {
@@ -61,16 +65,18 @@ check_changes_requested() {
     return 1  # CHANGES_REQUESTEDなし
 }
 
-# CodeRabbitのコメントからrate limit情報をチェック
+# CodeRabbitのコメントからrate limit情報をチェック（最新コメント/レビューのみ対象、1回のAPI呼び出しで取得）
 check_rate_limit() {
-    local comments
-    comments=$(gh pr view --repo "$REPO" "$PR_NUMBER" --json comments --jq '.comments[] | select(.author.login=="coderabbitai") | .body')
-    if echo "$comments" | grep -qi "rate limit"; then
+    local pr_data
+    pr_data=$(gh pr view --repo "$REPO" "$PR_NUMBER" --json comments,reviews)
+    local latest_comment
+    latest_comment=$(echo "$pr_data" | jq -r '[.comments[] | select(.author.login=="coderabbitai")] | last | .body // ""')
+    if echo "$latest_comment" | grep -qi "rate limit"; then
         return 0  # rate limitあり
     fi
-    local reviews
-    reviews=$(gh pr view --repo "$REPO" "$PR_NUMBER" --json reviews --jq '.reviews[] | select(.author.login=="coderabbitai") | .body')
-    if echo "$reviews" | grep -qi "rate limit"; then
+    local latest_review
+    latest_review=$(echo "$pr_data" | jq -r '[.reviews[] | select(.author.login=="coderabbitai")] | last | .body // ""')
+    if echo "$latest_review" | grep -qi "rate limit"; then
         return 0  # rate limitあり
     fi
     return 1  # rate limitなし
