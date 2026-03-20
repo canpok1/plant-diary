@@ -62,6 +62,7 @@ GitHub Issue $ARGUMENTS を対応します。
 | 6. PR作成 | 追記 | PR番号とURL |
 | 7. fix-pr | 追記 | CI待機・レビュー対応・マージの結果 |
 | 8. 振り返り | 追記 | 作成したIssue番号（あれば） |
+| 9. 全作業完了通知 | なし | monologueのみ実行 |
 
 0. Issue の状態を確認する
   - `gh issue view $ARGUMENTS --json state --jq .state` で対象IssueのOPEN/CLOSED状態を確認する
@@ -95,3 +96,4 @@ GitHub Issue $ARGUMENTS を対応します。
 7. `/monologue` を実行してから、`/fix-pr` スキルでCI待機・レビュー対応・マージを行う
   - 引数にPR番号を渡す
 8. `/monologue` を実行してから、`/retro` スキルで振り返りを行う
+9. `/monologue` を実行して、全作業完了を通知する

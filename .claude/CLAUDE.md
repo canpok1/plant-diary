@@ -14,3 +14,7 @@
     🤖 Generated with [Claude Code](https://claude.ai/claude-code)
     ```
   - 作成内容に不備がないか作成後に確認すること（例: Issueのレイアウトが崩れている、フッターが付与されていないなど）
+
+## monologueによる思考プロセスの通知
+
+作業中の思考プロセスや状況をユーザーが把握できるよう、適宜 `/monologue` スキルで独り言を呟くこと。
