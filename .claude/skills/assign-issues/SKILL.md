@@ -5,7 +5,7 @@ context: fork
 agent: issue-assigner
 disable-model-invocation: false
 user-invocable: true
-allowed-tools: Skill
+allowed-tools: Skill, Bash(gh issue list*), Bash(gh issue edit*)
 argument-hint: "<付与する件数（省略時は2）>"
 ---
 
@@ -29,7 +29,11 @@ argument-hint: "<付与する件数（省略時は2）>"
      - 注意: アプリケーションコードや機能追加のIssueを誤って除外しないよう、文脈を考慮して判断すること
        - 除外する例: 「スキルを追加する」「assign-issuesスキルのバグを修正する」「ルールを更新する」
        - 除外しない例: 「植物の登録機能にバグがある」（「登録」はキーワード非該当）、「ユーザー認証機能を追加する」
-3. 除外したIssueの番号・タイトル・除外理由を出力する
+3. 除外したIssueの番号・タイトル・除外理由を出力し、各除外Issueから `ready` ラベルを外す
+   ```sh
+   gh issue edit --repo {repo-owner}/{repo-name} {number} --remove-label "ready"
+   ```
+   ラベルを外したことをログ出力する（例: `Issue #{number} から ready ラベルを削除しました`）
 4. issue-assigner エージェントの優先度ルールに従い、各Issueを評価して並び替える
 5. 優先度が高い上位N件に `assign-to-claude` ラベルを付与する（引数指定がある場合はその数値をN、ない場合はデフォルト2件）。対象がN件未満の場合は存在する分だけ付与（0件なら何もしない）
 6. ラベルを付与したIssue番号・タイトル・判定理由を出力する
@@ -45,4 +49,9 @@ gh issue list --repo {repo-owner}/{repo-name} --state open --label "ready" --jso
 **ラベルの付与**
 ```sh
 gh issue edit --repo {repo-owner}/{repo-name} {number} --add-label "assign-to-claude"
+```
+
+**ラベルの削除**
+```sh
+gh issue edit --repo {repo-owner}/{repo-name} {number} --remove-label "ready"
 ```
