@@ -7,6 +7,8 @@ import (
 	"log"
 	"math"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -445,6 +447,60 @@ func (s *Server) handlePatchCamera(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewEncoder(w).Encode(map[string]string{"status": "ok"}); err != nil {
 		log.Printf("ERROR: failed to encode response: %v", err)
 	}
+}
+
+// handleGetCameraTestPhoto は GET /cameras/{id}/test-photo のハンドラ（テスト写真表示）
+func (s *Server) handleGetCameraTestPhoto(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		log.Printf("ERROR: invalid camera id: %s", idStr)
+		s.renderError(w, http.StatusNotFound)
+		return
+	}
+
+	camera, err := s.cameraRepo.GetCameraByID(id)
+	if err != nil {
+		log.Printf("ERROR: failed to get camera %d: %v", id, err)
+		s.renderError(w, http.StatusInternalServerError)
+		return
+	}
+	if camera == nil {
+		s.renderError(w, http.StatusNotFound)
+		return
+	}
+
+	user, err := s.getCurrentUser(r)
+	if err != nil {
+		log.Printf("ERROR: failed to get current user: %v", err)
+		s.renderError(w, http.StatusInternalServerError)
+		return
+	}
+
+	// カメラが現在のユーザーの book に属していることを確認
+	book, err := s.bookRepo.GetBookByID(camera.BookID)
+	if err != nil {
+		log.Printf("ERROR: failed to get book %d: %v", camera.BookID, err)
+		s.renderError(w, http.StatusInternalServerError)
+		return
+	}
+	if book == nil || book.CreatorID != user.ID {
+		s.renderError(w, http.StatusNotFound)
+		return
+	}
+
+	if !camera.LastTestPhotoPath.Valid {
+		s.renderError(w, http.StatusNotFound)
+		return
+	}
+
+	fullPath := filepath.Join(filepath.Dir(s.photosDir), camera.LastTestPhotoPath.String)
+	if _, err := os.Stat(fullPath); os.IsNotExist(err) {
+		s.renderError(w, http.StatusNotFound)
+		return
+	}
+
+	http.ServeFile(w, r, fullPath)
 }
 
 // handlePostCameraDelete は POST /cameras/{id}/delete のハンドラ（カメラ削除）
