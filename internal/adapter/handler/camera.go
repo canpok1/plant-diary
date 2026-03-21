@@ -337,6 +337,10 @@ func (s *Server) handlePatchCamera(w http.ResponseWriter, r *http.Request) {
 		s.renderError(w, http.StatusInternalServerError)
 		return
 	}
+	if user == nil {
+		s.renderError(w, http.StatusUnauthorized)
+		return
+	}
 
 	// カメラが現在のユーザーの book に属していることを確認
 	book, err := s.bookRepo.GetBookByID(camera.BookID)

@@ -754,6 +754,10 @@ func TestE2E_PatchCamera_NotFound(t *testing.T) {
 	if err != nil {
 		t.Fatalf("POST /api/users failed: %v", err)
 	}
+	if resp.StatusCode != http.StatusCreated {
+		resp.Body.Close()
+		t.Fatalf("user creation failed with status %d", resp.StatusCode)
+	}
 	resp.Body.Close()
 
 	cookies := loginAsUser(t, ts, "user1", "pass")
