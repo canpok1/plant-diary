@@ -683,3 +683,29 @@ func (r *MockCameraRepository) DeleteCamera(id int) error {
 	delete(r.cameras, id)
 	return nil
 }
+
+// UpdateCameraScheduleConfig はスケジュール撮影の時刻設定を更新する
+func (r *MockCameraRepository) UpdateCameraScheduleConfig(id int, captureTimesUTC string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	c, ok := r.cameras[id]
+	if !ok {
+		return fmt.Errorf("camera %d not found", id)
+	}
+	c.CaptureTimesUTC = sql.NullString{String: captureTimesUTC, Valid: true}
+	return nil
+}
+
+// UpdateCameraAfterScheduledCapture はスケジュール撮影後の最終撮影時刻を更新する
+func (r *MockCameraRepository) UpdateCameraAfterScheduledCapture(id int, capturedAt time.Time) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	c, ok := r.cameras[id]
+	if !ok {
+		return fmt.Errorf("camera %d not found", id)
+	}
+	c.LastScheduledCaptureAt = sql.NullTime{Time: capturedAt, Valid: true}
+	return nil
+}
