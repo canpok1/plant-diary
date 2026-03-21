@@ -69,6 +69,8 @@ type Camera struct {
 	TestCaptureRequested    bool
 	LastTestPhotoPath       sql.NullString
 	LastTestPhotoCapturedAt sql.NullTime
+	CaptureTimesUTC         sql.NullString // "03:00,09:00" 形式（UTC HH:MM）
+	LastScheduledCaptureAt  sql.NullTime
 }
 
 // TestPhotoFilename はカメラIDに対応するテスト写真ファイル名を返す
