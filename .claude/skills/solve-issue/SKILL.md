@@ -18,7 +18,7 @@ GitHub Issue $ARGUMENTS を対応します。
 - [ ] ステップ4：lint/format
 - [ ] ステップ5：重複チェック
 - [ ] ステップ6：PR作成
-- [ ] ステップ7：fix-pr
+- [ ] ステップ7：fix-pr（ローカルスキル使用）
 - [ ] ステップ8：振り返り（retro）
 - [ ] ステップ9：全作業完了通知（monologue）
 
@@ -108,7 +108,8 @@ GitHub Issue $ARGUMENTS を対応します。
 6. `base-tools:monologue` を実行してから、`commit-commands:commit-push-pr` スキルでPRを作成する
   - PR本文に必ず `Closes #$ARGUMENTS` を含めること（マージ時にIssueが自動クローズされる）
   - `commit-commands:commit-push-pr` スキルへPR本文を渡す際は `--body "Closes #$ARGUMENTS\n\n{説明}"` のように明示すること
-7. `base-tools:monologue` を実行してから、`/fix-pr` スキルでCI待機・レビュー対応・マージを行う
+7. `base-tools:monologue` を実行してから、ローカルの `fix-pr` スキル（`.claude/skills/fix-pr/`）でCI待機・レビュー対応・マージを行う
+  - **必ず `base-tools:fix-pr` ではなくローカルの `fix-pr` スキルを使うこと**（CodeRabbitのrate limit処理が含まれているため）
   - 引数にPR番号を渡す
 8. `base-tools:monologue` を実行してから、`/retro` スキルで振り返りを行う
 9. `base-tools:monologue` を実行して、全作業完了を通知する
