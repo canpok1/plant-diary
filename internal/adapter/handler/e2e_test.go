@@ -730,8 +730,41 @@ func TestE2E_DiaryEdit_NonOwnerForbidden(t *testing.T) {
 
 // TODO: PATCH /cameras/{id} - 正常系: 200 と {"status":"ok"} を返す
 // TODO: PATCH /cameras/{id} - 別ユーザーのカメラで 403 を返す
-// TODO: PATCH /cameras/{id} - 存在しないカメラIDで 404 を返す
 // TODO: PATCH /cameras/{id} - リクエストボディが不正な場合 400 を返す
+
+// TestE2E_PatchCamera_NotFound は存在しないカメラIDでPATCH /cameras/{id}が404を返すことを検証する
+func TestE2E_PatchCamera_NotFound(t *testing.T) {
+	ts := setupE2EServer(t)
+
+	// ユーザーを作成してログイン
+	resp, err := http.Post(ts.URL+"/api/users", "application/json", strings.NewReader(`{"username": "user1", "password": "pass"}`))
+	if err != nil {
+		t.Fatalf("POST /api/users failed: %v", err)
+	}
+	resp.Body.Close()
+
+	cookies := loginAsUser(t, ts, "user1", "pass")
+
+	body := strings.NewReader(`{"test_capture_requested": true}`)
+	req, err := http.NewRequest("PATCH", ts.URL+"/cameras/9999", body)
+	if err != nil {
+		t.Fatalf("failed to create request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	for _, c := range cookies {
+		req.AddCookie(c)
+	}
+
+	resp2, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("PATCH /cameras/9999 failed: %v", err)
+	}
+	defer resp2.Body.Close()
+
+	if resp2.StatusCode != http.StatusNotFound {
+		t.Errorf("expected status 404, got %d", resp2.StatusCode)
+	}
+}
 
 // TestE2E_PatchCamera_Unauthorized は未ログイン時にPATCH /cameras/{id}が/loginへリダイレクトすることを検証する
 func TestE2E_PatchCamera_Unauthorized(t *testing.T) {

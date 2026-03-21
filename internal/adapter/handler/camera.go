@@ -300,6 +300,25 @@ func (s *Server) handlePostCameraSettings(w http.ResponseWriter, r *http.Request
 
 // handlePatchCamera は PATCH /cameras/{id} のハンドラ（テスト撮影リクエスト）
 func (s *Server) handlePatchCamera(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		log.Printf("ERROR: invalid camera id: %s", idStr)
+		s.renderError(w, http.StatusNotFound)
+		return
+	}
+
+	camera, err := s.cameraRepo.GetCameraByID(id)
+	if err != nil {
+		log.Printf("ERROR: failed to get camera %d: %v", id, err)
+		s.renderError(w, http.StatusInternalServerError)
+		return
+	}
+	if camera == nil {
+		s.renderError(w, http.StatusNotFound)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if _, err := fmt.Fprintf(w, `{"status":"ok"}`); err != nil {
