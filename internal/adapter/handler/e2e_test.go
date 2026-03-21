@@ -1067,8 +1067,11 @@ func TestE2E_PostCameraSettings_EmptyCaptureTimesDisablesSchedule(t *testing.T) 
 	if err != nil {
 		t.Fatalf("failed to get updated camera: %v", err)
 	}
-	// 空欄の場合は空文字列で保存される
-	if updatedCamera.CaptureTimesUTC.Valid && updatedCamera.CaptureTimesUTC.String != "" {
+	// 空欄の場合は空文字列で保存される（NULLではなく空文字列）
+	if !updatedCamera.CaptureTimesUTC.Valid {
+		t.Error("expected CaptureTimesUTC to be valid (not NULL)")
+	}
+	if updatedCamera.CaptureTimesUTC.String != "" {
 		t.Errorf("expected empty capture_times_utc, got '%s'", updatedCamera.CaptureTimesUTC.String)
 	}
 }
