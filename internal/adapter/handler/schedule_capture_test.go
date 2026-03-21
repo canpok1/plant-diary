@@ -6,24 +6,6 @@ import (
 	"time"
 )
 
-// DONE: capture_times_utc が NULL（空の NullString）→ false
-// DONE: capture_times_utc が空文字列 → false
-// DONE: 登録時刻を過ぎていて last_scheduled_capture_at が NULL → true
-// DONE: 登録時刻を過ぎていて last_scheduled_capture_at が登録時刻より前 → true
-// DONE: 登録時刻をまだ過ぎていない → false
-// DONE: 登録時刻を過ぎているが last_scheduled_capture_at が登録時刻より後 → false
-// DONE: 複数時刻のうち1つを過ぎていて未キャプチャ → true
-
-// TestComputeShouldScheduleCapture_PastTimeAndNullLastCapture は、
-// 登録時刻を過ぎていて last_scheduled_capture_at が NULL の場合 true を返すことを検証する
-// TestComputeShouldScheduleCapture_PastTimeAndLastCaptureBeforeScheduled は、
-// 登録時刻を過ぎていて last_scheduled_capture_at が登録時刻より前の場合 true を返すことを検証する
-// TestComputeShouldScheduleCapture_FutureTime は、
-// 登録時刻をまだ過ぎていない場合 false を返すことを検証する
-// TestComputeShouldScheduleCapture_PastTimeButAlreadyCaptured は、
-// 登録時刻を過ぎているが last_scheduled_capture_at が登録時刻より後の場合 false を返すことを検証する
-// TestComputeShouldScheduleCapture_MultipleTimes_OnePastAndUncaptured は、
-// 複数時刻のうち1つを過ぎていて未キャプチャの場合 true を返すことを検証する
 func TestComputeShouldScheduleCapture_MultipleTimes_OnePastAndUncaptured(t *testing.T) {
 	// now = 10:30 UTC
 	// 登録時刻1 = 03:00 UTC → 過ぎている（未キャプチャ）
