@@ -54,7 +54,7 @@ git pull origin main
 
 # Claudeでissueを解決（--worktreeで自動的にブランチとワークツリーを作成）
 if "${USE_PRINT_MODE}"; then
-  claude --worktree "issue-${ISSUE_NUMBER}" --dangerously-skip-permissions -p "/solve-issue ${ISSUE_NUMBER}"
+  "$SCRIPT_DIR/claude-stream.sh" --worktree "issue-${ISSUE_NUMBER}" --dangerously-skip-permissions -p "/solve-issue ${ISSUE_NUMBER}"
 else
   claude --worktree "issue-${ISSUE_NUMBER}" --dangerously-skip-permissions "/solve-issue ${ISSUE_NUMBER}"
 fi
