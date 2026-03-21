@@ -1,13 +1,11 @@
 package handler
 
 import (
-	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"plant-diary/internal/domain"
@@ -15,14 +13,8 @@ import (
 
 // handlePostTestPhoto は POST /api/test-photo のハンドラ
 func (s *Server) handlePostTestPhoto(w http.ResponseWriter, r *http.Request) {
-	// Authorization: Bearer <script_key> の解析
-	authHeader := r.Header.Get("Authorization")
-	if !strings.HasPrefix(authHeader, "Bearer ") {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-	scriptKey := strings.TrimPrefix(authHeader, "Bearer ")
-	if scriptKey == "" {
+	scriptKey, ok := extractBearerToken(r)
+	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -61,10 +53,9 @@ func (s *Server) handlePostTestPhoto(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// ファイル名: {camera_id}_latest.jpg
 	filename := domain.TestPhotoFilename(camera.ID)
 	filePath := filepath.Join(testPhotosDir, filename)
-	relPath := fmt.Sprintf("test-photos/%s", filename)
+	relPath := filepath.Join("test-photos", filename)
 
 	// ファイルの保存（上書き）
 	dst, err := os.Create(filePath)

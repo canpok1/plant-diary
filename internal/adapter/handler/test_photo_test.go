@@ -10,13 +10,6 @@ import (
 	"plant-diary/internal/domain"
 )
 
-// TODO: 正常系: 有効なscript_keyとphotoファイルで200 OKを返す
-// TODO: 異常系: Authorizationヘッダーなしで401を返す
-// TODO: 異常系: 無効なscript_keyで401を返す
-// TODO: 異常系: photoフィールドなしで400を返す
-// TODO: 正常系: ファイルが data/test-photos/{camera_id}_latest.jpg に保存される
-// TODO: 正常系: UpdateCameraAfterTestPhoto が呼ばれる（test_capture_requested=false, last_test_photo_path, last_test_photo_captured_at が更新される）
-
 // TestPostApiTestPhoto_NoAuthHeader はAuthorizationヘッダーなしで401を返すことを検証する
 func TestPostApiTestPhoto_NoAuthHeader(t *testing.T) {
 	srv, _, _ := setupServerWithCameraRepo(t)

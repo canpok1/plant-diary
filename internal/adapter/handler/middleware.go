@@ -3,9 +3,24 @@ package handler
 import (
 	"log"
 	"net/http"
+	"strings"
 
 	"plant-diary/internal/domain"
 )
+
+// extractBearerToken は Authorization ヘッダーから Bearer トークンを抽出する。
+// トークンが存在しない場合は ("", false) を返す。
+func extractBearerToken(r *http.Request) (string, bool) {
+	authHeader := r.Header.Get("Authorization")
+	if !strings.HasPrefix(authHeader, "Bearer ") {
+		return "", false
+	}
+	token := strings.TrimPrefix(authHeader, "Bearer ")
+	if token == "" {
+		return "", false
+	}
+	return token, true
+}
 
 // getCurrentUser はリクエストのセッションCookieからログイン中のユーザーを返す。未ログインの場合はnilを返す
 func (s *Server) getCurrentUser(r *http.Request) (*domain.User, error) {
