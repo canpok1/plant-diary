@@ -141,8 +141,7 @@ float_abs_diff() {
 # 存在しない場合は後方互換として upload_key + POST /api/photos を使用。
 upload_photo() {
     local photo_file="$1"
-    local captured_at
-    captured_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+    local captured_at="$2"
 
     if [ "${HAS_NEW_FLAGS}" = "true" ]; then
         if [ "${SHOULD_TEST_CAPTURE}" = "true" ]; then
@@ -291,6 +290,7 @@ for ((i = 1; i <= MAX_ADJUST_RETRIES; i++)); do
         echo "ERROR: 撮影に失敗しました" >&2
         exit 1
     fi
+    CAPTURED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
     # 平均輝度を算出
     BRIGHTNESS=$(get_brightness "${TMP_OUTPUT}")
@@ -318,7 +318,7 @@ for ((i = 1; i <= MAX_ADJUST_RETRIES; i++)); do
         echo "撮影成功: ${FINAL_OUTPUT}"
 
         # API登録
-        upload_photo "${FINAL_OUTPUT}"
+        upload_photo "${FINAL_OUTPUT}" "${CAPTURED_AT}"
 
         exit 0
     fi
@@ -376,4 +376,4 @@ log_message "INFO: Captured ${FINAL_OUTPUT}"
 echo "撮影成功: ${FINAL_OUTPUT}"
 
 # API登録
-upload_photo "${FINAL_OUTPUT}"
+upload_photo "${FINAL_OUTPUT}" "${CAPTURED_AT}"
