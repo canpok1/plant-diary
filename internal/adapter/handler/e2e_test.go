@@ -729,7 +729,6 @@ func TestE2E_DiaryEdit_NonOwnerForbidden(t *testing.T) {
 	}
 }
 
-// TODO: PATCH /cameras/{id} - リクエストボディが不正な場合 400 を返す
 
 // setupCameraForOwner はオーナーユーザー・別ユーザー・日記帳・カメラを作成してcameraIDを返す
 func setupCameraForOwner(t *testing.T, ts *httptest.Server, db *sql.DB, ownerUsername, otherUsername string) int {
@@ -778,6 +777,36 @@ func TestE2E_PatchCamera_NotFound(t *testing.T) {
 
 	if resp2.StatusCode != http.StatusNotFound {
 		t.Errorf("expected status 404, got %d", resp2.StatusCode)
+	}
+}
+
+// TestE2E_PatchCamera_InvalidBody はリクエストボディが不正な場合にPATCH /cameras/{id}が400を返すことを検証する
+func TestE2E_PatchCamera_InvalidBody(t *testing.T) {
+	ts, db := setupE2EServerWithDB(t)
+
+	cameraID := setupCameraForOwner(t, ts, db, "owner", "other")
+
+	cookies := loginAsUser(t, ts, "owner", "password")
+
+	// 不正なJSON
+	body := strings.NewReader(`{invalid json}`)
+	req, err := http.NewRequest("PATCH", fmt.Sprintf("%s/cameras/%d", ts.URL, cameraID), body)
+	if err != nil {
+		t.Fatalf("failed to create request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	for _, c := range cookies {
+		req.AddCookie(c)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("PATCH /cameras/{id} failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("expected status 400, got %d", resp.StatusCode)
 	}
 }
 
