@@ -319,6 +319,25 @@ func (s *Server) handlePatchCamera(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	user, err := s.getCurrentUser(r)
+	if err != nil {
+		log.Printf("ERROR: failed to get current user: %v", err)
+		s.renderError(w, http.StatusInternalServerError)
+		return
+	}
+
+	// カメラが現在のユーザーの book に属していることを確認
+	book, err := s.bookRepo.GetBookByID(camera.BookID)
+	if err != nil {
+		log.Printf("ERROR: failed to get book %d: %v", camera.BookID, err)
+		s.renderError(w, http.StatusInternalServerError)
+		return
+	}
+	if book == nil || book.CreatorID != user.ID {
+		s.renderError(w, http.StatusForbidden)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if _, err := fmt.Fprintf(w, `{"status":"ok"}`); err != nil {

@@ -729,8 +729,23 @@ func TestE2E_DiaryEdit_NonOwnerForbidden(t *testing.T) {
 }
 
 // TODO: PATCH /cameras/{id} - 正常系: 200 と {"status":"ok"} を返す
-// TODO: PATCH /cameras/{id} - 別ユーザーのカメラで 403 を返す
 // TODO: PATCH /cameras/{id} - リクエストボディが不正な場合 400 を返す
+
+// setupCameraForOwner はオーナーユーザー・別ユーザー・日記帳・カメラを作成してcameraIDを返す
+func setupCameraForOwner(t *testing.T, ts *httptest.Server, db *sql.DB, ownerUsername, otherUsername string) int {
+	t.Helper()
+
+	bookID := setupBookForOwner(t, ts, db, ownerUsername, otherUsername)
+
+	// カメラを作成
+	cameraRepo := sqlite.NewSQLiteCameraRepository(db)
+	camera, err := cameraRepo.CreateCamera("Test Camera", bookID)
+	if err != nil {
+		t.Fatalf("failed to create camera: %v", err)
+	}
+
+	return camera.ID
+}
 
 // TestE2E_PatchCamera_NotFound は存在しないカメラIDでPATCH /cameras/{id}が404を返すことを検証する
 func TestE2E_PatchCamera_NotFound(t *testing.T) {
@@ -763,6 +778,42 @@ func TestE2E_PatchCamera_NotFound(t *testing.T) {
 
 	if resp2.StatusCode != http.StatusNotFound {
 		t.Errorf("expected status 404, got %d", resp2.StatusCode)
+	}
+}
+
+// TestE2E_PatchCamera_Forbidden は別ユーザーのカメラにPATCH /cameras/{id}が403を返すことを検証する
+func TestE2E_PatchCamera_Forbidden(t *testing.T) {
+	ts, db := setupE2EServerWithDB(t)
+
+	cameraID := setupCameraForOwner(t, ts, db, "owner", "other")
+
+	client := &http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+
+	// 別ユーザー（other）でログイン
+	cookies := loginAsUser(t, ts, "other", "password")
+
+	body := strings.NewReader(`{"test_capture_requested": true}`)
+	req, err := http.NewRequest("PATCH", fmt.Sprintf("%s/cameras/%d", ts.URL, cameraID), body)
+	if err != nil {
+		t.Fatalf("failed to create request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	for _, c := range cookies {
+		req.AddCookie(c)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("PATCH /cameras/{id} failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusForbidden {
+		t.Errorf("expected status 403, got %d", resp.StatusCode)
 	}
 }
 
