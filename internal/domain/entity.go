@@ -54,12 +54,13 @@ type Session struct {
 
 // Camera はカメラ設定を表す構造体
 type Camera struct {
-	ID                  int
-	Name                string
-	ScriptKey           string
-	TargetBrightness    float64
-	BrightnessTolerance float64
-	MaxAdjustRetries    int
-	BookID              int
-	CreatedAt           time.Time
+	ID                   int
+	Name                 string
+	ScriptKey            string
+	TargetBrightness     float64
+	BrightnessTolerance  float64
+	MaxAdjustRetries     int
+	BookID               int
+	CreatedAt            time.Time
+	TestCaptureRequested bool
 }

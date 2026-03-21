@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"math"
@@ -298,6 +299,11 @@ func (s *Server) handlePostCameraSettings(w http.ResponseWriter, r *http.Request
 	http.Redirect(w, r, fmt.Sprintf("/cameras/%d/settings?success=1", id), http.StatusFound)
 }
 
+// patchCameraRequest は PATCH /cameras/{id} のリクエストボディ
+type patchCameraRequest struct {
+	TestCaptureRequested bool `json:"test_capture_requested"`
+}
+
 // handlePatchCamera は PATCH /cameras/{id} のハンドラ（テスト撮影リクエスト）
 func (s *Server) handlePatchCamera(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
@@ -305,6 +311,12 @@ func (s *Server) handlePatchCamera(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Printf("ERROR: invalid camera id: %s", idStr)
 		s.renderError(w, http.StatusNotFound)
+		return
+	}
+
+	var reqBody patchCameraRequest
+	if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
+		s.renderError(w, http.StatusBadRequest)
 		return
 	}
 
@@ -335,6 +347,12 @@ func (s *Server) handlePatchCamera(w http.ResponseWriter, r *http.Request) {
 	}
 	if book == nil || book.CreatorID != user.ID {
 		s.renderError(w, http.StatusForbidden)
+		return
+	}
+
+	if err := s.cameraRepo.UpdateCameraTestCaptureRequested(id, reqBody.TestCaptureRequested); err != nil {
+		log.Printf("ERROR: failed to update camera %d test_capture_requested: %v", id, err)
+		s.renderError(w, http.StatusInternalServerError)
 		return
 	}
 

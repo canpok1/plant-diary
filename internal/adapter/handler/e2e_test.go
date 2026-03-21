@@ -53,7 +53,8 @@ func setupE2ETestDB(t *testing.T) *sql.DB {
 			brightness_tolerance REAL NOT NULL DEFAULT 0.175,
 			max_adjust_retries INTEGER NOT NULL DEFAULT 5,
 			book_id INTEGER NOT NULL REFERENCES books(id),
-			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			test_capture_requested INTEGER NOT NULL DEFAULT 0
 		);
 		CREATE TABLE IF NOT EXISTS diary (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -728,7 +729,6 @@ func TestE2E_DiaryEdit_NonOwnerForbidden(t *testing.T) {
 	}
 }
 
-// TODO: PATCH /cameras/{id} - 正常系: 200 と {"status":"ok"} を返す
 // TODO: PATCH /cameras/{id} - リクエストボディが不正な場合 400 を返す
 
 // setupCameraForOwner はオーナーユーザー・別ユーザー・日記帳・カメラを作成してcameraIDを返す
@@ -778,6 +778,58 @@ func TestE2E_PatchCamera_NotFound(t *testing.T) {
 
 	if resp2.StatusCode != http.StatusNotFound {
 		t.Errorf("expected status 404, got %d", resp2.StatusCode)
+	}
+}
+
+// TestE2E_PatchCamera_Success はオーナーユーザーがPATCH /cameras/{id}で200と{"status":"ok"}を受け取ることを検証する
+func TestE2E_PatchCamera_Success(t *testing.T) {
+	ts, db := setupE2EServerWithDB(t)
+
+	cameraID := setupCameraForOwner(t, ts, db, "owner", "other")
+
+	cookies := loginAsUser(t, ts, "owner", "password")
+
+	body := strings.NewReader(`{"test_capture_requested": true}`)
+	req, err := http.NewRequest("PATCH", fmt.Sprintf("%s/cameras/%d", ts.URL, cameraID), body)
+	if err != nil {
+		t.Fatalf("failed to create request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	for _, c := range cookies {
+		req.AddCookie(c)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("PATCH /cameras/{id} failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("expected status 200, got %d", resp.StatusCode)
+	}
+
+	contentType := resp.Header.Get("Content-Type")
+	if !strings.Contains(contentType, "application/json") {
+		t.Errorf("expected Content-Type application/json, got %s", contentType)
+	}
+
+	var result map[string]string
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if result["status"] != "ok" {
+		t.Errorf("expected status ok, got %s", result["status"])
+	}
+
+	// test_capture_requested が 1 になっていることを確認
+	cameraRepo := sqlite.NewSQLiteCameraRepository(db)
+	camera, err := cameraRepo.GetCameraByID(cameraID)
+	if err != nil {
+		t.Fatalf("failed to get camera: %v", err)
+	}
+	if !camera.TestCaptureRequested {
+		t.Error("expected TestCaptureRequested to be true")
 	}
 }
 

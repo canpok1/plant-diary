@@ -19,7 +19,8 @@ func setupTestDBWithCameras(t *testing.T) *sql.DB {
 			brightness_tolerance REAL NOT NULL DEFAULT 0.175,
 			max_adjust_retries INTEGER NOT NULL DEFAULT 5,
 			book_id INTEGER NOT NULL REFERENCES books(id),
-			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			test_capture_requested INTEGER NOT NULL DEFAULT 0
 		);
 	`)
 	if err != nil {
