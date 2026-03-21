@@ -215,25 +215,6 @@ func (r *SQLiteCameraRepository) UpdateCameraScheduleConfig(id int, captureTimes
 	return nil
 }
 
-// UpdateCameraAfterScheduledCapture はスケジュール撮影後の最終撮影時刻を更新する
-func (r *SQLiteCameraRepository) UpdateCameraAfterScheduledCapture(id int, capturedAt time.Time) error {
-	result, err := r.db.Exec(
-		"UPDATE cameras SET last_scheduled_capture_at = ? WHERE id = ?",
-		capturedAt.UTC(), id,
-	)
-	if err != nil {
-		return err
-	}
-	rows, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if rows == 0 {
-		return fmt.Errorf("camera %d not found", id)
-	}
-	return nil
-}
-
 // computeShouldScheduleCapture は capture_times_utc と last_scheduled_capture_at を元に
 // スケジュール撮影が必要かどうかを判定する
 func computeShouldScheduleCapture(captureTimesUTC sql.NullString, lastCaptureAt sql.NullTime, now time.Time) bool {
