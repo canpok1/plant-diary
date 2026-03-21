@@ -4,14 +4,17 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"time"
 )
 
 // scriptConfigResponse は GET /api/script-config のレスポンス
 type scriptConfigResponse struct {
-	TargetBrightness    float64 `json:"target_brightness"`
-	BrightnessTolerance float64 `json:"brightness_tolerance"`
-	MaxAdjustRetries    int     `json:"max_adjust_retries"`
-	UploadKey           string  `json:"upload_key"`
+	TargetBrightness      float64 `json:"target_brightness"`
+	BrightnessTolerance   float64 `json:"brightness_tolerance"`
+	MaxAdjustRetries      int     `json:"max_adjust_retries"`
+	UploadKey             string  `json:"upload_key"`
+	ShouldTestCapture     bool    `json:"should_test_capture"`
+	ShouldScheduleCapture bool    `json:"should_schedule_capture"`
 }
 
 // handleGetScriptConfig は GET /api/script-config のハンドラ
@@ -48,10 +51,12 @@ func (s *Server) handleGetScriptConfig(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp := scriptConfigResponse{
-		TargetBrightness:    camera.TargetBrightness,
-		BrightnessTolerance: camera.BrightnessTolerance,
-		MaxAdjustRetries:    camera.MaxAdjustRetries,
-		UploadKey:           book.UploadKey,
+		TargetBrightness:      camera.TargetBrightness,
+		BrightnessTolerance:   camera.BrightnessTolerance,
+		MaxAdjustRetries:      camera.MaxAdjustRetries,
+		UploadKey:             book.UploadKey,
+		ShouldTestCapture:     camera.TestCaptureRequested,
+		ShouldScheduleCapture: computeShouldScheduleCapture(camera.CaptureTimesUTC, camera.LastScheduledCaptureAt, time.Now().UTC()),
 	}
 
 	w.Header().Set("Content-Type", "application/json")
