@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/google/uuid"
 	"plant-diary/internal/domain"
 	"plant-diary/internal/usecase"
 	"plant-diary/internal/utils"
@@ -47,14 +48,24 @@ func (s *Server) handlePostScheduledPhoto(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	// リクエストボディのサイズ制限（最大32MB）
+	r.Body = http.MaxBytesReader(w, r.Body, 32<<20)
+
 	// multipart/form-data のパース（最大32MB）
 	if err := r.ParseMultipartForm(32 << 20); err != nil {
+		if err.Error() == "http: request body too large" {
+			http.Error(w, "Request Entity Too Large", http.StatusRequestEntityTooLarge)
+			return
+		}
 		http.Error(w, "Bad Request", http.StatusBadRequest)
 		return
 	}
 
+	// サーバー受信時刻（スケジュール更新に使用）
+	receivedAt := time.Now().UTC()
+
 	// captured_at の解析（省略時はサーバー受信時刻）
-	capturedAt := time.Now().UTC()
+	capturedAt := receivedAt
 	if capturedAtStr := r.FormValue("captured_at"); capturedAtStr != "" {
 		t, err := time.Parse(time.RFC3339, capturedAtStr)
 		if err != nil {
@@ -80,13 +91,13 @@ func (s *Server) handlePostScheduledPhoto(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// ファイル名生成（YYYYMMDD_HHMMSS_UTC.jpg）
-	filename := capturedAt.Format("20060102_150405") + "_UTC.jpg"
+	// ファイル名生成（YYYYMMDD_HHMMSS_UUID_UTC.jpg、衝突防止のためUUIDを付加）
+	filename := capturedAt.Format("20060102_150405") + "_" + uuid.New().String() + "_UTC.jpg"
 	diskImagePath := filepath.Join(bookDir, filename)
 	dbImagePath := filepath.Join(book.UUID, filename)
 
-	// ファイルの保存
-	dst, err := os.Create(diskImagePath)
+	// ファイルの保存（O_EXCLで衝突時はエラー）
+	dst, err := os.OpenFile(diskImagePath, os.O_CREATE|os.O_WRONLY|os.O_EXCL, 0644)
 	if err != nil {
 		log.Printf("ERROR: failed to create photo file %s: %v", diskImagePath, err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -110,8 +121,8 @@ func (s *Server) handlePostScheduledPhoto(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// カメラの更新
-	if err := s.cameraRepo.UpdateCameraAfterScheduledCapture(camera.ID, capturedAt); err != nil {
+	// カメラの更新（受信時刻を使用してクライアントによる改ざんを防止）
+	if err := s.cameraRepo.UpdateCameraAfterScheduledCapture(camera.ID, receivedAt); err != nil {
 		log.Printf("ERROR: failed to update camera %d after scheduled capture: %v", camera.ID, err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return

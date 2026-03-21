@@ -668,7 +668,7 @@ func (r *MockCameraRepository) UpdateCameraAfterScheduledCapture(id int, capture
 	if !ok {
 		return fmt.Errorf("camera %d not found", id)
 	}
-	c.LastScheduledCaptureAt = sql.NullTime{Time: capturedAt, Valid: true}
+	c.LastScheduledCaptureAt = sql.NullTime{Time: capturedAt.UTC(), Valid: true}
 	return nil
 }
 
