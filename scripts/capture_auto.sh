@@ -3,8 +3,13 @@ set -euo pipefail
 
 # 植物観察日記 - 明るさ自動調整付き撮影スクリプト
 # USBカメラで植物の写真を撮影し、明るさが適正範囲に収まるよう露出を自動調整する。
-# 撮影画像は data/photos/ に保存される。
-# crontab で定期実行することを想定。
+# crontab で定期実行することを想定（推奨: 5分おき）。
+#
+# サーバーの GET /api/script-config から以下のフラグを取得して動作を決定する:
+#   should_test_capture    ... true のとき POST /api/test-photo にアップロード
+#   should_schedule_capture ... true のとき POST /api/scheduled-photo にアップロード
+# 両方 false の場合は即終了（負荷ほぼゼロ）。
+# 新フラグが存在しない旧サーバーの場合は POST /api/photos への後方互換モードで動作する。
 #
 # === 使い方 ===
 # ./scripts/capture_auto.sh --api-url http://192.168.1.10:8080 --script-key <32文字キー>
@@ -132,6 +137,36 @@ float_abs_diff() {
     echo "${diff#-}"
 }
 
+# 新フラグ（should_test_capture/should_schedule_capture）が存在する場合は新エンドポイントを使用。
+# 存在しない場合は後方互換として upload_key + POST /api/photos を使用。
+upload_photo() {
+    local photo_file="$1"
+    local captured_at
+    captured_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+    if [ "${HAS_NEW_FLAGS}" = "true" ]; then
+        if [ "${SHOULD_TEST_CAPTURE}" = "true" ]; then
+            curl -fsS -X POST \
+              -H "Authorization: Bearer ${DIARY_SCRIPT_KEY}" \
+              -F "photo=@${photo_file}" \
+              "${DIARY_API_URL}/api/test-photo" || log_message "WARN: test-photo upload failed (photo saved locally)"
+        fi
+        if [ "${SHOULD_SCHEDULE_CAPTURE}" = "true" ]; then
+            curl -fsS -X POST \
+              -H "Authorization: Bearer ${DIARY_SCRIPT_KEY}" \
+              -F "photo=@${photo_file}" \
+              -F "captured_at=${captured_at}" \
+              "${DIARY_API_URL}/api/scheduled-photo" || log_message "WARN: scheduled-photo upload failed (photo saved locally)"
+        fi
+    else
+        # 後方互換: 旧サーバー向けに POST /api/photos を使用
+        curl -fsS -X POST \
+          -F "photo=@${photo_file}" \
+          -F "upload_key=${DIARY_UPLOAD_KEY}" \
+          "${DIARY_API_URL}/api/photos" || log_message "WARN: API upload failed (photo saved locally)"
+    fi
+}
+
 # === メイン処理 ===
 
 # 保存先ディレクトリの作成
@@ -191,20 +226,32 @@ SCRIPT_CONFIG_JSON=$(curl -s -f \
     IFS= read -r BRIGHTNESS_TOLERANCE
     IFS= read -r MAX_ADJUST_RETRIES
     IFS= read -r DIARY_UPLOAD_KEY
+    IFS= read -r SHOULD_TEST_CAPTURE
+    IFS= read -r SHOULD_SCHEDULE_CAPTURE
+    IFS= read -r HAS_NEW_FLAGS
 } < <(echo "${SCRIPT_CONFIG_JSON}" | python3 -c "
 import sys, json
 d = json.load(sys.stdin)
 print(d['target_brightness'])
 print(d['brightness_tolerance'])
 print(d['max_adjust_retries'])
-print(d['upload_key'])
+print(d.get('upload_key', ''))
+print('true' if d.get('should_test_capture', False) else 'false')
+print('true' if d.get('should_schedule_capture', False) else 'false')
+print('true' if ('should_test_capture' in d or 'should_schedule_capture' in d) else 'false')
 ") || {
     log_message "ERROR: レスポンスの解析に失敗しました。"
     echo "ERROR: レスポンスの解析に失敗しました。" >&2
     exit 1
 }
 
-log_message "INFO: 設定を取得しました（target_brightness=${TARGET_BRIGHTNESS}, brightness_tolerance=${BRIGHTNESS_TOLERANCE}, max_adjust_retries=${MAX_ADJUST_RETRIES}）"
+log_message "INFO: 設定を取得しました（target_brightness=${TARGET_BRIGHTNESS}, brightness_tolerance=${BRIGHTNESS_TOLERANCE}, max_adjust_retries=${MAX_ADJUST_RETRIES}, should_test_capture=${SHOULD_TEST_CAPTURE}, should_schedule_capture=${SHOULD_SCHEDULE_CAPTURE}）"
+
+# 新しい撮影フラグが存在し、両方 false の場合は撮影をスキップ
+if [ "${HAS_NEW_FLAGS}" = "true" ] && [ "${SHOULD_TEST_CAPTURE}" = "false" ] && [ "${SHOULD_SCHEDULE_CAPTURE}" = "false" ]; then
+    log_message "INFO: should_test_capture=false, should_schedule_capture=false のため撮影をスキップします"
+    exit 0
+fi
 
 # 適正輝度範囲の算出
 BRIGHTNESS_MIN=$(echo "${TARGET_BRIGHTNESS} - ${BRIGHTNESS_TOLERANCE}" | bc -l)
@@ -271,10 +318,7 @@ for ((i = 1; i <= MAX_ADJUST_RETRIES; i++)); do
         echo "撮影成功: ${FINAL_OUTPUT}"
 
         # API登録
-        curl -fsS -X POST \
-          -F "photo=@${FINAL_OUTPUT}" \
-          -F "upload_key=${DIARY_UPLOAD_KEY}" \
-          "${DIARY_API_URL}/api/photos" || log_message "WARN: API upload failed (photo saved locally)"
+        upload_photo "${FINAL_OUTPUT}"
 
         exit 0
     fi
@@ -332,7 +376,4 @@ log_message "INFO: Captured ${FINAL_OUTPUT}"
 echo "撮影成功: ${FINAL_OUTPUT}"
 
 # API登録
-curl -fsS -X POST \
-  -F "photo=@${FINAL_OUTPUT}" \
-  -F "upload_key=${DIARY_UPLOAD_KEY}" \
-  "${DIARY_API_URL}/api/photos" || log_message "WARN: API upload failed (photo saved locally)"
+upload_photo "${FINAL_OUTPUT}"

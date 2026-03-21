@@ -103,7 +103,7 @@ docker compose up -d
 
 ### 明るさ自動調整で撮影する（推奨）
 
-サーバーから輝度設定・登録先日記帳を取得し、自動調整しながら撮影・アップロードします。
+サーバーから輝度設定を取得し、自動調整しながら撮影・アップロードします。
 管理画面でカメラを登録してから `--script-key` を取得してください。
 
 ```bash
@@ -113,9 +113,12 @@ docker compose up -d
 - `--api-url`: サーバーのベースURL
 - `--script-key`: 管理画面（`/cameras/{id}/settings`）で確認できるスクリプトキー
 
+スクリプトはサーバーの `GET /api/script-config` でフラグを取得し、必要なときだけ撮影します。
+撮影タイミングはカメラ設定画面の「撮影スケジュール」で設定してください。
+
 ### crontab で定期撮影を設定する
 
-毎日12時に自動撮影する例：
+5分おきに実行する推奨設定（`should_test_capture`/`should_schedule_capture` が両方 false のときは即終了するため負荷はほぼゼロ）：
 
 ```bash
 crontab -e
@@ -124,14 +127,7 @@ crontab -e
 以下の行を追加します。
 
 ```cron
-0 12 * * * /path/to/plant-diary/scripts/capture_auto.sh --api-url http://192.168.1.10:8080 --script-key <32文字キー>
-```
-
-複数回撮影したい場合の例（朝8時と夕方17時）：
-
-```cron
-0 8 * * * /path/to/plant-diary/scripts/capture_auto.sh --api-url http://192.168.1.10:8080 --script-key <32文字キー>
-0 17 * * * /path/to/plant-diary/scripts/capture_auto.sh --api-url http://192.168.1.10:8080 --script-key <32文字キー>
+*/5 * * * * /path/to/plant-diary/scripts/capture_auto.sh --api-url http://192.168.1.10:8080 --script-key <32文字キー>
 ```
 
 ### 日記を閲覧する
