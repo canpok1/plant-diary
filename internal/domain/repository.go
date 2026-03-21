@@ -37,9 +37,9 @@ type CameraRepository interface {
 	UpdateCamera(id int, name string, targetBrightness, brightnessTolerance float64, maxAdjustRetries, bookID int) error
 	UpdateCameraTestCaptureRequested(id int, requested bool) error
 	UpdateCameraAfterTestPhoto(id int, lastTestPhotoPath string, capturedAt time.Time) error
+	UpdateCameraAfterScheduledCapture(id int, capturedAt time.Time) error
 	DeleteCamera(id int) error
 	UpdateCameraScheduleConfig(id int, captureTimesUTC string) error
-	UpdateCameraAfterScheduledCapture(id int, capturedAt time.Time) error
 }
 
 // DiaryRepository は日記データへのアクセスを定義するインターフェース
