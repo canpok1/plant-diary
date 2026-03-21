@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"math"
@@ -296,6 +297,73 @@ func (s *Server) handlePostCameraSettings(w http.ResponseWriter, r *http.Request
 	}
 
 	http.Redirect(w, r, fmt.Sprintf("/cameras/%d/settings?success=1", id), http.StatusFound)
+}
+
+// patchCameraRequest は PATCH /cameras/{id} のリクエストボディ
+type patchCameraRequest struct {
+	TestCaptureRequested bool `json:"test_capture_requested"`
+}
+
+// handlePatchCamera は PATCH /cameras/{id} のハンドラ（テスト撮影リクエスト）
+func (s *Server) handlePatchCamera(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		log.Printf("ERROR: invalid camera id: %s", idStr)
+		s.renderError(w, http.StatusNotFound)
+		return
+	}
+
+	var reqBody patchCameraRequest
+	if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
+		s.renderError(w, http.StatusBadRequest)
+		return
+	}
+
+	camera, err := s.cameraRepo.GetCameraByID(id)
+	if err != nil {
+		log.Printf("ERROR: failed to get camera %d: %v", id, err)
+		s.renderError(w, http.StatusInternalServerError)
+		return
+	}
+	if camera == nil {
+		s.renderError(w, http.StatusNotFound)
+		return
+	}
+
+	user, err := s.getCurrentUser(r)
+	if err != nil {
+		log.Printf("ERROR: failed to get current user: %v", err)
+		s.renderError(w, http.StatusInternalServerError)
+		return
+	}
+	if user == nil {
+		s.renderError(w, http.StatusUnauthorized)
+		return
+	}
+
+	// カメラが現在のユーザーの book に属していることを確認
+	book, err := s.bookRepo.GetBookByID(camera.BookID)
+	if err != nil {
+		log.Printf("ERROR: failed to get book %d: %v", camera.BookID, err)
+		s.renderError(w, http.StatusInternalServerError)
+		return
+	}
+	if book == nil || book.CreatorID != user.ID {
+		s.renderError(w, http.StatusForbidden)
+		return
+	}
+
+	if err := s.cameraRepo.UpdateCameraTestCaptureRequested(id, reqBody.TestCaptureRequested); err != nil {
+		log.Printf("ERROR: failed to update camera %d test_capture_requested: %v", id, err)
+		s.renderError(w, http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(map[string]string{"status": "ok"}); err != nil {
+		log.Printf("ERROR: failed to encode response: %v", err)
+	}
 }
 
 // handlePostCameraDelete は POST /cameras/{id}/delete のハンドラ（カメラ削除）

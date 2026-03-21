@@ -92,6 +92,7 @@ func NewServer(repo domain.DiaryRepository, userRepo domain.UserRepository, book
 	s.mux.HandleFunc("GET /cameras/{id}/settings", s.requireLogin(s.handleGetCameraSettings))
 	s.mux.HandleFunc("POST /cameras/{id}/settings", s.requireLogin(s.handlePostCameraSettings))
 	s.mux.HandleFunc("POST /cameras/{id}/delete", s.requireLogin(s.handlePostCameraDelete))
+	s.mux.HandleFunc("PATCH /cameras/{id}", s.requireLogin(s.handlePatchCamera))
 
 	// スクリプト設定API
 	s.mux.HandleFunc("GET /api/script-config", s.handleGetScriptConfig)

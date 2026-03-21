@@ -630,6 +630,19 @@ func (r *MockCameraRepository) UpdateCamera(id int, name string, targetBrightnes
 	return nil
 }
 
+// UpdateCameraTestCaptureRequested は指定IDのカメラのtest_capture_requestedを更新する
+func (r *MockCameraRepository) UpdateCameraTestCaptureRequested(id int, requested bool) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	c, ok := r.cameras[id]
+	if !ok {
+		return fmt.Errorf("camera %d not found", id)
+	}
+	c.TestCaptureRequested = requested
+	return nil
+}
+
 // DeleteCamera は指定IDのカメラを削除する
 func (r *MockCameraRepository) DeleteCamera(id int) error {
 	r.mu.Lock()

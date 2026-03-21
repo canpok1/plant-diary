@@ -35,6 +35,7 @@ type CameraRepository interface {
 	GetCameraByID(id int) (*Camera, error)
 	GetCameraByScriptKey(scriptKey string) (*Camera, error)
 	UpdateCamera(id int, name string, targetBrightness, brightnessTolerance float64, maxAdjustRetries, bookID int) error
+	UpdateCameraTestCaptureRequested(id int, requested bool) error
 	DeleteCamera(id int) error
 }
 
