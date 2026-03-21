@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
-	"strings"
 )
 
 // scriptConfigResponse は GET /api/script-config のレスポンス
@@ -17,14 +16,8 @@ type scriptConfigResponse struct {
 
 // handleGetScriptConfig は GET /api/script-config のハンドラ
 func (s *Server) handleGetScriptConfig(w http.ResponseWriter, r *http.Request) {
-	// Authorization: Bearer <script_key> の解析
-	authHeader := r.Header.Get("Authorization")
-	if !strings.HasPrefix(authHeader, "Bearer ") {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-	scriptKey := strings.TrimPrefix(authHeader, "Bearer ")
-	if scriptKey == "" {
+	scriptKey, ok := extractBearerToken(r)
+	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}

@@ -20,7 +20,9 @@ func setupTestDBWithCameras(t *testing.T) *sql.DB {
 			max_adjust_retries INTEGER NOT NULL DEFAULT 5,
 			book_id INTEGER NOT NULL REFERENCES books(id),
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-			test_capture_requested INTEGER NOT NULL DEFAULT 0
+			test_capture_requested INTEGER NOT NULL DEFAULT 0,
+			last_test_photo_path TEXT,
+			last_test_photo_captured_at DATETIME
 		);
 	`)
 	if err != nil {
