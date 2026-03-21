@@ -20,11 +20,12 @@ test-e2e:
 
 .PHONY: build
 build:
-	go build -v -o ./bin/server ./cmd/server/...
+	mkdir -p ./bin
+	go build -v -o ./bin/server ./cmd/server
 
 .PHONY: run
 run:
-	go run ./cmd/server/...
+	go run ./cmd/server
 
 SWAGGER_UI_VERSION=5.19.0
 OPENAPI_YML_URL=https://raw.githubusercontent.com/canpok1/plant-diary/refs/heads/main/docs/openapi.yaml
