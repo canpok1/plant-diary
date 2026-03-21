@@ -104,6 +104,25 @@ func (r *SQLiteCameraRepository) GetCameraByScriptKey(scriptKey string) (*domain
 	return &c, nil
 }
 
+// UpdateCameraTestCaptureRequested は指定IDのカメラのtest_capture_requestedを更新する
+func (r *SQLiteCameraRepository) UpdateCameraTestCaptureRequested(id int, requested bool) error {
+	result, err := r.db.Exec(
+		"UPDATE cameras SET test_capture_requested = ? WHERE id = ?",
+		requested, id,
+	)
+	if err != nil {
+		return err
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return fmt.Errorf("camera %d not found", id)
+	}
+	return nil
+}
+
 // UpdateCamera は指定IDのカメラ設定を更新する
 func (r *SQLiteCameraRepository) UpdateCamera(id int, name string, targetBrightness, brightnessTolerance float64, maxAdjustRetries, bookID int) error {
 	result, err := r.db.Exec(
@@ -126,29 +145,6 @@ func (r *SQLiteCameraRepository) UpdateCamera(id int, name string, targetBrightn
 // DeleteCamera は指定IDのカメラを削除する
 func (r *SQLiteCameraRepository) DeleteCamera(id int) error {
 	result, err := r.db.Exec("DELETE FROM cameras WHERE id = ?", id)
-	if err != nil {
-		return err
-	}
-	rows, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if rows == 0 {
-		return fmt.Errorf("camera %d not found", id)
-	}
-	return nil
-}
-
-// UpdateCameraTestCaptureRequested はテスト撮影要求フラグを更新する
-func (r *SQLiteCameraRepository) UpdateCameraTestCaptureRequested(id int, requested bool) error {
-	val := 0
-	if requested {
-		val = 1
-	}
-	result, err := r.db.Exec(
-		"UPDATE cameras SET test_capture_requested = ? WHERE id = ?",
-		val, id,
-	)
 	if err != nil {
 		return err
 	}

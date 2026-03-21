@@ -65,7 +65,7 @@ type Camera struct {
 	MaxAdjustRetries        int
 	BookID                  int
 	CreatedAt               time.Time
-	TestCaptureRequested    int
+	TestCaptureRequested    bool
 	LastTestPhotoPath       sql.NullString
 	LastTestPhotoCapturedAt sql.NullTime
 	CaptureTimesUTC         sql.NullString // "03:00,09:00" 形式（UTC HH:MM）

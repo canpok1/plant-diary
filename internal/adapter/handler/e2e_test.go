@@ -53,7 +53,8 @@ func setupE2ETestDB(t *testing.T) *sql.DB {
 			brightness_tolerance REAL NOT NULL DEFAULT 0.175,
 			max_adjust_retries INTEGER NOT NULL DEFAULT 5,
 			book_id INTEGER NOT NULL REFERENCES books(id),
-			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			test_capture_requested INTEGER NOT NULL DEFAULT 0
 		);
 		CREATE TABLE IF NOT EXISTS diary (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -725,5 +726,210 @@ func TestE2E_DiaryEdit_NonOwnerForbidden(t *testing.T) {
 
 	if postResp.StatusCode != http.StatusForbidden {
 		t.Errorf("expected status 403 for non-owner POST, got %d", postResp.StatusCode)
+	}
+}
+
+// setupCameraForOwner はオーナーユーザー・別ユーザー・日記帳・カメラを作成してcameraIDを返す
+func setupCameraForOwner(t *testing.T, ts *httptest.Server, db *sql.DB, ownerUsername, otherUsername string) int {
+	t.Helper()
+
+	bookID := setupBookForOwner(t, ts, db, ownerUsername, otherUsername)
+
+	// カメラを作成
+	cameraRepo := sqlite.NewSQLiteCameraRepository(db)
+	camera, err := cameraRepo.CreateCamera("Test Camera", bookID)
+	if err != nil {
+		t.Fatalf("failed to create camera: %v", err)
+	}
+
+	return camera.ID
+}
+
+// TestE2E_PatchCamera_NotFound は存在しないカメラIDでPATCH /cameras/{id}が404を返すことを検証する
+func TestE2E_PatchCamera_NotFound(t *testing.T) {
+	ts := setupE2EServer(t)
+
+	// ユーザーを作成してログイン
+	resp, err := http.Post(ts.URL+"/api/users", "application/json", strings.NewReader(`{"username": "user1", "password": "pass"}`))
+	if err != nil {
+		t.Fatalf("POST /api/users failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusCreated {
+		resp.Body.Close()
+		t.Fatalf("user creation failed with status %d", resp.StatusCode)
+	}
+	resp.Body.Close()
+
+	cookies := loginAsUser(t, ts, "user1", "pass")
+
+	body := strings.NewReader(`{"test_capture_requested": true}`)
+	req, err := http.NewRequest("PATCH", ts.URL+"/cameras/9999", body)
+	if err != nil {
+		t.Fatalf("failed to create request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	for _, c := range cookies {
+		req.AddCookie(c)
+	}
+
+	resp2, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("PATCH /cameras/9999 failed: %v", err)
+	}
+	defer resp2.Body.Close()
+
+	if resp2.StatusCode != http.StatusNotFound {
+		t.Errorf("expected status 404, got %d", resp2.StatusCode)
+	}
+}
+
+// TestE2E_PatchCamera_InvalidBody はリクエストボディが不正な場合にPATCH /cameras/{id}が400を返すことを検証する
+func TestE2E_PatchCamera_InvalidBody(t *testing.T) {
+	ts, db := setupE2EServerWithDB(t)
+
+	cameraID := setupCameraForOwner(t, ts, db, "owner", "other")
+
+	cookies := loginAsUser(t, ts, "owner", "password")
+
+	// 不正なJSON
+	body := strings.NewReader(`{invalid json}`)
+	req, err := http.NewRequest("PATCH", fmt.Sprintf("%s/cameras/%d", ts.URL, cameraID), body)
+	if err != nil {
+		t.Fatalf("failed to create request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	for _, c := range cookies {
+		req.AddCookie(c)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("PATCH /cameras/{id} failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("expected status 400, got %d", resp.StatusCode)
+	}
+}
+
+// TestE2E_PatchCamera_Success はオーナーユーザーがPATCH /cameras/{id}で200と{"status":"ok"}を受け取ることを検証する
+func TestE2E_PatchCamera_Success(t *testing.T) {
+	ts, db := setupE2EServerWithDB(t)
+
+	cameraID := setupCameraForOwner(t, ts, db, "owner", "other")
+
+	cookies := loginAsUser(t, ts, "owner", "password")
+
+	body := strings.NewReader(`{"test_capture_requested": true}`)
+	req, err := http.NewRequest("PATCH", fmt.Sprintf("%s/cameras/%d", ts.URL, cameraID), body)
+	if err != nil {
+		t.Fatalf("failed to create request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	for _, c := range cookies {
+		req.AddCookie(c)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("PATCH /cameras/{id} failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("expected status 200, got %d", resp.StatusCode)
+	}
+
+	contentType := resp.Header.Get("Content-Type")
+	if !strings.Contains(contentType, "application/json") {
+		t.Errorf("expected Content-Type application/json, got %s", contentType)
+	}
+
+	var result map[string]string
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if result["status"] != "ok" {
+		t.Errorf("expected status ok, got %s", result["status"])
+	}
+
+	// test_capture_requested が 1 になっていることを確認
+	cameraRepo := sqlite.NewSQLiteCameraRepository(db)
+	camera, err := cameraRepo.GetCameraByID(cameraID)
+	if err != nil {
+		t.Fatalf("failed to get camera: %v", err)
+	}
+	if !camera.TestCaptureRequested {
+		t.Error("expected TestCaptureRequested to be true")
+	}
+}
+
+// TestE2E_PatchCamera_Forbidden は別ユーザーのカメラにPATCH /cameras/{id}が403を返すことを検証する
+func TestE2E_PatchCamera_Forbidden(t *testing.T) {
+	ts, db := setupE2EServerWithDB(t)
+
+	cameraID := setupCameraForOwner(t, ts, db, "owner", "other")
+
+	client := &http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+
+	// 別ユーザー（other）でログイン
+	cookies := loginAsUser(t, ts, "other", "password")
+
+	body := strings.NewReader(`{"test_capture_requested": true}`)
+	req, err := http.NewRequest("PATCH", fmt.Sprintf("%s/cameras/%d", ts.URL, cameraID), body)
+	if err != nil {
+		t.Fatalf("failed to create request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	for _, c := range cookies {
+		req.AddCookie(c)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("PATCH /cameras/{id} failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusForbidden {
+		t.Errorf("expected status 403, got %d", resp.StatusCode)
+	}
+}
+
+// TestE2E_PatchCamera_Unauthorized は未ログイン時にPATCH /cameras/{id}が/loginへリダイレクトすることを検証する
+func TestE2E_PatchCamera_Unauthorized(t *testing.T) {
+	ts := setupE2EServer(t)
+
+	client := &http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+
+	body := strings.NewReader(`{"test_capture_requested": true}`)
+	req, err := http.NewRequest("PATCH", ts.URL+"/cameras/1", body)
+	if err != nil {
+		t.Fatalf("failed to create request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("PATCH /cameras/1 failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusFound {
+		t.Errorf("expected status 302, got %d", resp.StatusCode)
+	}
+
+	location := resp.Header.Get("Location")
+	if location != "/login" {
+		t.Errorf("expected redirect to /login, got %s", location)
 	}
 }
