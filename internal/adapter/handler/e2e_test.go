@@ -729,7 +729,6 @@ func TestE2E_DiaryEdit_NonOwnerForbidden(t *testing.T) {
 	}
 }
 
-
 // setupCameraForOwner はオーナーユーザー・別ユーザー・日記帳・カメラを作成してcameraIDを返す
 func setupCameraForOwner(t *testing.T, ts *httptest.Server, db *sql.DB, ownerUsername, otherUsername string) int {
 	t.Helper()
