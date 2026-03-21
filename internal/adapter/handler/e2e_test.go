@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -902,6 +903,173 @@ func TestE2E_PatchCamera_Forbidden(t *testing.T) {
 
 	if resp.StatusCode != http.StatusForbidden {
 		t.Errorf("expected status 403, got %d", resp.StatusCode)
+	}
+}
+
+// TestE2E_GetCameraSettings_ShowsCaptureTimesJST はGET /cameras/{id}/settingsがcapture_times_utcをJSTに変換して表示することを検証する
+func TestE2E_GetCameraSettings_ShowsCaptureTimesJST(t *testing.T) {
+	ts, db := setupE2EServerWithDB(t)
+	cameraID := setupCameraForOwner(t, ts, db, "owner", "other")
+
+	// capture_times_utcを直接DBにセット（UTC: 03:00,09:00 → JST: 12:00,18:00）
+	cameraRepo := sqlite.NewSQLiteCameraRepository(db)
+	if err := cameraRepo.UpdateCameraScheduleConfig(cameraID, "03:00,09:00"); err != nil {
+		t.Fatalf("failed to set capture_times_utc: %v", err)
+	}
+
+	cookies := loginAsUser(t, ts, "owner", "password")
+	client := &http.Client{}
+
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/cameras/%d/settings", ts.URL, cameraID), nil)
+	if err != nil {
+		t.Fatalf("failed to create request: %v", err)
+	}
+	for _, c := range cookies {
+		req.AddCookie(c)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("GET /cameras/{id}/settings failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("expected status 200, got %d", resp.StatusCode)
+	}
+
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("failed to read response body: %v", err)
+	}
+	bodyStr := string(bodyBytes)
+
+	// 12:00 と 18:00（JST変換後）がページに含まれることを確認
+	if !strings.Contains(bodyStr, "12:00") {
+		t.Errorf("expected JST time '12:00' in response body, got: %s", bodyStr[:min(len(bodyStr), 500)])
+	}
+	if !strings.Contains(bodyStr, "18:00") {
+		t.Errorf("expected JST time '18:00' in response body, got: %s", bodyStr[:min(len(bodyStr), 500)])
+	}
+}
+
+// TestE2E_PostCameraSettings_SavesCaptureTimesUTC はPOST /cameras/{id}/settingsがcapture_timesをUTCに変換して保存することを検証する
+func TestE2E_PostCameraSettings_SavesCaptureTimesUTC(t *testing.T) {
+	ts, db := setupE2EServerWithDB(t)
+	cameraID := setupCameraForOwner(t, ts, db, "owner2", "other2")
+
+	cookies := loginAsUser(t, ts, "owner2", "password")
+	client := &http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+
+	// カメラ情報を取得してbook_idを把握
+	cameraRepo := sqlite.NewSQLiteCameraRepository(db)
+	camera, err := cameraRepo.GetCameraByID(cameraID)
+	if err != nil {
+		t.Fatalf("failed to get camera: %v", err)
+	}
+
+	// JST 12:00 と 18:00 を送信（UTC に変換すると 03:00 と 09:00）
+	formData := url.Values{}
+	formData.Set("name", camera.Name)
+	formData.Set("book_id", fmt.Sprintf("%d", camera.BookID))
+	formData.Set("target_brightness", fmt.Sprintf("%f", camera.TargetBrightness))
+	formData.Set("brightness_tolerance", fmt.Sprintf("%f", camera.BrightnessTolerance))
+	formData.Set("max_adjust_retries", fmt.Sprintf("%d", camera.MaxAdjustRetries))
+	formData.Set("capture_times", "12:00\n18:00")
+
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s/cameras/%d/settings", ts.URL, cameraID), strings.NewReader(formData.Encode()))
+	if err != nil {
+		t.Fatalf("failed to create request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	for _, c := range cookies {
+		req.AddCookie(c)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("POST /cameras/{id}/settings failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusFound {
+		t.Errorf("expected status 302, got %d", resp.StatusCode)
+	}
+
+	// DBに UTC で保存されていることを確認
+	updatedCamera, err := cameraRepo.GetCameraByID(cameraID)
+	if err != nil {
+		t.Fatalf("failed to get updated camera: %v", err)
+	}
+	if !updatedCamera.CaptureTimesUTC.Valid {
+		t.Fatal("expected CaptureTimesUTC to be valid")
+	}
+	if updatedCamera.CaptureTimesUTC.String != "03:00,09:00" {
+		t.Errorf("expected capture_times_utc '03:00,09:00', got '%s'", updatedCamera.CaptureTimesUTC.String)
+	}
+}
+
+// TestE2E_PostCameraSettings_EmptyCaptureTimesDisablesSchedule はcapture_timesが空の場合スケジュールが無効化されることを検証する
+func TestE2E_PostCameraSettings_EmptyCaptureTimesDisablesSchedule(t *testing.T) {
+	ts, db := setupE2EServerWithDB(t)
+	cameraID := setupCameraForOwner(t, ts, db, "owner3", "other3")
+
+	// 事前にスケジュールを設定
+	cameraRepo := sqlite.NewSQLiteCameraRepository(db)
+	if err := cameraRepo.UpdateCameraScheduleConfig(cameraID, "03:00,09:00"); err != nil {
+		t.Fatalf("failed to set capture_times_utc: %v", err)
+	}
+
+	cookies := loginAsUser(t, ts, "owner3", "password")
+	client := &http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+
+	camera, err := cameraRepo.GetCameraByID(cameraID)
+	if err != nil {
+		t.Fatalf("failed to get camera: %v", err)
+	}
+
+	formData := url.Values{}
+	formData.Set("name", camera.Name)
+	formData.Set("book_id", fmt.Sprintf("%d", camera.BookID))
+	formData.Set("target_brightness", fmt.Sprintf("%f", camera.TargetBrightness))
+	formData.Set("brightness_tolerance", fmt.Sprintf("%f", camera.BrightnessTolerance))
+	formData.Set("max_adjust_retries", fmt.Sprintf("%d", camera.MaxAdjustRetries))
+	formData.Set("capture_times", "") // 空欄
+
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s/cameras/%d/settings", ts.URL, cameraID), strings.NewReader(formData.Encode()))
+	if err != nil {
+		t.Fatalf("failed to create request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	for _, c := range cookies {
+		req.AddCookie(c)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("POST /cameras/{id}/settings failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusFound {
+		t.Errorf("expected status 302, got %d", resp.StatusCode)
+	}
+
+	updatedCamera, err := cameraRepo.GetCameraByID(cameraID)
+	if err != nil {
+		t.Fatalf("failed to get updated camera: %v", err)
+	}
+	// 空欄の場合は空文字列で保存される
+	if updatedCamera.CaptureTimesUTC.Valid && updatedCamera.CaptureTimesUTC.String != "" {
+		t.Errorf("expected empty capture_times_utc, got '%s'", updatedCamera.CaptureTimesUTC.String)
 	}
 }
 
