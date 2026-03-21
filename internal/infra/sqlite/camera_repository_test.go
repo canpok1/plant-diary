@@ -353,8 +353,8 @@ func TestSQLiteCameraRepository_UpdateCameraTestCaptureRequested(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetCameraByID failed: %v", err)
 	}
-	if updated.TestCaptureRequested != 1 {
-		t.Errorf("expected TestCaptureRequested 1, got %d", updated.TestCaptureRequested)
+	if !updated.TestCaptureRequested {
+		t.Errorf("expected TestCaptureRequested true, got %v", updated.TestCaptureRequested)
 	}
 
 	// false に更新
@@ -365,8 +365,8 @@ func TestSQLiteCameraRepository_UpdateCameraTestCaptureRequested(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetCameraByID failed: %v", err)
 	}
-	if updated.TestCaptureRequested != 0 {
-		t.Errorf("expected TestCaptureRequested 0, got %d", updated.TestCaptureRequested)
+	if updated.TestCaptureRequested {
+		t.Errorf("expected TestCaptureRequested false, got %v", updated.TestCaptureRequested)
 	}
 
 	// 存在しないIDはエラー
@@ -404,8 +404,8 @@ func TestSQLiteCameraRepository_UpdateCameraAfterTestPhoto(t *testing.T) {
 		t.Errorf("expected LastTestPhotoCapturedAt %v, got %v", capturedAt, updated.LastTestPhotoCapturedAt.Time)
 	}
 	// TestCaptureRequested がクリアされること
-	if updated.TestCaptureRequested != 0 {
-		t.Errorf("expected TestCaptureRequested 0 after test photo, got %d", updated.TestCaptureRequested)
+	if updated.TestCaptureRequested {
+		t.Errorf("expected TestCaptureRequested false after test photo, got %v", updated.TestCaptureRequested)
 	}
 
 	// 存在しないIDはエラー
