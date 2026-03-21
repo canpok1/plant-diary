@@ -727,3 +727,41 @@ func TestE2E_DiaryEdit_NonOwnerForbidden(t *testing.T) {
 		t.Errorf("expected status 403 for non-owner POST, got %d", postResp.StatusCode)
 	}
 }
+
+// TODO: PATCH /cameras/{id} - 正常系: 200 と {"status":"ok"} を返す
+// TODO: PATCH /cameras/{id} - 別ユーザーのカメラで 403 を返す
+// TODO: PATCH /cameras/{id} - 存在しないカメラIDで 404 を返す
+// TODO: PATCH /cameras/{id} - リクエストボディが不正な場合 400 を返す
+
+// TestE2E_PatchCamera_Unauthorized は未ログイン時にPATCH /cameras/{id}が/loginへリダイレクトすることを検証する
+func TestE2E_PatchCamera_Unauthorized(t *testing.T) {
+	ts := setupE2EServer(t)
+
+	client := &http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+
+	body := strings.NewReader(`{"test_capture_requested": true}`)
+	req, err := http.NewRequest("PATCH", ts.URL+"/cameras/1", body)
+	if err != nil {
+		t.Fatalf("failed to create request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("PATCH /cameras/1 failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusFound {
+		t.Errorf("expected status 302, got %d", resp.StatusCode)
+	}
+
+	location := resp.Header.Get("Location")
+	if location != "/login" {
+		t.Errorf("expected redirect to /login, got %s", location)
+	}
+}

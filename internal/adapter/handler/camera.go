@@ -298,6 +298,15 @@ func (s *Server) handlePostCameraSettings(w http.ResponseWriter, r *http.Request
 	http.Redirect(w, r, fmt.Sprintf("/cameras/%d/settings?success=1", id), http.StatusFound)
 }
 
+// handlePatchCamera は PATCH /cameras/{id} のハンドラ（テスト撮影リクエスト）
+func (s *Server) handlePatchCamera(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if _, err := fmt.Fprintf(w, `{"status":"ok"}`); err != nil {
+		log.Printf("ERROR: failed to write response: %v", err)
+	}
+}
+
 // handlePostCameraDelete は POST /cameras/{id}/delete のハンドラ（カメラ削除）
 func (s *Server) handlePostCameraDelete(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
