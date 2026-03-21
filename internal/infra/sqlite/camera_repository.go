@@ -142,9 +142,12 @@ func (r *SQLiteCameraRepository) UpdateCamera(id int, name string, targetBrightn
 	return nil
 }
 
-// DeleteCamera は指定IDのカメラを削除する
-func (r *SQLiteCameraRepository) DeleteCamera(id int) error {
-	result, err := r.db.Exec("DELETE FROM cameras WHERE id = ?", id)
+// UpdateCameraAfterTestPhoto は指定IDのカメラのテスト写真情報を更新する
+func (r *SQLiteCameraRepository) UpdateCameraAfterTestPhoto(id int, lastTestPhotoPath string, capturedAt time.Time) error {
+	result, err := r.db.Exec(
+		"UPDATE cameras SET test_capture_requested = 0, last_test_photo_path = ?, last_test_photo_captured_at = ? WHERE id = ?",
+		lastTestPhotoPath, capturedAt.UTC(), id,
+	)
 	if err != nil {
 		return err
 	}
@@ -158,12 +161,9 @@ func (r *SQLiteCameraRepository) DeleteCamera(id int) error {
 	return nil
 }
 
-// UpdateCameraAfterTestPhoto はテスト写真パス・撮影時刻を更新し、テスト撮影要求フラグをクリアする
-func (r *SQLiteCameraRepository) UpdateCameraAfterTestPhoto(id int, photoPath string, capturedAt time.Time) error {
-	result, err := r.db.Exec(
-		"UPDATE cameras SET last_test_photo_path = ?, last_test_photo_captured_at = ?, test_capture_requested = 0 WHERE id = ?",
-		photoPath, capturedAt.UTC(), id,
-	)
+// DeleteCamera は指定IDのカメラを削除する
+func (r *SQLiteCameraRepository) DeleteCamera(id int) error {
+	result, err := r.db.Exec("DELETE FROM cameras WHERE id = ?", id)
 	if err != nil {
 		return err
 	}

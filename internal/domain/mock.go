@@ -644,6 +644,21 @@ func (r *MockCameraRepository) UpdateCameraTestCaptureRequested(id int, requeste
 	return nil
 }
 
+// UpdateCameraAfterTestPhoto は指定IDのカメラのテスト写真情報を更新する
+func (r *MockCameraRepository) UpdateCameraAfterTestPhoto(id int, lastTestPhotoPath string, capturedAt time.Time) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	c, ok := r.cameras[id]
+	if !ok {
+		return fmt.Errorf("camera %d not found", id)
+	}
+	c.TestCaptureRequested = false
+	c.LastTestPhotoPath = sql.NullString{String: lastTestPhotoPath, Valid: true}
+	c.LastTestPhotoCapturedAt = sql.NullTime{Time: capturedAt, Valid: true}
+	return nil
+}
+
 // DeleteCamera は指定IDのカメラを削除する
 func (r *MockCameraRepository) DeleteCamera(id int) error {
 	r.mu.Lock()
@@ -653,21 +668,6 @@ func (r *MockCameraRepository) DeleteCamera(id int) error {
 		return fmt.Errorf("camera %d not found", id)
 	}
 	delete(r.cameras, id)
-	return nil
-}
-
-// UpdateCameraAfterTestPhoto はテスト写真パス・撮影時刻を更新し、テスト撮影要求フラグをクリアする
-func (r *MockCameraRepository) UpdateCameraAfterTestPhoto(id int, photoPath string, capturedAt time.Time) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	c, ok := r.cameras[id]
-	if !ok {
-		return fmt.Errorf("camera %d not found", id)
-	}
-	c.LastTestPhotoPath = sql.NullString{String: photoPath, Valid: true}
-	c.LastTestPhotoCapturedAt = sql.NullTime{Time: capturedAt, Valid: true}
-	c.TestCaptureRequested = false
 	return nil
 }
 

@@ -2,6 +2,7 @@ package domain
 
 import (
 	"database/sql"
+	"fmt"
 	"time"
 )
 
@@ -70,4 +71,9 @@ type Camera struct {
 	LastTestPhotoCapturedAt sql.NullTime
 	CaptureTimesUTC         sql.NullString // "03:00,09:00" 形式（UTC HH:MM）
 	LastScheduledCaptureAt  sql.NullTime
+}
+
+// TestPhotoFilename はカメラIDに対応するテスト写真ファイル名を返す
+func TestPhotoFilename(cameraID int) string {
+	return fmt.Sprintf("%d_latest.jpg", cameraID)
 }
