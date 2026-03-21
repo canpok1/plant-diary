@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"database/sql"
 	"fmt"
 	"sort"
 	"strings"
@@ -640,6 +641,21 @@ func (r *MockCameraRepository) UpdateCameraTestCaptureRequested(id int, requeste
 		return fmt.Errorf("camera %d not found", id)
 	}
 	c.TestCaptureRequested = requested
+	return nil
+}
+
+// UpdateCameraAfterTestPhoto は指定IDのカメラのテスト写真情報を更新する
+func (r *MockCameraRepository) UpdateCameraAfterTestPhoto(id int, lastTestPhotoPath string, capturedAt time.Time) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	c, ok := r.cameras[id]
+	if !ok {
+		return fmt.Errorf("camera %d not found", id)
+	}
+	c.TestCaptureRequested = false
+	c.LastTestPhotoPath = sql.NullString{String: lastTestPhotoPath, Valid: true}
+	c.LastTestPhotoCapturedAt = sql.NullTime{Time: capturedAt, Valid: true}
 	return nil
 }
 

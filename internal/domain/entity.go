@@ -1,6 +1,10 @@
 package domain
 
-import "time"
+import (
+	"database/sql"
+	"fmt"
+	"time"
+)
 
 // YearMonth は年月を表す構造体
 type YearMonth struct {
@@ -54,13 +58,20 @@ type Session struct {
 
 // Camera はカメラ設定を表す構造体
 type Camera struct {
-	ID                   int
-	Name                 string
-	ScriptKey            string
-	TargetBrightness     float64
-	BrightnessTolerance  float64
-	MaxAdjustRetries     int
-	BookID               int
-	CreatedAt            time.Time
-	TestCaptureRequested bool
+	ID                      int
+	Name                    string
+	ScriptKey               string
+	TargetBrightness        float64
+	BrightnessTolerance     float64
+	MaxAdjustRetries        int
+	BookID                  int
+	CreatedAt               time.Time
+	TestCaptureRequested    bool
+	LastTestPhotoPath       sql.NullString
+	LastTestPhotoCapturedAt sql.NullTime
+}
+
+// TestPhotoFilename はカメラIDに対応するテスト写真ファイル名を返す
+func TestPhotoFilename(cameraID int) string {
+	return fmt.Sprintf("%d_latest.jpg", cameraID)
 }

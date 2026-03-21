@@ -97,6 +97,9 @@ func NewServer(repo domain.DiaryRepository, userRepo domain.UserRepository, book
 	// スクリプト設定API
 	s.mux.HandleFunc("GET /api/script-config", s.handleGetScriptConfig)
 
+	// テスト写真API
+	s.mux.HandleFunc("POST /api/test-photo", s.handlePostTestPhoto)
+
 	adapter.HandlerFromMux(s, s.mux)
 
 	return s, nil
