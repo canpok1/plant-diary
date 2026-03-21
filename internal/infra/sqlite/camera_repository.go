@@ -45,7 +45,7 @@ func (r *SQLiteCameraRepository) CreateCamera(name string, bookID int) (*domain.
 // GetAllCameras は全てのカメラを返す
 func (r *SQLiteCameraRepository) GetAllCameras() ([]domain.Camera, error) {
 	rows, err := r.db.Query(
-		"SELECT id, name, script_key, target_brightness, brightness_tolerance, max_adjust_retries, book_id, created_at, test_capture_requested, last_test_photo_path, last_test_photo_captured_at FROM cameras ORDER BY created_at DESC",
+		"SELECT id, name, script_key, target_brightness, brightness_tolerance, max_adjust_retries, book_id, created_at, test_capture_requested, last_test_photo_path, last_test_photo_captured_at, capture_times_utc, last_scheduled_capture_at FROM cameras ORDER BY created_at DESC",
 	)
 	if err != nil {
 		return nil, err
@@ -55,7 +55,7 @@ func (r *SQLiteCameraRepository) GetAllCameras() ([]domain.Camera, error) {
 	var cameras []domain.Camera
 	for rows.Next() {
 		var c domain.Camera
-		if err := rows.Scan(&c.ID, &c.Name, &c.ScriptKey, &c.TargetBrightness, &c.BrightnessTolerance, &c.MaxAdjustRetries, &c.BookID, &c.CreatedAt, &c.TestCaptureRequested, &c.LastTestPhotoPath, &c.LastTestPhotoCapturedAt); err != nil {
+		if err := rows.Scan(&c.ID, &c.Name, &c.ScriptKey, &c.TargetBrightness, &c.BrightnessTolerance, &c.MaxAdjustRetries, &c.BookID, &c.CreatedAt, &c.TestCaptureRequested, &c.LastTestPhotoPath, &c.LastTestPhotoCapturedAt, &c.CaptureTimesUTC, &c.LastScheduledCaptureAt); err != nil {
 			return nil, err
 		}
 		cameras = append(cameras, c)
@@ -75,9 +75,9 @@ func (r *SQLiteCameraRepository) GetAllCameras() ([]domain.Camera, error) {
 func (r *SQLiteCameraRepository) GetCameraByID(id int) (*domain.Camera, error) {
 	var c domain.Camera
 	err := r.db.QueryRow(
-		"SELECT id, name, script_key, target_brightness, brightness_tolerance, max_adjust_retries, book_id, created_at, test_capture_requested, last_test_photo_path, last_test_photo_captured_at FROM cameras WHERE id = ?",
+		"SELECT id, name, script_key, target_brightness, brightness_tolerance, max_adjust_retries, book_id, created_at, test_capture_requested, last_test_photo_path, last_test_photo_captured_at, capture_times_utc, last_scheduled_capture_at FROM cameras WHERE id = ?",
 		id,
-	).Scan(&c.ID, &c.Name, &c.ScriptKey, &c.TargetBrightness, &c.BrightnessTolerance, &c.MaxAdjustRetries, &c.BookID, &c.CreatedAt, &c.TestCaptureRequested, &c.LastTestPhotoPath, &c.LastTestPhotoCapturedAt)
+	).Scan(&c.ID, &c.Name, &c.ScriptKey, &c.TargetBrightness, &c.BrightnessTolerance, &c.MaxAdjustRetries, &c.BookID, &c.CreatedAt, &c.TestCaptureRequested, &c.LastTestPhotoPath, &c.LastTestPhotoCapturedAt, &c.CaptureTimesUTC, &c.LastScheduledCaptureAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -91,9 +91,9 @@ func (r *SQLiteCameraRepository) GetCameraByID(id int) (*domain.Camera, error) {
 func (r *SQLiteCameraRepository) GetCameraByScriptKey(scriptKey string) (*domain.Camera, error) {
 	var c domain.Camera
 	err := r.db.QueryRow(
-		"SELECT id, name, script_key, target_brightness, brightness_tolerance, max_adjust_retries, book_id, created_at, test_capture_requested, last_test_photo_path, last_test_photo_captured_at FROM cameras WHERE script_key = ?",
+		"SELECT id, name, script_key, target_brightness, brightness_tolerance, max_adjust_retries, book_id, created_at, test_capture_requested, last_test_photo_path, last_test_photo_captured_at, capture_times_utc, last_scheduled_capture_at FROM cameras WHERE script_key = ?",
 		scriptKey,
-	).Scan(&c.ID, &c.Name, &c.ScriptKey, &c.TargetBrightness, &c.BrightnessTolerance, &c.MaxAdjustRetries, &c.BookID, &c.CreatedAt, &c.TestCaptureRequested, &c.LastTestPhotoPath, &c.LastTestPhotoCapturedAt)
+	).Scan(&c.ID, &c.Name, &c.ScriptKey, &c.TargetBrightness, &c.BrightnessTolerance, &c.MaxAdjustRetries, &c.BookID, &c.CreatedAt, &c.TestCaptureRequested, &c.LastTestPhotoPath, &c.LastTestPhotoCapturedAt, &c.CaptureTimesUTC, &c.LastScheduledCaptureAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -146,6 +146,25 @@ func (r *SQLiteCameraRepository) UpdateCameraAfterTestPhoto(id int, lastTestPhot
 	result, err := r.db.Exec(
 		"UPDATE cameras SET test_capture_requested = 0, last_test_photo_path = ?, last_test_photo_captured_at = ? WHERE id = ?",
 		lastTestPhotoPath, capturedAt.UTC(), id,
+	)
+	if err != nil {
+		return err
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return fmt.Errorf("camera %d not found", id)
+	}
+	return nil
+}
+
+// UpdateCameraAfterScheduledCapture は指定IDのカメラのスケジュール撮影情報を更新する
+func (r *SQLiteCameraRepository) UpdateCameraAfterScheduledCapture(id int, capturedAt time.Time) error {
+	result, err := r.db.Exec(
+		"UPDATE cameras SET last_scheduled_capture_at = ? WHERE id = ?",
+		capturedAt.UTC(), id,
 	)
 	if err != nil {
 		return err

@@ -56,7 +56,9 @@ func setupE2ETestDB(t *testing.T) *sql.DB {
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			test_capture_requested INTEGER NOT NULL DEFAULT 0,
 			last_test_photo_path TEXT,
-			last_test_photo_captured_at DATETIME
+			last_test_photo_captured_at DATETIME,
+			capture_times_utc TEXT,
+			last_scheduled_capture_at DATETIME
 		);
 		CREATE TABLE IF NOT EXISTS diary (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
