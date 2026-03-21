@@ -5,8 +5,8 @@ INTERVAL_SECONDS=60
 waiting=false
 
 # デフォルト値
-ASSIGN_COUNT=2
-MIN_QUEUE=0
+ASSIGN_COUNT=1
+MIN_QUEUE=1
 
 # 引数解析
 while [[ $# -gt 0 ]]; do
