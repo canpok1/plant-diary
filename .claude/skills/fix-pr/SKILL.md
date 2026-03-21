@@ -172,13 +172,19 @@ git push origin HEAD
 ```bash
 # 各コメントに対してループで実行する
 gh api repos/<OWNER>/<REPO>/pulls/comments/<COMMENT_ID>/replies \
-  -X POST -f body="@coderabbitai 修正しました。ご確認ください。"
+  -X POST -f body="@coderabbitai 修正しました。ご確認ください。
+
+---
+🤖 Generated with [Claude Code](https://claude.ai/claude-code)"
 ```
 
 返信後、CodeRabbitに再レビューを依頼する:
 
 ```bash
-gh pr comment --repo <REPO> <PR番号> --body "@coderabbitai review"
+gh pr comment --repo <REPO> <PR番号> --body "@coderabbitai review
+
+---
+🤖 Generated with [Claude Code](https://claude.ai/claude-code)"
 ```
 
 → フロー先頭（ステップ1）に戻る（ステップ1の `wait-coderabbit.sh` には、上記で記録した `KNOWN_TOTAL` を第2引数として渡すこと）

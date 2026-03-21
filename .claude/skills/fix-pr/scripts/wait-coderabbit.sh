@@ -87,7 +87,10 @@ for i in $(seq 1 "$MAX_POLLS"); do
 
             # reviewを投稿
             echo "@coderabbitai review を投稿します..."
-            gh pr comment --repo "$REPO" "$PR_NUMBER" --body "@coderabbitai review"
+            gh pr comment --repo "$REPO" "$PR_NUMBER" --body "@coderabbitai review
+
+---
+🤖 Generated with [Claude Code](https://claude.ai/claude-code)"
             echo "再レビューを要求しました。"
         fi
 
