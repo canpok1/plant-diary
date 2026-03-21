@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"database/sql"
 	"fmt"
 	"sort"
 	"strings"
@@ -639,5 +640,63 @@ func (r *MockCameraRepository) DeleteCamera(id int) error {
 		return fmt.Errorf("camera %d not found", id)
 	}
 	delete(r.cameras, id)
+	return nil
+}
+
+// UpdateCameraTestCaptureRequested はテスト撮影要求フラグを更新する
+func (r *MockCameraRepository) UpdateCameraTestCaptureRequested(id int, requested bool) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	c, ok := r.cameras[id]
+	if !ok {
+		return fmt.Errorf("camera %d not found", id)
+	}
+	if requested {
+		c.TestCaptureRequested = 1
+	} else {
+		c.TestCaptureRequested = 0
+	}
+	return nil
+}
+
+// UpdateCameraAfterTestPhoto はテスト写真パス・撮影時刻を更新し、テスト撮影要求フラグをクリアする
+func (r *MockCameraRepository) UpdateCameraAfterTestPhoto(id int, photoPath string, capturedAt time.Time) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	c, ok := r.cameras[id]
+	if !ok {
+		return fmt.Errorf("camera %d not found", id)
+	}
+	c.LastTestPhotoPath = sql.NullString{String: photoPath, Valid: true}
+	c.LastTestPhotoCapturedAt = sql.NullTime{Time: capturedAt, Valid: true}
+	c.TestCaptureRequested = 0
+	return nil
+}
+
+// UpdateCameraScheduleConfig はスケジュール撮影の時刻設定を更新する
+func (r *MockCameraRepository) UpdateCameraScheduleConfig(id int, captureTimesUTC string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	c, ok := r.cameras[id]
+	if !ok {
+		return fmt.Errorf("camera %d not found", id)
+	}
+	c.CaptureTimesUTC = sql.NullString{String: captureTimesUTC, Valid: true}
+	return nil
+}
+
+// UpdateCameraAfterScheduledCapture はスケジュール撮影後の最終撮影時刻を更新する
+func (r *MockCameraRepository) UpdateCameraAfterScheduledCapture(id int, capturedAt time.Time) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	c, ok := r.cameras[id]
+	if !ok {
+		return fmt.Errorf("camera %d not found", id)
+	}
+	c.LastScheduledCaptureAt = sql.NullTime{Time: capturedAt, Valid: true}
 	return nil
 }

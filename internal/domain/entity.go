@@ -1,6 +1,9 @@
 package domain
 
-import "time"
+import (
+	"database/sql"
+	"time"
+)
 
 // YearMonth は年月を表す構造体
 type YearMonth struct {
@@ -54,12 +57,17 @@ type Session struct {
 
 // Camera はカメラ設定を表す構造体
 type Camera struct {
-	ID                  int
-	Name                string
-	ScriptKey           string
-	TargetBrightness    float64
-	BrightnessTolerance float64
-	MaxAdjustRetries    int
-	BookID              int
-	CreatedAt           time.Time
+	ID                      int
+	Name                    string
+	ScriptKey               string
+	TargetBrightness        float64
+	BrightnessTolerance     float64
+	MaxAdjustRetries        int
+	BookID                  int
+	CreatedAt               time.Time
+	TestCaptureRequested    int
+	LastTestPhotoPath       sql.NullString
+	LastTestPhotoCapturedAt sql.NullTime
+	CaptureTimesUTC         sql.NullString // "03:00,09:00" 形式（UTC HH:MM）
+	LastScheduledCaptureAt  sql.NullTime
 }
