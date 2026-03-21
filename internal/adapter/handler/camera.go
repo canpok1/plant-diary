@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -9,9 +10,70 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
+	"time"
 
 	"plant-diary/internal/domain"
 )
+
+// jst は日本標準時タイムゾーン
+var jst = time.FixedZone("JST", 9*60*60)
+
+// captureTimesUTCToJST はUTC "HH:MM,HH:MM" 形式をJST "HH:MM\nHH:MM" 形式に変換する
+func captureTimesUTCToJST(utcTimes sql.NullString) string {
+	if !utcTimes.Valid || utcTimes.String == "" {
+		return ""
+	}
+	parts := strings.Split(utcTimes.String, ",")
+	result := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		t, err := time.Parse("15:04", p)
+		if err != nil {
+			continue
+		}
+		// UTC時刻にJSTオフセット（+9h）を加算
+		jstTime := t.UTC().Add(9 * time.Hour)
+		result = append(result, jstTime.Format("15:04"))
+	}
+	return strings.Join(result, "\n")
+}
+
+// captureTimesJSTToUTC はJST改行区切り "HH:MM\nHH:MM" 形式をUTC "HH:MM,HH:MM" 形式に変換する
+func captureTimesJSTToUTC(jstTimes string) string {
+	lines := strings.Split(jstTimes, "\n")
+	result := make([]string, 0, len(lines))
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		t, err := time.Parse("15:04", line)
+		if err != nil {
+			continue
+		}
+		// JST時刻からUTCオフセット（-9h）を減算
+		utcTime := t.UTC().Add(-9 * time.Hour)
+		result = append(result, utcTime.Format("15:04"))
+	}
+	return strings.Join(result, ",")
+}
+
+// cameraSettingsData はカメラ設定テンプレートに渡すデータ構造体
+type cameraSettingsData struct {
+	Camera                     *domain.Camera
+	Books                      []domain.Book
+	LoggedIn                   bool
+	Username                   string
+	Success                    bool
+	TestCaptureRequested       bool
+	LastTestPhotoPath          sql.NullString
+	CaptureTimesJST            string
+	LastTestPhotoCapturedAtJST string
+}
 
 // handleGetCameras は GET /cameras のハンドラ（カメラ一覧）
 func (s *Server) handleGetCameras(w http.ResponseWriter, r *http.Request) {
@@ -179,12 +241,23 @@ func (s *Server) handleGetCameraSettings(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	data := map[string]interface{}{
-		"Camera":   camera,
-		"Books":    books,
-		"LoggedIn": true,
-		"Username": user.Username,
-		"Success":  r.URL.Query().Get("success") == "1",
+	captureTimesJST := captureTimesUTCToJST(camera.CaptureTimesUTC)
+
+	var lastTestPhotoCapturedAtJST string
+	if camera.LastTestPhotoCapturedAt.Valid {
+		lastTestPhotoCapturedAtJST = camera.LastTestPhotoCapturedAt.Time.In(jst).Format("2006-01-02 15:04")
+	}
+
+	data := cameraSettingsData{
+		Camera:                     camera,
+		Books:                      books,
+		LoggedIn:                   true,
+		Username:                   user.Username,
+		Success:                    r.URL.Query().Get("success") == "1",
+		TestCaptureRequested:       camera.TestCaptureRequested,
+		LastTestPhotoPath:          camera.LastTestPhotoPath,
+		CaptureTimesJST:            captureTimesJST,
+		LastTestPhotoCapturedAtJST: lastTestPhotoCapturedAtJST,
 	}
 
 	if err := s.templates.ExecuteTemplate(w, "camera_settings.html", data); err != nil {
@@ -294,6 +367,14 @@ func (s *Server) handlePostCameraSettings(w http.ResponseWriter, r *http.Request
 
 	if err := s.cameraRepo.UpdateCamera(id, name, targetBrightness, brightnessTolerance, maxAdjustRetries, bookID); err != nil {
 		log.Printf("ERROR: failed to update camera %d: %v", id, err)
+		s.renderError(w, http.StatusInternalServerError)
+		return
+	}
+
+	captureTimesJST := r.FormValue("capture_times")
+	captureTimesUTC := captureTimesJSTToUTC(captureTimesJST)
+	if err := s.cameraRepo.UpdateCameraScheduleConfig(id, captureTimesUTC); err != nil {
+		log.Printf("ERROR: failed to update camera %d schedule config: %v", id, err)
 		s.renderError(w, http.StatusInternalServerError)
 		return
 	}
