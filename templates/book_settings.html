@@ -437,7 +437,10 @@
                 image_diary_id: imageDiaryID
             };
             if (contextDiaryVal !== '') {
-                body.context_diary_id = parseInt(contextDiaryVal, 10);
+                var contextDiaryID = parseInt(contextDiaryVal, 10);
+                if (!isNaN(contextDiaryID) && contextDiaryID > 0) {
+                    body.context_diary_id = contextDiaryID;
+                }
             }
 
             btn.disabled = true;
