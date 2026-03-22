@@ -1,2 +1,2 @@
-dsn: "sqlite3://tmp/schema.db"
+dsn: "sqlite3://.tmp/schema.db"
 docPath: docs/db

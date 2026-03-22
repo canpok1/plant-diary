@@ -8,8 +8,7 @@ type BookRepository interface {
 	GetAllBooks() ([]BookView, error)
 	GetBooksByCreatorID(creatorID int) ([]Book, error)
 	GetBookByID(id int) (*Book, error)
-	GetBookByUploadKey(uploadKey string) (*Book, error)
-	UpdateBookName(id int, name string) error
+	UpdateBook(id int, name, prompt string) error
 	DeleteBook(id int) error
 }
 
@@ -35,7 +34,11 @@ type CameraRepository interface {
 	GetCameraByID(id int) (*Camera, error)
 	GetCameraByScriptKey(scriptKey string) (*Camera, error)
 	UpdateCamera(id int, name string, targetBrightness, brightnessTolerance float64, maxAdjustRetries, bookID int) error
+	UpdateCameraTestCaptureRequested(id int, requested bool) error
+	UpdateCameraAfterTestPhoto(id int, lastTestPhotoPath string, capturedAt time.Time) error
+	UpdateCameraAfterScheduledCapture(id int, capturedAt time.Time) error
 	DeleteCamera(id int) error
+	UpdateCameraScheduleConfig(id int, captureTimesUTC string) error
 }
 
 // DiaryRepository は日記データへのアクセスを定義するインターフェース

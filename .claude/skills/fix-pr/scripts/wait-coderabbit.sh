@@ -1,5 +1,5 @@
 #!/bin/bash
-# CodeRabbitのレビュー到着を待機し、rate limitがあれば解消後にreviewを投稿するスクリプト
+# CodeRabbitのレビュー到着を待機するスクリプト
 #
 # 使用方法:
 #   ./.claude/skills/fix-pr/scripts/wait-coderabbit.sh <PR番号> [既知のレビュー数]
@@ -11,11 +11,11 @@
 # 環境変数（テスト用にオーバーライド可能）:
 #   POLL_INTERVAL: ポーリング間隔（秒）デフォルト30
 #   MAX_POLLS: 最大ポーリング回数 デフォルト10
-#   RATE_LIMIT_WAIT: rate limit時のデフォルト待機時間（秒）デフォルト600
 #
 # 終了コード:
-#   0: 正常完了（rate limitなし、またはrate limit解消後に再レビュー投稿済み）
-#   1: エラー
+#   0: 正常完了（rate limitなし）
+#   1: エラー（タイムアウト等）
+#   2: rate limit検出（stdoutにJSONを出力済み）
 
 set -euo pipefail
 
@@ -35,7 +35,6 @@ fi
 
 POLL_INTERVAL="${POLL_INTERVAL:-30}"
 MAX_POLLS="${MAX_POLLS:-10}"
-RATE_LIMIT_WAIT="${RATE_LIMIT_WAIT:-600}"
 
 REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
 
@@ -54,19 +53,30 @@ has_new_coderabbit_response() {
 }
 
 # CodeRabbitのコメントからrate limit情報をチェック（最新コメント/レビューのみ対象、1回のAPI呼び出しで取得）
+# rate limit検出時: JSONをstdoutに出力してexit 2で終了
+# rate limitなし: return 1
 check_rate_limit() {
     local pr_data
     pr_data=$(gh pr view --repo "$REPO" "$PR_NUMBER" --json comments,reviews)
-    local latest_comment
-    latest_comment=$(echo "$pr_data" | jq -r '[.comments[] | select(.author.login=="coderabbitai")] | last | .body // ""')
-    if echo "$latest_comment" | grep -qi "rate limit"; then
-        return 0  # rate limitあり
+
+    local latest_comment_body latest_comment_created_at
+    latest_comment_body=$(echo "$pr_data" | jq -r '[.comments[] | select(.author.login=="coderabbitai")] | last | .body // ""')
+    latest_comment_created_at=$(echo "$pr_data" | jq -r '[.comments[] | select(.author.login=="coderabbitai")] | last | .createdAt // ""')
+
+    if echo "$latest_comment_body" | grep -qi "rate limit"; then
+        echo "{\"rate_limit\": true, \"comment_body\": $(echo "$latest_comment_body" | jq -Rs .), \"comment_created_at\": \"$latest_comment_created_at\"}"
+        exit 2
     fi
-    local latest_review
-    latest_review=$(echo "$pr_data" | jq -r '[.reviews[] | select(.author.login=="coderabbitai")] | last | .body // ""')
-    if echo "$latest_review" | grep -qi "rate limit"; then
-        return 0  # rate limitあり
+
+    local latest_review_body latest_review_created_at
+    latest_review_body=$(echo "$pr_data" | jq -r '[.reviews[] | select(.author.login=="coderabbitai")] | last | .body // ""')
+    latest_review_created_at=$(echo "$pr_data" | jq -r '[.reviews[] | select(.author.login=="coderabbitai")] | last | .submittedAt // ""')
+
+    if echo "$latest_review_body" | grep -qi "rate limit"; then
+        echo "{\"rate_limit\": true, \"comment_body\": $(echo "$latest_review_body" | jq -Rs .), \"comment_created_at\": \"$latest_review_created_at\"}"
+        exit 2
     fi
+
     return 1  # rate limitなし
 }
 
@@ -80,16 +90,8 @@ for i in $(seq 1 "$MAX_POLLS"); do
     if has_new_coderabbit_response; then
         echo "CodeRabbitのレビューを検出しました。"
 
-        # rate limitチェック
-        if check_rate_limit; then
-            echo "rate limitが検出されました。${RATE_LIMIT_WAIT}秒待機します..."
-            sleep "$RATE_LIMIT_WAIT"
-
-            # reviewを投稿
-            echo "@coderabbitai review を投稿します..."
-            gh pr comment --repo "$REPO" "$PR_NUMBER" --body "@coderabbitai review"
-            echo "再レビューを要求しました。"
-        fi
+        # rate limitチェック（rate limit検出時はJSONをstdoutに出力してexit 2）
+        check_rate_limit || true
 
         exit 0
     fi

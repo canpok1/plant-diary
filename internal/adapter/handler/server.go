@@ -92,9 +92,17 @@ func NewServer(repo domain.DiaryRepository, userRepo domain.UserRepository, book
 	s.mux.HandleFunc("GET /cameras/{id}/settings", s.requireLogin(s.handleGetCameraSettings))
 	s.mux.HandleFunc("POST /cameras/{id}/settings", s.requireLogin(s.handlePostCameraSettings))
 	s.mux.HandleFunc("POST /cameras/{id}/delete", s.requireLogin(s.handlePostCameraDelete))
+	s.mux.HandleFunc("PATCH /cameras/{id}", s.requireLogin(s.handlePatchCamera))
+	s.mux.HandleFunc("GET /cameras/{id}/test-photo", s.requireLogin(s.handleGetCameraTestPhoto))
 
 	// スクリプト設定API
 	s.mux.HandleFunc("GET /api/script-config", s.handleGetScriptConfig)
+
+	// プロンプトプレビューAPI
+	s.mux.HandleFunc("POST /api/books/{id}/prompt-preview", s.handlePostBookPromptPreview)
+
+	// スケジュール撮影API
+	s.mux.HandleFunc("POST /api/scheduled-photo", s.handlePostScheduledPhoto)
 
 	adapter.HandlerFromMux(s, s.mux)
 

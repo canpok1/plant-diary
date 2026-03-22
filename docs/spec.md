@@ -40,8 +40,18 @@ USBカメラで撮影した植物の画像を元に、Gemini APIを用いて日�
 │   │   ├── 000001_create_diary_table.up.sql
 │   │   └── 000001_create_diary_table.down.sql
 │   ├── templates/
-│   │   ├── index.html      # 一覧ページ
-│   │   └── detail.html     # 詳細ページ
+│   │   ├── _header.html         # 共通ヘッダーテンプレート
+│   │   ├── index.html           # 日記帳一覧ページ
+│   │   ├── book_detail.html     # 日記帳詳細ページ
+│   │   ├── book_settings.html   # 日記帳設定ページ
+│   │   ├── books.html           # 日記帳作成ページ
+│   │   ├── detail.html          # 日記詳細ページ
+│   │   ├── edit.html            # 日記編集ページ
+│   │   ├── cameras.html         # カメラ一覧ページ
+│   │   ├── cameras_new.html     # カメラ追加ページ
+│   │   ├── camera_settings.html # カメラ設定ページ
+│   │   ├── login.html           # ログインページ
+│   │   └── slideshow.html       # スライドショーページ
 │   └── go.mod              # Go依存関係
 ├── data/                   # 永続データ（.gitignore対象）
 │   ├── photos/             # 植物画像ファイル (.jpg)
@@ -90,10 +100,14 @@ echo "$(date): Captured ${OUTPUT}" >> /var/log/plant-diary-capture.log
 サーバーからカメラ設定を取得し、輝度を自動調整しながら撮影・アップロードする。
 
 1. **設定取得**: `GET /api/script-config`（Bearer認証）でサーバーから設定を取得。
-   - `target_brightness` / `brightness_tolerance` / `max_adjust_retries` / `upload_key`
+   - `target_brightness` / `brightness_tolerance` / `max_adjust_retries`
+   - `should_test_capture`（テスト撮影が要求されているか） / `should_schedule_capture`（スケジュール撮影のタイミングか）
    - 取得失敗時はスクリプトを即終了（撮影スキップ）。
 2. **輝度調整撮影**: 取得した設定値を使って最大 `max_adjust_retries` 回撮影を試みる。
-3. **アップロード**: 取得した `upload_key` で `POST /api/photos` にアップロード。
+3. **アップロード**: script_keyでBearerトークン認証し、必要に応じて `POST /api/test-photo` と `POST /api/scheduled-photo` にアップロードする。
+   - `should_test_capture=true` のとき `POST /api/test-photo`
+   - `should_schedule_capture=true` のとき `POST /api/scheduled-photo`
+   - 両方 `true` のときは同じ写真を両方へアップロード
 
 #### スクリプト例 (`scripts/capture_auto.sh`)
 
@@ -196,10 +210,27 @@ echo "$(date): Captured ${OUTPUT}" >> /var/log/plant-diary-capture.log
 
 ### 8.2 プロンプト設計
 
+プロンプトは日記帳ごとにカスタマイズ可能。日記帳作成時はデフォルトプロンプトが設定され、設定画面で変更できる。
+
+#### デフォルトプロンプト
+
 ```text
-この植物の写真を見て、成長の様子や変化を観察してください。
-親しみやすい口調で、200文字程度の観察日記を書いてください。
+{{book_name}}の写真を見て、成長の様子や変化を観察してください。親しみやすい口調で、200文字程度の観察日記を書いてください。
+現在は{{datetime}}です。
+
+{{past_diaries}}
+これまでの観察記録を踏まえて、今回の写真から見られる成長の変化や特徴を記述してください。
 ```
+
+#### 利用可能なプレースホルダー
+
+| プレースホルダー | 展開内容 |
+| --- | --- |
+| `{{book_name}}` | 日記帳の名前 |
+| `{{datetime}}` | 撮影日時（JST、例: `2026年03月22日 14時30分 (JST)`） |
+| `{{past_diaries}}` | 過去1ヶ月の観察記録（日記が存在しない場合は空文字） |
+
+各プレースホルダーは最大1箇所のみ展開され、複数記述した場合は最初の1つのみ展開して残りは空文字に置換する。
 
 ### 8.3 エラーハンドリング
 

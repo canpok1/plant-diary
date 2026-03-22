@@ -6,11 +6,15 @@
 package adapter
 
 import (
+	"context"
 	"fmt"
 	"net/http"
-	"time"
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
+)
+
+const (
+	BearerAuthScopes = "BearerAuth.Scopes"
 )
 
 // CreateUserRequest defines model for CreateUserRequest.
@@ -19,16 +23,9 @@ type CreateUserRequest struct {
 	Username string `json:"username"`
 }
 
-// UploadPhotoRequest defines model for UploadPhotoRequest.
-type UploadPhotoRequest struct {
-	CapturedAt *time.Time         `json:"captured_at,omitempty"`
-	Photo      openapi_types.File `json:"photo"`
-	UploadKey  string             `json:"upload_key"`
-}
-
-// UploadPhotoResponse defines model for UploadPhotoResponse.
-type UploadPhotoResponse struct {
-	JobId string `json:"job_id"`
+// UploadTestPhotoRequest defines model for UploadTestPhotoRequest.
+type UploadTestPhotoRequest struct {
+	Photo openapi_types.File `json:"photo"`
 }
 
 // UserResponse defines model for UserResponse.
@@ -37,17 +34,17 @@ type UserResponse struct {
 	Uuid     string `json:"uuid"`
 }
 
-// PostApiPhotosMultipartRequestBody defines body for PostApiPhotos for multipart/form-data ContentType.
-type PostApiPhotosMultipartRequestBody = UploadPhotoRequest
+// PostApiTestPhotoMultipartRequestBody defines body for PostApiTestPhoto for multipart/form-data ContentType.
+type PostApiTestPhotoMultipartRequestBody = UploadTestPhotoRequest
 
 // PostApiUsersJSONRequestBody defines body for PostApiUsers for application/json ContentType.
 type PostApiUsersJSONRequestBody = CreateUserRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
-	// 写真をアップロードする
-	// (POST /api/photos)
-	PostApiPhotos(w http.ResponseWriter, r *http.Request)
+	// テスト写真をアップロードする
+	// (POST /api/test-photo)
+	PostApiTestPhoto(w http.ResponseWriter, r *http.Request)
 	// ユーザーを作成する
 	// (POST /api/users)
 	PostApiUsers(w http.ResponseWriter, r *http.Request)
@@ -62,11 +59,17 @@ type ServerInterfaceWrapper struct {
 
 type MiddlewareFunc func(http.Handler) http.Handler
 
-// PostApiPhotos operation middleware
-func (siw *ServerInterfaceWrapper) PostApiPhotos(w http.ResponseWriter, r *http.Request) {
+// PostApiTestPhoto operation middleware
+func (siw *ServerInterfaceWrapper) PostApiTestPhoto(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.PostApiPhotos(w, r)
+		siw.Handler.PostApiTestPhoto(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -210,7 +213,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 		ErrorHandlerFunc:   options.ErrorHandlerFunc,
 	}
 
-	m.HandleFunc("POST "+options.BaseURL+"/api/photos", wrapper.PostApiPhotos)
+	m.HandleFunc("POST "+options.BaseURL+"/api/test-photo", wrapper.PostApiTestPhoto)
 	m.HandleFunc("POST "+options.BaseURL+"/api/users", wrapper.PostApiUsers)
 
 	return m

@@ -1,6 +1,18 @@
 package domain
 
-import "time"
+import (
+	"database/sql"
+	"fmt"
+	"time"
+)
+
+// DefaultBookPrompt は日記帳のデフォルトプロンプト
+const DefaultBookPrompt = `{{book_name}}の写真を見て、成長の様子や変化を観察してください。親しみやすい口調で、200文字程度の観察日記を書いてください。
+現在は{{datetime}}です。
+
+{{past_diaries}}
+
+これまでの観察記録を踏まえて、今回の写真から見られる成長の変化や特徴を記述してください。`
 
 // YearMonth は年月を表す構造体
 type YearMonth struct {
@@ -23,7 +35,7 @@ type Book struct {
 	UUID      string
 	CreatorID int
 	Name      string
-	UploadKey string
+	Prompt    string
 	CreatedAt time.Time
 }
 
@@ -54,12 +66,22 @@ type Session struct {
 
 // Camera はカメラ設定を表す構造体
 type Camera struct {
-	ID                  int
-	Name                string
-	ScriptKey           string
-	TargetBrightness    float64
-	BrightnessTolerance float64
-	MaxAdjustRetries    int
-	BookID              int
-	CreatedAt           time.Time
+	ID                      int
+	Name                    string
+	ScriptKey               string
+	TargetBrightness        float64
+	BrightnessTolerance     float64
+	MaxAdjustRetries        int
+	BookID                  int
+	CreatedAt               time.Time
+	TestCaptureRequested    bool
+	LastTestPhotoPath       sql.NullString
+	LastTestPhotoCapturedAt sql.NullTime
+	CaptureTimesUTC         sql.NullString // "03:00,09:00" 形式（UTC HH:MM）
+	LastScheduledCaptureAt  sql.NullTime
+}
+
+// TestPhotoFilename はカメラIDに対応するテスト写真ファイル名を返す
+func TestPhotoFilename(cameraID int) string {
+	return fmt.Sprintf("%d_latest.jpg", cameraID)
 }

@@ -30,14 +30,12 @@ if [ "$ASSIGNABLE_COUNT" -eq 0 ]; then
   exit 0
 fi
 
+SCRIPT_DIR=$(dirname "$0")
+
 # Claudeでissueを選定・ラベル付与（コード変更不要のため--worktreeは不使用）
 SKILL_ARGS="/assign-issues ${ASSIGN_COUNT}"
 if "${USE_PRINT_MODE}"; then
-  claude --dangerously-skip-permissions \
-    -p "$SKILL_ARGS" \
-    --output-format stream-json --verbose --include-partial-messages | \
-    jq -rj 'if .type == "stream_event" and .event.delta.type? == "text_delta" then .event.delta.text elif .type == "result" then .result else empty end'
-  echo
+  "$SCRIPT_DIR/claude-stream.sh" --dangerously-skip-permissions -p "$SKILL_ARGS"
 else
   claude --dangerously-skip-permissions "$SKILL_ARGS"
 fi

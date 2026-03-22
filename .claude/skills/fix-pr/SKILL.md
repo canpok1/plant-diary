@@ -11,6 +11,14 @@ argument-hint: "<PR番号>"
 
 PR $ARGUMENTS に対して、CI待機・レビュー対応・マージを行います。
 
+このチェックリストをコピーし、進行状況の追跡に使用してください：
+
+- [ ] ステップ1：wait-coderabbit.sh を実行
+- [ ] ステップ2：fix-pr.sh を実行
+- [ ] ステップ3：終了コードに基づいて対応
+  - [ ] ステップ3a：CodeRabbitのapprove漏れチェック（exit 2の場合）
+  - [ ] ステップ3b：CodeRabbitの指摘を修正（exit 2の場合）
+
 ## フロー
 
 以下のフローを繰り返す。フロー先頭に戻る場合は必ずステップ1から再開する。
@@ -28,6 +36,13 @@ PR $ARGUMENTS に対して、CI待機・レビュー対応・マージを行い�
 |---|---|
 | `0` | ステップ2へ進む |
 | `1` | AIがエラー内容を分析し対応を試行。解決不可ならユーザーに通知して中断 |
+| `2` | **rate limit検出**。stdoutのJSONを読み取り、`comment_body`から待機時間を解釈し、`comment_created_at`と現在時刻から残り待機秒数を算出して待機。待機後 `@coderabbitai review` をコメントし、ステップ1先頭に戻る（既知レビュー数を引き継ぐこと） |
+
+#### exit 2 時のAIによる残り待機時間の算出手順
+
+1. `comment_body` に記載された待機時間を自然言語として解釈し、秒数に換算する
+2. 残り待機秒数 = `(comment_created_at の UNIX 時刻 + 待機秒数) - 現在の UNIX 時刻`
+3. 残り待機秒数が 0 以下なら即座に進む、正なら `sleep <秒数>` する
 
 ### ステップ2: fix-pr.sh を実行
 
@@ -157,10 +172,10 @@ KNOWN_TOTAL=$(gh pr view --repo <REPO> <PR番号> --json comments,reviews \
 ```bash
 git add <修正したファイルパス...>
 git commit -m "fix: CodeRabbitの指摘を修正"
-git push
+git push origin HEAD
 ```
 
-#### 4. 返信・再レビュー依頼
+#### 4. 返信
 
 修正をプッシュ後、上記（手順1）で取得した各レビューコメントのスレッドに返信する。
 
@@ -175,13 +190,10 @@ git push
 ```bash
 # 各コメントに対してループで実行する
 gh api repos/<OWNER>/<REPO>/pulls/comments/<COMMENT_ID>/replies \
-  -X POST -f body="@coderabbitai 修正しました。ご確認ください。"
-```
+  -X POST -f body="@coderabbitai 修正しました。ご確認ください。
 
-返信後、CodeRabbitに再レビューを依頼する:
-
-```bash
-gh pr comment --repo <REPO> <PR番号> --body "@coderabbitai review"
+---
+🤖 Generated with [Claude Code](https://claude.ai/claude-code)"
 ```
 
 → フロー先頭（ステップ1）に戻る（ステップ1の `wait-coderabbit.sh` には、上記で記録した `KNOWN_TOTAL` を第2引数として渡すこと）

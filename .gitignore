@@ -10,6 +10,7 @@
 
 # Go build binaries (Linux)
 /app/plant-diary
+/bin/
 
 # Test binary, built with `go test -c`
 *.test
@@ -44,4 +45,4 @@ docs/db/
 docs/api/
 
 # Temp files
-tmp/
+.tmp/
