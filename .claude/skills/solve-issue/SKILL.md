@@ -13,6 +13,7 @@ GitHub Issue $ARGUMENTS を対応します。
 
 - [ ] ステップ0：Issue状態確認
 - [ ] ステップ1：Issue理解
+- [ ] ステップ1.5：実装済みチェック
 - [ ] ステップ2：実装
 - [ ] ステップ3：自己レビュー
 - [ ] ステップ4：lint/format
@@ -75,6 +76,7 @@ GitHub Issue $ARGUMENTS を対応します。
 |---|---|---|
 | 0. Issue状態確認 | なし | CLOSEDなら即終了のため省略 |
 | 1. Issue理解 | **新規作成** | 目的の設定、作業内容チェックリストの初期作成（既存ファイルがあれば追記） |
+| 1.5. 実装済みチェック | なし | スキップ先が変わる場合のみ作業ログに追記 |
 | 2. 実装 | 追記 | 実装内容、作成/変更ファイル、遭遇した問題 |
 | 3. 自己レビュー | 追記 | 指摘事項と修正内容 |
 | 4. lint/format | 追記 | 指摘の有無と修正内容 |
@@ -90,7 +92,14 @@ GitHub Issue $ARGUMENTS を対応します。
   - `OPEN` の場合: **ユーザーの指示を待たずに** ステップ1へ進む
 1. `base-tools:monologue` を実行してから、Issue の内容を理解する
   - メモファイルを作成する（既存ファイルがあれば追記）
-  - 完了後: **ユーザーの指示を待たずに** ステップ2へ進む
+1.5. 現在のブランチに対象Issueのコミットが存在するか確認し、後続ステップのスキップ判断を行う
+  - `if git log --oneline | grep -E -q "(^|[^0-9])#${ARGUMENTS}([^0-9]|$)"; then echo "found"; else echo "not found"; fi` でコミットの有無を確認する
+  - コミットがある場合は、さらにopen状態のPRが存在するか確認する
+    - `gh pr list --head "worktree-issue-$ARGUMENTS" --state open --json number --jq 'length'` で件数を確認する
+  - 確認結果に応じて以下のように分岐する:
+    - **既存コミットあり + open PRあり** → ステップ2〜6をスキップしてステップ7（fix-pr）へ進む
+    - **既存コミットあり + PRなし** → ステップ2〜4をスキップしてステップ5（重複チェック）へ進む
+    - **既存コミットなし** → 通常通りステップ2（実装）へ進む
 2. `base-tools:monologue` を実行してから、実装する
   - Issueの内容からGoコードの変更が必要かどうかを判断する
     - Goコードの変更を含む場合: `/tdd` スキルで実装する
@@ -109,15 +118,15 @@ GitHub Issue $ARGUMENTS を対応します。
   - 修正した場合はコミットする
   - 完了後: **ユーザーの指示を待たずに** ステップ5へ進む
 5. `base-tools:monologue` を実行してから、同一Issueに対する既存PRの重複チェックを行う
-  - ブランチ名検索（第一手段）: `gh pr list --repo {owner}/{repo} --head "worktree-issue-{番号}" --state all`
-  - テキスト検索（フォールバック）: `gh pr list --repo {owner}/{repo} --search "#{番号}" --state all`
+  - ブランチ名検索（第一手段）: `gh pr list --head "worktree-issue-{番号}" --state all`
+  - テキスト検索（フォールバック）: `gh pr list --search "#{番号}" --state all`
   - 両方の結果を合わせて、以下の優先順位で判断する:
     1. **merged状態のPRが存在する場合**: 既に対応済みのため、以下の手順でIssueをクローズし、処理をスキップして完了する（ステップ8の振り返りのみ実施する）
-       - merged PRの情報を取得: `gh pr list --repo {owner}/{repo} --search "#{番号}" --state merged --json number,url --jq '.[0]'`
-       - Issueをコメント付きでクローズ: `gh issue close {番号} --repo {owner}/{repo} --comment "対応済みPR #{PR番号} が既にマージされているためクローズします。\n\nPR: {PR URL}"`
+       - merged PRの情報を取得: `gh pr list --search "#{番号}" --state merged --json number,url --jq '.[0]'`
+       - Issueをコメント付きでクローズ: `gh issue close {番号} --comment "対応済みPR #{PR番号} が既にマージされているためクローズします。\n\nPR: {PR URL}"`
     2. **open状態のPRが存在する場合**: 新しいPRを作成せず、既存PRに対してステップ7（fix-pr）を継続する
        - 複数のopen PRがある場合は、最新のものを対象とする
-       - PR番号の取得例: `gh pr list --repo {owner}/{repo} --head "worktree-issue-{番号}" --state open --json number --jq '.[0].number'`
+       - PR番号の取得例: `gh pr list --head "worktree-issue-{番号}" --state open --json number --jq '.[0].number'`
     3. **closed状態（マージされずにクローズ）のPRのみ存在する場合**: 既存PRなしとして扱い、ステップ6に進む
   - 上記いずれにも該当しない場合（既存PRが存在しない場合）: **ユーザーの指示を待たずに** ステップ6へ進む
 6. `base-tools:monologue` を実行してから、`commit-commands:commit-push-pr` スキルでPRを作成する
