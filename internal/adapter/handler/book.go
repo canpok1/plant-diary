@@ -196,6 +196,13 @@ func (s *Server) handleBookSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	diaries, err := s.repo.GetDiariesByBookID(id)
+	if err != nil {
+		log.Printf("ERROR: failed to get diaries for book %d: %v", id, err)
+		s.renderError(w, http.StatusInternalServerError)
+		return
+	}
+
 	data := map[string]interface{}{
 		"Book":       book,
 		"LoggedIn":   true,
@@ -203,6 +210,7 @@ func (s *Server) handleBookSettings(w http.ResponseWriter, r *http.Request) {
 		"FormName":   book.Name,
 		"FormPrompt": book.Prompt,
 		"Success":    r.URL.Query().Get("success") == "1",
+		"Diaries":    diaries,
 	}
 
 	if err := s.templates.ExecuteTemplate(w, "book_settings.html", data); err != nil {

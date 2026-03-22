@@ -205,6 +205,126 @@
             padding: 1px 4px;
         }
 
+        .preview-section {
+            border: 1px solid #cccccc;
+            border-radius: 6px;
+            margin-top: 24px;
+            padding: 16px;
+        }
+
+        .preview-section-title {
+            font-size: 1rem;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        .preview-note {
+            font-size: 0.8rem;
+            color: #888888;
+            margin-bottom: 12px;
+        }
+
+        .preview-form {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .preview-field label {
+            display: block;
+            font-size: 0.85rem;
+            color: #555555;
+            margin-bottom: 4px;
+        }
+
+        .preview-select {
+            border: 1px solid #cccccc;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 0.9rem;
+            padding: 6px 10px;
+            width: 100%;
+        }
+
+        .preview-select:focus {
+            border-color: #4a7c59;
+            outline: none;
+        }
+
+        .preview-btn {
+            background-color: #5a8f6e;
+            border: none;
+            border-radius: 4px;
+            color: #ffffff;
+            cursor: pointer;
+            font-size: 0.95rem;
+            padding: 8px 20px;
+            align-self: flex-start;
+        }
+
+        .preview-btn:hover {
+            background-color: #4a7c59;
+        }
+
+        .preview-btn:disabled {
+            background-color: #aaaaaa;
+            cursor: not-allowed;
+        }
+
+        .preview-result {
+            display: none;
+            margin-top: 16px;
+        }
+
+        .preview-result.visible {
+            display: block;
+        }
+
+        .preview-result-title {
+            font-size: 0.9rem;
+            font-weight: bold;
+            margin-bottom: 6px;
+            color: #444444;
+        }
+
+        .preview-expanded-prompt {
+            margin-bottom: 16px;
+        }
+
+        .preview-expanded-prompt summary {
+            cursor: pointer;
+            font-size: 0.85rem;
+            color: #4a7c59;
+            margin-bottom: 4px;
+        }
+
+        .preview-expanded-prompt pre {
+            background-color: #f5f5f5;
+            border: 1px solid #dddddd;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 0.85rem;
+            padding: 10px 12px;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .preview-generated-content {
+            background-color: #f0f7f0;
+            border: 1px solid #a5d6a7;
+            border-radius: 4px;
+            font-size: 0.95rem;
+            line-height: 1.7;
+            padding: 12px 14px;
+            white-space: pre-wrap;
+        }
+
+        .preview-no-diaries {
+            color: #888888;
+            font-size: 0.85rem;
+            font-style: italic;
+        }
+
         @media screen and (max-width: 640px) {
             header {
                 padding: 12px 16px;
@@ -254,6 +374,103 @@
             <button class="save-btn" type="submit">保存</button>
         </form>
 
+        {{if .Diaries}}
+        <div class="preview-section">
+            <p class="preview-section-title">動作確認</p>
+            <p class="preview-note">※ Gemini API を呼び出すため、頻繁な実行は API 利用量に影響します。</p>
+            <div class="preview-form">
+                <div class="preview-field">
+                    <label for="preview-image-diary">画像として使用する日記</label>
+                    <select id="preview-image-diary" class="preview-select">
+                        {{range .Diaries}}
+                        <option value="{{.ID}}">{{(.CreatedAt | toJST).Format "2006年1月2日"}} — {{truncate .Content 30}}</option>
+                        {{end}}
+                    </select>
+                </div>
+                <div class="preview-field">
+                    <label for="preview-context-diary">過去日記の基準日</label>
+                    <select id="preview-context-diary" class="preview-select">
+                        <option value="">なし（過去日記を含めない）</option>
+                        {{range .Diaries}}
+                        <option value="{{.ID}}">{{(.CreatedAt | toJST).Format "2006年1月2日"}} — {{truncate .Content 30}}</option>
+                        {{end}}
+                    </select>
+                </div>
+                <button id="preview-btn" class="preview-btn" type="button">プロンプトを試す</button>
+            </div>
+            <div id="preview-result" class="preview-result">
+                <div class="preview-expanded-prompt">
+                    <details>
+                        <summary>展開後プロンプト</summary>
+                        <pre id="preview-expanded-prompt-text"></pre>
+                    </details>
+                </div>
+                <p class="preview-result-title">生成された日記</p>
+                <div id="preview-generated-content" class="preview-generated-content"></div>
+            </div>
+        </div>
+        {{else}}
+        <div class="preview-section">
+            <p class="preview-section-title">動作確認</p>
+            <p class="preview-no-diaries">日記が登録されていないため、動作確認を実行できません。</p>
+        </div>
+        {{end}}
+
     </main>
+    <script>
+    (function() {
+        var btn = document.getElementById('preview-btn');
+        if (!btn) return;
+
+        btn.addEventListener('click', function() {
+            var prompt = document.getElementById('prompt').value;
+            var imageDiaryID = parseInt(document.getElementById('preview-image-diary').value, 10);
+            var contextDiaryVal = document.getElementById('preview-context-diary').value;
+
+            if (isNaN(imageDiaryID) || imageDiaryID <= 0) {
+                alert('画像として使用する日記を選択してください');
+                return;
+            }
+
+            var body = {
+                prompt: prompt,
+                image_diary_id: imageDiaryID
+            };
+            if (contextDiaryVal !== '') {
+                var contextDiaryID = parseInt(contextDiaryVal, 10);
+                if (!isNaN(contextDiaryID) && contextDiaryID > 0) {
+                    body.context_diary_id = contextDiaryID;
+                }
+            }
+
+            btn.disabled = true;
+            btn.textContent = '生成中…';
+
+            fetch('/api/books/{{.Book.ID}}/prompt-preview', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            })
+            .then(function(res) {
+                if (!res.ok) {
+                    return res.text().then(function(t) { throw new Error(t || res.statusText); });
+                }
+                return res.json();
+            })
+            .then(function(data) {
+                document.getElementById('preview-expanded-prompt-text').textContent = data.expanded_prompt;
+                document.getElementById('preview-generated-content').textContent = data.generated_content;
+                document.getElementById('preview-result').classList.add('visible');
+            })
+            .catch(function(err) {
+                alert('エラーが発生しました: ' + err.message);
+            })
+            .finally(function() {
+                btn.disabled = false;
+                btn.textContent = 'プロンプトを試す';
+            });
+        });
+    })();
+    </script>
 </body>
 </html>
