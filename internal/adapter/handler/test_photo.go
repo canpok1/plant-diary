@@ -11,6 +11,11 @@ import (
 	"plant-diary/internal/domain"
 )
 
+// PostApiTestPhoto は POST /api/test-photo のハンドラ（ServerInterfaceを実装する）
+func (s *Server) PostApiTestPhoto(w http.ResponseWriter, r *http.Request) {
+	s.handlePostTestPhoto(w, r)
+}
+
 // handlePostTestPhoto は POST /api/test-photo のハンドラ
 func (s *Server) handlePostTestPhoto(w http.ResponseWriter, r *http.Request) {
 	scriptKey, ok := extractBearerToken(r)

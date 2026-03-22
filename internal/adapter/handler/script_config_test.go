@@ -65,12 +65,8 @@ func TestGetApiScriptConfig_ValidScriptKey(t *testing.T) {
 	if resp["max_adjust_retries"] == nil {
 		t.Error("expected max_adjust_retries in response")
 	}
-	if resp["upload_key"] == nil {
-		t.Error("expected upload_key in response")
-	}
-
-	if resp["upload_key"] != book.UploadKey {
-		t.Errorf("expected upload_key '%s', got '%s'", book.UploadKey, resp["upload_key"])
+	if _, ok := resp["upload_key"]; ok {
+		t.Error("upload_key should not be in response")
 	}
 
 	// should_test_capture が含まれること（デフォルトは false）

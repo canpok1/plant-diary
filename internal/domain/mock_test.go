@@ -27,9 +27,6 @@ func TestMockBookRepository_CreateBook(t *testing.T) {
 	if book.UUID == "" {
 		t.Error("expected non-empty UUID")
 	}
-	if book.UploadKey == "" {
-		t.Error("expected non-empty UploadKey")
-	}
 }
 
 func TestMockBookRepository_GetBooksByCreatorID(t *testing.T) {
@@ -88,35 +85,6 @@ func TestMockBookRepository_GetBookByID(t *testing.T) {
 	}
 	if notFound != nil {
 		t.Errorf("expected nil for non-existent ID, got %v", notFound)
-	}
-}
-
-func TestMockBookRepository_GetBookByUploadKey(t *testing.T) {
-	repo := NewMockBookRepository()
-
-	created, err := repo.CreateBook(1, "Test Book")
-	if err != nil {
-		t.Fatalf("CreateBook failed: %v", err)
-	}
-
-	book, err := repo.GetBookByUploadKey(created.UploadKey)
-	if err != nil {
-		t.Fatalf("GetBookByUploadKey failed: %v", err)
-	}
-	if book == nil {
-		t.Fatal("expected book, got nil")
-	}
-	if book.ID != created.ID {
-		t.Errorf("expected ID %d, got %d", created.ID, book.ID)
-	}
-
-	// 存在しないキーを取得
-	notFound, err := repo.GetBookByUploadKey("nonexistent")
-	if err != nil {
-		t.Fatalf("GetBookByUploadKey failed: %v", err)
-	}
-	if notFound != nil {
-		t.Errorf("expected nil for non-existent key, got %v", notFound)
 	}
 }
 
