@@ -20,8 +20,7 @@
 | テスト写真アップロード | `POST /api/test-photo` | script_key | ファイル保存＋camera更新＋フラグクリア |
 | スケジュール写真アップロード | `POST /api/scheduled-photo` | script_key | script_key→camera→book解決＋写真保存＋`last_scheduled_capture_at`更新 |
 | テスト写真表示 | `GET /cameras/{id}/test-photo` | cookie（requireLogin） | ファイルをサーブ |
-| 設定取得（スクリプト用） | `GET /api/script-config` | script_key | `should_test_capture`, `should_schedule_capture` を追加（`upload_key`は移行期間中は維持し、全スクリプト移行後に廃止） |
-| （既存）写真アップロード | `POST /api/photos` | upload_key | 既存のまま維持（後方互換） |
+| 設定取得（スクリプト用） | `GET /api/script-config` | script_key | `should_test_capture`, `should_schedule_capture` を返却 |
 
 ## スクリプトフロー
 
@@ -29,8 +28,7 @@
 [cron 5分おき] ./capture_auto.sh --api-url ... --script-key ...
 
   GET /api/script-config
-    → { should_test_capture, should_schedule_capture, upload_key, ... }
-    ※ upload_key は後方互換のため移行期間中は引き続き返却
+    → { should_test_capture, should_schedule_capture, ... }
 
   if should_test_capture == false AND should_schedule_capture == false:
     exit 0（何もしない）
@@ -77,29 +75,19 @@ ALTER TABLE cameras ADD COLUMN last_scheduled_capture_at DATETIME;  -- UTC、重
 
 ### GET /api/script-config
 
-既存フィールドに `should_test_capture` / `should_schedule_capture` を追加する。`upload_key` は既存スクリプト互換のため移行期間中は返却を継続し、全スクリプト移行後に削除する（廃止予定日を別途定義）。
+フィールドに `should_test_capture` / `should_schedule_capture` を含む。
 
 ```json
 {
   "target_brightness": 0.475,
   "brightness_tolerance": 0.175,
   "max_adjust_retries": 5,
-  "upload_key": "<key>",
   "should_test_capture": false,
   "should_schedule_capture": false
 }
 ```
 
-`should_test_capture` と `should_schedule_capture` は独立したbool値。
-
-#### upload_key の移行方針
-
-- **移行期間中**: `GET /api/script-config` は `upload_key` を引き続き返却する。`scripts/capture_auto.sh` は `upload_key` を使った既存の `POST /api/photos` を継続利用可。
-- **切替条件**: 全カメラのスクリプトが `script_key` 認証による新エンドポイント（`POST /api/scheduled-photo`）に移行完了した後。
-- **廃止**: 切替完了後、`upload_key` フィールドをレスポンスから削除する（廃止予定日はスクリプト移行完了時点で別途決定）。
-- **ロールバック**: 廃止前であれば `upload_key` を再度有効化することで即時ロールバック可能。
-
-`should_capture` という統合フラグは提供しない。スクリプトはサーバーが返す `should_test_capture` と `should_schedule_capture` をそれぞれ参照して動作を決定する（判定ロジックはサーバー側のみ）。
+`should_test_capture` と `should_schedule_capture` は独立したbool値。`should_capture` という統合フラグは提供しない。スクリプトはサーバーが返す `should_test_capture` と `should_schedule_capture` をそれぞれ参照して動作を決定する（判定ロジックはサーバー側のみ）。
 
 #### should_schedule_capture の判定ロジック
 
@@ -148,7 +136,7 @@ ALTER TABLE cameras ADD COLUMN last_scheduled_capture_at DATETIME;  -- UTC、重
 
 **処理**:
 1. script_key → camera → book を解決
-2. 既存の `POST /api/photos` と同様に写真を保存（日記エントリ作成）
+2. 写真を保存（日記エントリ作成）
 3. `cameras.last_scheduled_capture_at = now()` に更新
 
 **Response**: `200 OK`
