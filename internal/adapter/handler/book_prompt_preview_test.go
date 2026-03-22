@@ -40,16 +40,6 @@ func setupServerForPromptPreview(t *testing.T) (*Server, *domain.MockDiaryReposi
 	return srv, diaryRepo, bookRepo, userRepo, sessionRepo
 }
 
-// TODO: 正常系: 200レスポンスでexpanded_promptとgenerated_contentが返る
-// TODO: 正常系: context_diary_idありで過去日記が展開される
-// TODO: 異常系 401: 未認証
-// TODO: 異常系 403: 日記帳の所有者でない
-// TODO: 異常系 404: 日記帳が存在しない
-// TODO: 異常系 404: 画像日記が存在しない
-// TODO: 異常系 404: 画像日記が別の日記帳に属する
-// TODO: 異常系 400: promptが空
-// TODO: 異常系 400: image_diary_idが0以下
-
 // TestPostBookPromptPreview_Unauthorized は未認証で401を返すことを検証する
 func TestPostBookPromptPreview_Unauthorized(t *testing.T) {
 	srv, _, bookRepo, _, _ := setupServerForPromptPreview(t)
