@@ -164,7 +164,7 @@ git commit -m "fix: CodeRabbitの指摘を修正"
 git push origin HEAD
 ```
 
-#### 4. 返信・再レビュー依頼
+#### 4. 返信
 
 修正をプッシュ後、上記（手順1）で取得した各レビューコメントのスレッドに返信する。
 
@@ -180,15 +180,6 @@ git push origin HEAD
 # 各コメントに対してループで実行する
 gh api repos/<OWNER>/<REPO>/pulls/comments/<COMMENT_ID>/replies \
   -X POST -f body="@coderabbitai 修正しました。ご確認ください。
-
----
-🤖 Generated with [Claude Code](https://claude.ai/claude-code)"
-```
-
-返信後、CodeRabbitに再レビューを依頼する:
-
-```bash
-gh pr comment --repo <REPO> <PR番号> --body "@coderabbitai review
 
 ---
 🤖 Generated with [Claude Code](https://claude.ai/claude-code)"
