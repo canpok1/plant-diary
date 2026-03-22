@@ -453,6 +453,7 @@ func (r *MockBookRepository) CreateBook(creatorID int, name string) (*Book, erro
 		UUID:      uuid,
 		CreatorID: creatorID,
 		Name:      name,
+		Prompt:    DefaultBookPrompt,
 		CreatedAt: time.Now(),
 	}
 	r.books[r.nextID] = book
@@ -489,8 +490,8 @@ func (r *MockBookRepository) GetBookByID(id int) (*Book, error) {
 	return &copy, nil
 }
 
-// UpdateBookName は指定IDの日記帳の名前を更新する
-func (r *MockBookRepository) UpdateBookName(id int, name string) error {
+// UpdateBook は指定IDの日記帳の名前とプロンプトを更新する
+func (r *MockBookRepository) UpdateBook(id int, name, prompt string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -499,6 +500,7 @@ func (r *MockBookRepository) UpdateBookName(id int, name string) error {
 		return fmt.Errorf("book %d not found", id)
 	}
 	b.Name = name
+	b.Prompt = prompt
 	return nil
 }
 

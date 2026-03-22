@@ -173,6 +173,38 @@
             margin-bottom: 6px;
         }
 
+        .prompt-textarea {
+            border: 1px solid #cccccc;
+            border-radius: 4px;
+            display: block;
+            font-family: inherit;
+            font-size: 0.95rem;
+            margin-bottom: 12px;
+            padding: 8px 12px;
+            width: 100%;
+            min-height: 180px;
+            resize: vertical;
+        }
+
+        .prompt-textarea:focus {
+            border-color: #4a7c59;
+            outline: none;
+        }
+
+        .placeholder-hint {
+            font-size: 0.85rem;
+            color: #666666;
+            margin-bottom: 12px;
+            line-height: 1.6;
+        }
+
+        .placeholder-hint code {
+            background-color: #f0f0f0;
+            border-radius: 3px;
+            font-family: monospace;
+            padding: 1px 4px;
+        }
+
         @media screen and (max-width: 640px) {
             header {
                 padding: 12px 16px;
@@ -202,15 +234,23 @@
         <p class="page-title">日記帳設定</p>
 
         {{if .Success}}
-        <div class="success-message">名前を変更しました</div>
+        <div class="success-message">設定を保存しました</div>
         {{end}}
 
-        <p class="section-title">日記帳名</p>
         {{if .Error}}
         <div class="error-message">{{.Error}}</div>
         {{end}}
+
         <form class="name-form" method="POST" action="/books/{{.Book.ID}}/settings">
+            <p class="section-title">日記帳名</p>
             <input class="name-input" type="text" id="name" name="name" value="{{.FormName}}" maxlength="50" required>
+
+            <p class="section-title">AIプロンプト</p>
+            <p class="placeholder-hint">
+                以下のプレースホルダーが利用できます：<code>{{"{{"}}past_diaries{{"}}"}}</code>（過去の日記情報）、<code>{{"{{"}}datetime{{"}}"}}</code>（撮影日時）、<code>{{"{{"}}book_name{{"}}"}}</code>（日記帳名）
+            </p>
+            <textarea class="prompt-textarea" id="prompt" name="prompt" maxlength="5000" required>{{.FormPrompt}}</textarea>
+
             <button class="save-btn" type="submit">保存</button>
         </form>
 

@@ -41,6 +41,7 @@ func setupE2ETestDB(t *testing.T) *sql.DB {
 			uuid       TEXT NOT NULL UNIQUE,
 			creator_id INTEGER NOT NULL REFERENCES users(id),
 			name       TEXT NOT NULL,
+			prompt     TEXT NOT NULL DEFAULT '',
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 		);
 		CREATE TABLE IF NOT EXISTS cameras (
@@ -444,6 +445,7 @@ func TestE2E_BookSettings_UpdateName_Success(t *testing.T) {
 
 	formData := url.Values{}
 	formData.Set("name", "新しい日記帳名")
+	formData.Set("prompt", "{{book_name}}を観察するのだ。")
 	req, err := http.NewRequest("POST", fmt.Sprintf("%s/books/%d/settings", ts.URL, bookID), strings.NewReader(formData.Encode()))
 	if err != nil {
 		t.Fatalf("failed to create request: %v", err)
@@ -567,6 +569,46 @@ func TestE2E_BookSettings_UpdateName_NonOwnerForbidden(t *testing.T) {
 
 	if resp.StatusCode != http.StatusForbidden {
 		t.Errorf("expected status 403, got %d", resp.StatusCode)
+	}
+}
+
+// TestE2E_BookSettings_EmptyPrompt は空プロンプトで送信するとエラーになることを検証する
+func TestE2E_BookSettings_EmptyPrompt(t *testing.T) {
+	ts, db := setupE2EServerWithDB(t)
+
+	bookID := setupBookForOwner(t, ts, db, "owner", "other")
+
+	cookies := loginAsUser(t, ts, "owner", "password")
+	client := &http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+
+	formData := url.Values{}
+	formData.Set("name", "日記帳名")
+	formData.Set("prompt", "")
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s/books/%d/settings", ts.URL, bookID), strings.NewReader(formData.Encode()))
+	if err != nil {
+		t.Fatalf("failed to create request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	for _, c := range cookies {
+		req.AddCookie(c)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("POST /books/{id}/settings failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// バリデーションエラーは設定画面を再表示（200）
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("expected status 200 for empty prompt, got %d", resp.StatusCode)
+	}
+	if location := resp.Header.Get("Location"); location != "" {
+		t.Errorf("expected validation error without redirect, got redirect to %s", location)
 	}
 }
 
