@@ -27,7 +27,6 @@ type promptPreviewResponse struct {
 
 // handlePostBookPromptPreview は POST /api/books/{id}/prompt-preview のハンドラ
 func (s *Server) handlePostBookPromptPreview(w http.ResponseWriter, r *http.Request) {
-	// ログイン確認
 	currentUser, err := s.getCurrentUser(r)
 	if err != nil {
 		log.Printf("ERROR: failed to get current user: %v", err)
@@ -39,7 +38,6 @@ func (s *Server) handlePostBookPromptPreview(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// path パラメータからbook IDを取得
 	idStr := r.PathValue("id")
 	bookID, err := strconv.Atoi(idStr)
 	if err != nil {
@@ -48,14 +46,12 @@ func (s *Server) handlePostBookPromptPreview(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// JSONリクエストボディを解析
 	var req promptPreviewRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Bad Request: invalid JSON", http.StatusBadRequest)
 		return
 	}
 
-	// バリデーション
 	if req.Prompt == "" {
 		http.Error(w, "Bad Request: prompt is required", http.StatusBadRequest)
 		return
@@ -65,7 +61,6 @@ func (s *Server) handlePostBookPromptPreview(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// bookをDBから取得（存在確認、403チェック）
 	book, err := s.bookRepo.GetBookByID(bookID)
 	if err != nil {
 		log.Printf("ERROR: failed to get book %d: %v", bookID, err)
@@ -81,7 +76,6 @@ func (s *Server) handlePostBookPromptPreview(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// imageDiaryをDBから取得（存在確認、bookIDの照合）
 	imageDiary, err := s.repo.GetDiaryByID(req.ImageDiaryID)
 	if err != nil {
 		log.Printf("ERROR: failed to get diary %d: %v", req.ImageDiaryID, err)
@@ -97,7 +91,6 @@ func (s *Server) handlePostBookPromptPreview(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// 過去日記の取得
 	var pastDiaries []domain.Diary
 	if req.ContextDiaryID != nil {
 		contextDiary, err := s.repo.GetDiaryByID(*req.ContextDiaryID)
@@ -106,22 +99,22 @@ func (s *Server) handlePostBookPromptPreview(w http.ResponseWriter, r *http.Requ
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}
-		if contextDiary != nil {
-			startOfDay := time.Date(imageDiary.CreatedAt.Year(), imageDiary.CreatedAt.Month(), imageDiary.CreatedAt.Day(), 0, 0, 0, 0, imageDiary.CreatedAt.Location())
-			startDate := startOfDay.AddDate(0, -1, 0)
-			endDate := time.Date(contextDiary.CreatedAt.Year(), contextDiary.CreatedAt.Month(), contextDiary.CreatedAt.Day(), 0, 0, 0, 0, contextDiary.CreatedAt.Location()).Add(-time.Nanosecond)
-			pastDiaries, err = s.repo.GetDiariesInDateRange(bookID, startDate, endDate)
-			if err != nil {
-				log.Printf("WARN: failed to get past diaries: %v", err)
-				pastDiaries = []domain.Diary{}
-			}
+		if contextDiary == nil {
+			http.Error(w, "Not Found: context diary not found", http.StatusNotFound)
+			return
+		}
+		startOfDay := time.Date(imageDiary.CreatedAt.Year(), imageDiary.CreatedAt.Month(), imageDiary.CreatedAt.Day(), 0, 0, 0, 0, imageDiary.CreatedAt.Location())
+		startDate := startOfDay.AddDate(0, -1, 0)
+		endDate := time.Date(contextDiary.CreatedAt.Year(), contextDiary.CreatedAt.Month(), contextDiary.CreatedAt.Day(), 0, 0, 0, 0, contextDiary.CreatedAt.Location()).Add(-time.Nanosecond)
+		pastDiaries, err = s.repo.GetDiariesInDateRange(bookID, startDate, endDate)
+		if err != nil {
+			log.Printf("WARN: failed to get past diaries: %v", err)
+			pastDiaries = []domain.Diary{}
 		}
 	}
 
-	// プロンプト展開
 	expandedPrompt := expandPrompt(req.Prompt, book.Name, imageDiary.CreatedAt, pastDiaries)
 
-	// Geminiで日記生成
 	genWithPrompt, ok := s.generator.(usecase.DiaryGeneratorWithPrompt)
 	if !ok {
 		http.Error(w, "Internal Server Error: generator not available", http.StatusInternalServerError)
@@ -136,7 +129,6 @@ func (s *Server) handlePostBookPromptPreview(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// JSONレスポンスを返す
 	resp := promptPreviewResponse{
 		ExpandedPrompt:   expandedPrompt,
 		GeneratedContent: generatedContent,

@@ -252,6 +252,38 @@ func TestPostBookPromptPreview_ImageDiaryBelongsToDifferentBook(t *testing.T) {
 	}
 }
 
+// TestPostBookPromptPreview_ContextDiaryNotFound はcontext_diary_idが存在しない場合に404を返すことを検証する
+func TestPostBookPromptPreview_ContextDiaryNotFound(t *testing.T) {
+	srv, diaryRepo, bookRepo, userRepo, sessionRepo := setupServerForPromptPreview(t)
+	user, cookie := createTestSessionCookie(t, userRepo, sessionRepo)
+
+	book, err := bookRepo.CreateBook(user.ID, "テスト日記帳")
+	if err != nil {
+		t.Fatalf("CreateBook failed: %v", err)
+	}
+
+	imageDiary := createTestDiaryForBook(t, diaryRepo, book.ID)
+
+	contextDiaryID := 9999
+	reqBody := map[string]interface{}{
+		"prompt":           "テストプロンプト",
+		"image_diary_id":   imageDiary.ID,
+		"context_diary_id": contextDiaryID,
+	}
+	bodyBytes, _ := json.Marshal(reqBody)
+
+	req := httptest.NewRequest("POST", "/api/books/"+itoa(book.ID)+"/prompt-preview", bytes.NewReader(bodyBytes))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(cookie)
+	w := httptest.NewRecorder()
+
+	srv.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("expected status 404, got %d", w.Code)
+	}
+}
+
 // TestPostBookPromptPreview_Success は正常系で200レスポンスを返すことを検証する
 func TestPostBookPromptPreview_Success(t *testing.T) {
 	srv, diaryRepo, bookRepo, userRepo, sessionRepo := setupServerForPromptPreview(t)
