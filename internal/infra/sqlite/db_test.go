@@ -761,8 +761,8 @@ func TestSQLiteBookRepository_CreateBook(t *testing.T) {
 	if book.Name != "Alice's Garden" {
 		t.Errorf("expected Name 'Alice's Garden', got '%s'", book.Name)
 	}
-	if book.Prompt == "" {
-		t.Error("expected non-empty default Prompt")
+	if book.Prompt != domain.DefaultBookPrompt {
+		t.Errorf("expected default Prompt %q, got %q", domain.DefaultBookPrompt, book.Prompt)
 	}
 	if book.CreatedAt.IsZero() {
 		t.Error("expected non-zero CreatedAt")

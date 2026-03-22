@@ -579,6 +579,11 @@ func TestE2E_BookSettings_EmptyPrompt(t *testing.T) {
 	bookID := setupBookForOwner(t, ts, db, "owner", "other")
 
 	cookies := loginAsUser(t, ts, "owner", "password")
+	client := &http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
 
 	formData := url.Values{}
 	formData.Set("name", "日記帳名")
@@ -592,7 +597,7 @@ func TestE2E_BookSettings_EmptyPrompt(t *testing.T) {
 		req.AddCookie(c)
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		t.Fatalf("POST /books/{id}/settings failed: %v", err)
 	}
@@ -601,6 +606,9 @@ func TestE2E_BookSettings_EmptyPrompt(t *testing.T) {
 	// バリデーションエラーは設定画面を再表示（200）
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("expected status 200 for empty prompt, got %d", resp.StatusCode)
+	}
+	if location := resp.Header.Get("Location"); location != "" {
+		t.Errorf("expected validation error without redirect, got redirect to %s", location)
 	}
 }
 

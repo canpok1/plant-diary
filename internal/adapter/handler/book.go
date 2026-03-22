@@ -251,6 +251,8 @@ func (s *Server) handleBookSettingsPost(w http.ResponseWriter, r *http.Request) 
 	name := r.FormValue("name")
 	prompt := r.FormValue("prompt")
 
+	const maxPromptLength = 5000
+
 	var errMsg string
 	if name == "" {
 		errMsg = "日記帳名は必須です"
@@ -258,6 +260,8 @@ func (s *Server) handleBookSettingsPost(w http.ResponseWriter, r *http.Request) 
 		errMsg = "日記帳名は50文字以内で入力してください"
 	} else if prompt == "" {
 		errMsg = "プロンプトは必須です"
+	} else if len([]rune(prompt)) > maxPromptLength {
+		errMsg = fmt.Sprintf("プロンプトは%d文字以内で入力してください", maxPromptLength)
 	}
 
 	if errMsg != "" {

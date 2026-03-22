@@ -27,9 +27,13 @@ func expandPrompt(promptTemplate string, bookName string, capturedAt time.Time, 
 }
 
 // replaceFirstThenEmpty は文字列中の最初の old を replacement に置換し、残りを空文字に置換する。
+// replacement 自体に old と同じ文字列が含まれていても安全に処理される。
 func replaceFirstThenEmpty(s, old, replacement string) string {
-	first := strings.Replace(s, old, replacement, 1)
-	return strings.ReplaceAll(first, old, "")
+	idx := strings.Index(s, old)
+	if idx == -1 {
+		return s
+	}
+	return s[:idx] + replacement + strings.ReplaceAll(s[idx+len(old):], old, "")
 }
 
 // formatDatetime はJSTの日時を「2006年01月02日 15時04分 (JST)」形式で返す。

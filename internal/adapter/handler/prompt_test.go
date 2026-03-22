@@ -112,6 +112,16 @@ func TestExpandPrompt_ExceedsMaxEntries(t *testing.T) {
 	}
 }
 
+func TestExpandPrompt_ReplacementContainsToken(t *testing.T) {
+	capturedAt := time.Date(2026, 3, 22, 5, 30, 0, 0, time.UTC)
+	// book_name に {{book_name}} というトークンが含まれる場合でも二重展開されない
+	result := expandPrompt("{{book_name}}の記録", "{{book_name}}", capturedAt, nil)
+	// 最初の {{book_name}} が "{{book_name}}" に置換され、後続の {{book_name}} は空になる
+	if result != "{{book_name}}の記録" {
+		t.Errorf("expected replacement token not to be re-expanded, got '%s'", result)
+	}
+}
+
 func TestDefaultPrompt(t *testing.T) {
 	// デフォルトプロンプトに必要なプレースホルダーが含まれているか確認
 	if !strings.Contains(defaultPrompt, "{{book_name}}") {

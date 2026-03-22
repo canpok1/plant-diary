@@ -249,7 +249,7 @@
             <p class="placeholder-hint">
                 以下のプレースホルダーが利用できます：<code>{{"{{"}}past_diaries{{"}}"}}</code>（過去の日記情報）、<code>{{"{{"}}datetime{{"}}"}}</code>（撮影日時）、<code>{{"{{"}}book_name{{"}}"}}</code>（日記帳名）
             </p>
-            <textarea class="prompt-textarea" id="prompt" name="prompt" required>{{.FormPrompt}}</textarea>
+            <textarea class="prompt-textarea" id="prompt" name="prompt" maxlength="5000" required>{{.FormPrompt}}</textarea>
 
             <button class="save-btn" type="submit">保存</button>
         </form>
