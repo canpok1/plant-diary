@@ -73,16 +73,27 @@ gh pr view --repo <REPO> <PR番号> --json reviews --jq '[.reviews[] | select(.a
 
 # CodeRabbitのレビューコメント（サマリー）を取得
 gh pr view --repo <REPO> <PR番号> --json comments --jq '[.comments[] | select(.author.login=="coderabbitai")] | last | .body'
+
+# CodeRabbitのcommit status checkを取得
+gh pr view --repo <REPO> <PR番号> --json statusCheckRollup --jq '[.statusCheckRollup[] | select((.context // .name) | test("coderabbit"; "i"))]'
+
+# 全CIチェックの状態を取得
+gh pr view --repo <REPO> <PR番号> --json statusCheckRollup --jq '[.statusCheckRollup[] | {name: (.context // .name), state: (.state // .status // .conclusion)}]'
 ```
 
 #### AI判断
 
 取得した情報をもとに、以下の基準で判断する:
 
-- **approve漏れと判断する条件**（以下をすべて満たす場合）:
-  - CodeRabbitのレビューが存在するが、状態が `APPROVED` ではない
-  - レビューコメントの内容から、指摘事項がない（または全て解決済み）と読み取れる
-  - 実質的にレビュー完了しているにもかかわらず、approveアクションだけが行われていない
+- **approve漏れと判断する条件**（以下のいずれかのケースに該当する場合）:
+  - **ケース1: formal reviewが存在するがAPPROVEDでない場合**（以下をすべて満たす）:
+    - CodeRabbitのレビューが存在するが、状態が `APPROVED` ではない
+    - レビューコメントの内容から、指摘事項がない（または全て解決済み）と読み取れる
+    - 実質的にレビュー完了しているにもかかわらず、approveアクションだけが行われていない
+  - **ケース2: formal reviewが存在しないがcommit statusがSUCCESSの場合**（以下をすべて満たす）:
+    - CodeRabbitのレビューが存在しない（`.reviews[]` が空）
+    - CodeRabbitのcommit status checkが `SUCCESS`
+    - CIが全て通過している
 
 - **approve漏れではないと判断する条件**（以下のいずれかに該当する場合）:
   - 未解決の指摘事項が残っている
