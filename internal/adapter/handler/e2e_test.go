@@ -137,8 +137,7 @@ func loginAsUser(t *testing.T, ts *httptest.Server, username, password string) [
 	return resp.Cookies()
 }
 
-// readBody はHTTPレスポンスのbody全体を文字列として読み取るヘルパー。
-// body の読み取りには必ずこの関数を使うこと。
+// readBody はHTTPレスポンスの body 全体を読み取る。
 // fmt.Fscan 等は空白区切りでトークンを読み取るため、HTMLのようなコンテンツでは
 // 最初のトークン以降が欠落してしまうので使用しないこと。
 func readBody(t *testing.T, r io.Reader) string {
