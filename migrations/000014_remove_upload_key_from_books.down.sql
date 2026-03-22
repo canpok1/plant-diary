@@ -10,13 +10,13 @@ CREATE TABLE books_old (
     uuid       TEXT NOT NULL UNIQUE,
     creator_id INTEGER NOT NULL REFERENCES users(id),
     name       TEXT NOT NULL CHECK(length(name) <= 50),
-    upload_key TEXT NOT NULL UNIQUE DEFAULT '',
+    upload_key TEXT NOT NULL UNIQUE,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- 既存データを books から books_old にコピー（upload_key は空文字でデフォルト）
+-- 既存データを books から books_old にコピー（upload_key は uuid を元にした一意値を使用）
 INSERT INTO books_old (id, uuid, creator_id, name, upload_key, created_at)
-SELECT id, uuid, creator_id, name, '', created_at FROM books;
+SELECT id, uuid, creator_id, name, 'restored_' || uuid, created_at FROM books;
 
 -- 旧 books テーブルを削除
 DROP TABLE books;

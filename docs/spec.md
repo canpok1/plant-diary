@@ -104,7 +104,10 @@ echo "$(date): Captured ${OUTPUT}" >> /var/log/plant-diary-capture.log
    - `should_test_capture`（テスト撮影が要求されているか） / `should_schedule_capture`（スケジュール撮影のタイミングか）
    - 取得失敗時はスクリプトを即終了（撮影スキップ）。
 2. **輝度調整撮影**: 取得した設定値を使って最大 `max_adjust_retries` 回撮影を試みる。
-3. **アップロード**: script_keyでBearerトークン認証し、`POST /api/test-photo` または `POST /api/scheduled-photo` にアップロード。
+3. **アップロード**: script_keyでBearerトークン認証し、必要に応じて `POST /api/test-photo` と `POST /api/scheduled-photo` にアップロードする。
+   - `should_test_capture=true` のとき `POST /api/test-photo`
+   - `should_schedule_capture=true` のとき `POST /api/scheduled-photo`
+   - 両方 `true` のときは同じ写真を両方へアップロード
 
 #### スクリプト例 (`scripts/capture_auto.sh`)
 

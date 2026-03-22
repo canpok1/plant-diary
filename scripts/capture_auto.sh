@@ -262,6 +262,7 @@ log_message "INFO: 明るさ自動調整を開始（初期露出: ${EXPOSURE}、
 declare -a TRIAL_FILES=()
 declare -a TRIAL_BRIGHTNESSES=()
 declare -a TRIAL_EXPOSURES=()
+declare -a TRIAL_CAPTURED_ATS=()
 
 BEST_INDEX=-1
 
@@ -283,6 +284,7 @@ for ((i = 1; i <= MAX_ADJUST_RETRIES; i++)); do
     TRIAL_FILES+=("${TMP_OUTPUT}")
     TRIAL_BRIGHTNESSES+=("${BRIGHTNESS}")
     TRIAL_EXPOSURES+=("${EXPOSURE}")
+    TRIAL_CAPTURED_ATS+=("${CAPTURED_AT}")
 
     # 適正範囲の判定
     if ! float_lt "${BRIGHTNESS}" "${BRIGHTNESS_MIN}" && ! float_gt "${BRIGHTNESS}" "${BRIGHTNESS_MAX}"; then
@@ -345,6 +347,7 @@ done
 BEST_FILE="${TRIAL_FILES[${BEST_INDEX}]}"
 BEST_BRIGHTNESS="${TRIAL_BRIGHTNESSES[${BEST_INDEX}]}"
 BEST_EXPOSURE="${TRIAL_EXPOSURES[${BEST_INDEX}]}"
+BEST_CAPTURED_AT="${TRIAL_CAPTURED_ATS[${BEST_INDEX}]}"
 
 log_message "INFO: 最適画像を選択 - 試行 $((BEST_INDEX + 1)), 露出: ${BEST_EXPOSURE}, 平均輝度: ${BEST_BRIGHTNESS}"
 
@@ -361,4 +364,4 @@ log_message "INFO: Captured ${FINAL_OUTPUT}"
 echo "撮影成功: ${FINAL_OUTPUT}"
 
 # API登録
-upload_photo "${FINAL_OUTPUT}" "${CAPTURED_AT}"
+upload_photo "${FINAL_OUTPUT}" "${BEST_CAPTURED_AT}"

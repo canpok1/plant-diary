@@ -49,7 +49,7 @@
 ### cronの推奨設定
 
 ```bash
-# 5分おきに実行（should_capture=falseのときは即終了するため負荷はほぼゼロ）
+# 5分おきに実行（should_test_capture=false かつ should_schedule_capture=false のときは即終了するため負荷はほぼゼロ）
 */5 * * * * /path/to/capture_auto.sh --api-url http://... --script-key <key>
 ```
 
