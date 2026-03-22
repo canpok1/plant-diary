@@ -387,7 +387,6 @@ func TestPostBookPromptPreview_DatetimeUsesCurrentTime(t *testing.T) {
 	w := httptest.NewRecorder()
 
 	srv.ServeHTTP(w, req)
-	afterRequest := time.Now()
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected status 200, got %d (body: %s)", w.Code, w.Body.String())
@@ -407,8 +406,6 @@ func TestPostBookPromptPreview_DatetimeUsesCurrentTime(t *testing.T) {
 
 	// リクエスト前後の時刻の年が含まれていることを確認（現在時刻で展開されている）
 	expectedYear := beforeRequest.In(time.FixedZone("JST", 9*60*60)).Year()
-	afterYear := afterRequest.In(time.FixedZone("JST", 9*60*60)).Year()
-	_ = afterYear
 	yearStr := fmt.Sprintf("%d年", expectedYear)
 	if !strings.Contains(expandedPrompt, yearStr) {
 		t.Errorf("{{datetime}} should use current time (year %d), got: %s", expectedYear, expandedPrompt)
