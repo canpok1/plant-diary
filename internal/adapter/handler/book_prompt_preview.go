@@ -105,7 +105,7 @@ func (s *Server) handlePostBookPromptPreview(w http.ResponseWriter, r *http.Requ
 		}
 		startOfDay := time.Date(imageDiary.CreatedAt.Year(), imageDiary.CreatedAt.Month(), imageDiary.CreatedAt.Day(), 0, 0, 0, 0, imageDiary.CreatedAt.Location())
 		startDate := startOfDay.AddDate(0, -1, 0)
-		endDate := time.Date(contextDiary.CreatedAt.Year(), contextDiary.CreatedAt.Month(), contextDiary.CreatedAt.Day(), 0, 0, 0, 0, contextDiary.CreatedAt.Location()).Add(-time.Nanosecond)
+		endDate := time.Date(contextDiary.CreatedAt.Year(), contextDiary.CreatedAt.Month(), contextDiary.CreatedAt.Day()+1, 0, 0, 0, 0, contextDiary.CreatedAt.Location()).Add(-time.Nanosecond)
 		pastDiaries, err = s.repo.GetDiariesInDateRange(bookID, startDate, endDate)
 		if err != nil {
 			log.Printf("WARN: failed to get past diaries: %v", err)

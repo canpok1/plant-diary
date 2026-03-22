@@ -147,6 +147,7 @@ GitHub Issue $ARGUMENTS を対応します。
 6. `base-tools:monologue` を実行してから、`commit-commands:commit-push-pr` スキルでPRを作成する
   - PR本文に必ず `Closes #$ARGUMENTS` を含めること（マージ時にIssueが自動クローズされる）
   - `commit-commands:commit-push-pr` スキルへPR本文を渡す際は `--body "Closes #$ARGUMENTS\n\n{説明}"` のように明示すること
+  - **重要**: `commit-commands:commit-push-pr` スキルのプロンプトが展開されたら、必ずそのワークフローを最後まで実行すること。ユーザーからの割り込みがあっても、スキルの実行を完了させてから対応すること
   - 完了後（PR作成成功・PR URLが返ってきた場合）: **ユーザーの指示を待たずに** ステップ7へ進む
 7. `base-tools:monologue` を実行してから、ローカルの `fix-pr` スキル（`.claude/skills/fix-pr/`）でCI待機・レビュー対応・マージを行う
   - **必ず `base-tools:fix-pr` ではなくローカルの `fix-pr` スキルを使うこと**（CodeRabbitのrate limit処理が含まれているため）

@@ -381,6 +381,7 @@ func TestPostBookPromptPreview_DatetimeUsesCurrentTime(t *testing.T) {
 	bodyBytes, _ := json.Marshal(reqBody)
 
 	beforeRequest := time.Now()
+
 	req := httptest.NewRequest("POST", "/api/books/"+itoa(book.ID)+"/prompt-preview", bytes.NewReader(bodyBytes))
 	req.Header.Set("Content-Type", "application/json")
 	req.AddCookie(cookie)
@@ -412,17 +413,64 @@ func TestPostBookPromptPreview_DatetimeUsesCurrentTime(t *testing.T) {
 	}
 }
 
+// TestPostBookPromptPreview_ContextDiaryIncludedInPastDiaries は基準日の日記が過去日記に含まれることを検証する
+func TestPostBookPromptPreview_ContextDiaryIncludedInPastDiaries(t *testing.T) {
+	srv, diaryRepo, bookRepo, userRepo, sessionRepo := setupServerForPromptPreview(t)
+	user, cookie := createTestSessionCookie(t, userRepo, sessionRepo)
+
+	book, err := bookRepo.CreateBook(user.ID, "テスト日記帳")
+	if err != nil {
+		t.Fatalf("CreateBook failed: %v", err)
+	}
+
+	// 基準日の日記（contextDiary）を作成 - 当日の15:00に作成
+	contextDiaryTime := time.Date(2024, 6, 15, 15, 0, 0, 0, time.UTC)
+	contextDiary := createTestDiaryForBookAtWithContent(t, diaryRepo, book.ID, contextDiaryTime, "基準日の日記コンテンツ")
+
+	// 画像日記を作成（contextDiaryより後）
+	imageDiary := createTestDiaryForBookAt(t, diaryRepo, book.ID, time.Date(2024, 6, 20, 10, 0, 0, 0, time.UTC))
+
+	contextDiaryID := contextDiary.ID
+	reqBody := map[string]interface{}{
+		"prompt":           "テストプロンプト {{past_diaries}}",
+		"image_diary_id":   imageDiary.ID,
+		"context_diary_id": contextDiaryID,
+	}
+	bodyBytes, _ := json.Marshal(reqBody)
+
+	req := httptest.NewRequest("POST", "/api/books/"+itoa(book.ID)+"/prompt-preview", bytes.NewReader(bodyBytes))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(cookie)
+	w := httptest.NewRecorder()
+
+	srv.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d (body: %s)", w.Code, w.Body.String())
+	}
+
+	var resp map[string]interface{}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to parse response: %v", err)
+	}
+
+	expandedPrompt, _ := resp["expanded_prompt"].(string)
+	if !strings.Contains(expandedPrompt, "基準日の日記コンテンツ") {
+		t.Errorf("expected expanded_prompt to contain context diary content, got: %s", expandedPrompt)
+	}
+}
+
 // createTestDiaryForBook はテスト用の日記を作成して返す
 func createTestDiaryForBook(t *testing.T, diaryRepo *domain.MockDiaryRepository, bookID int) *domain.Diary {
 	t.Helper()
 	return createTestDiaryForBookAt(t, diaryRepo, bookID, time.Now())
 }
 
-// createTestDiaryForBookAt はテスト用の日記を指定時刻で作成して返す
-func createTestDiaryForBookAt(t *testing.T, diaryRepo *domain.MockDiaryRepository, bookID int, createdAt time.Time) *domain.Diary {
+// createTestDiaryForBookAtWithContent はテスト用の日記を指定時刻・コンテンツで作成して返す
+func createTestDiaryForBookAtWithContent(t *testing.T, diaryRepo *domain.MockDiaryRepository, bookID int, createdAt time.Time, content string) *domain.Diary {
 	t.Helper()
 
-	if err := diaryRepo.CreateDiaryForBook(bookID, 1, "test/image.jpg", "テスト日記コンテンツ", createdAt); err != nil {
+	if err := diaryRepo.CreateDiaryForBook(bookID, 1, "test/image.jpg", content, createdAt); err != nil {
 		t.Fatalf("CreateDiaryForBook failed: %v", err)
 	}
 
@@ -431,13 +479,18 @@ func createTestDiaryForBookAt(t *testing.T, diaryRepo *domain.MockDiaryRepositor
 		t.Fatalf("GetDiariesByBookID failed: %v", err)
 	}
 
-	// 最新の日記を返す（CreateDiaryForBookAtで作成した日記）
 	for i := range diaries {
-		if diaries[i].CreatedAt.Equal(createdAt) {
+		if diaries[i].CreatedAt.Equal(createdAt) && diaries[i].Content == content {
 			d := diaries[i]
 			return &d
 		}
 	}
 	d := diaries[0]
 	return &d
+}
+
+// createTestDiaryForBookAt はテスト用の日記を指定時刻で作成して返す
+func createTestDiaryForBookAt(t *testing.T, diaryRepo *domain.MockDiaryRepository, bookID int, createdAt time.Time) *domain.Diary {
+	t.Helper()
+	return createTestDiaryForBookAtWithContent(t, diaryRepo, bookID, createdAt, "テスト日記コンテンツ")
 }
