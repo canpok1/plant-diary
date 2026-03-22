@@ -40,8 +40,18 @@ USBカメラで撮影した植物の画像を元に、Gemini APIを用いて日�
 │   │   ├── 000001_create_diary_table.up.sql
 │   │   └── 000001_create_diary_table.down.sql
 │   ├── templates/
-│   │   ├── index.html      # 一覧ページ
-│   │   └── detail.html     # 詳細ページ
+│   │   ├── _header.html         # 共通ヘッダーテンプレート
+│   │   ├── index.html           # 日記帳一覧ページ
+│   │   ├── book_detail.html     # 日記帳詳細ページ
+│   │   ├── book_settings.html   # 日記帳設定ページ
+│   │   ├── books.html           # 日記帳作成ページ
+│   │   ├── detail.html          # 日記詳細ページ
+│   │   ├── edit.html            # 日記編集ページ
+│   │   ├── cameras.html         # カメラ一覧ページ
+│   │   ├── cameras_new.html     # カメラ追加ページ
+│   │   ├── camera_settings.html # カメラ設定ページ
+│   │   ├── login.html           # ログインページ
+│   │   └── slideshow.html       # スライドショーページ
 │   └── go.mod              # Go依存関係
 ├── data/                   # 永続データ（.gitignore対象）
 │   ├── photos/             # 植物画像ファイル (.jpg)
