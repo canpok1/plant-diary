@@ -181,15 +181,7 @@
     </style>
 </head>
 <body>
-    <header>
-        <h1><a href="/">植物日記</a></h1>
-        <nav>
-            <span class="user-info">{{.Username}}</span>
-            <form method="POST" action="/logout" style="display:inline">
-                <button type="submit" class="logout-btn">ログアウト</button>
-            </form>
-        </nav>
-    </header>
+    {{template "header" .}}
     <a class="back-link" href="/diary/{{.Diary.ID}}">&larr; 詳細へ戻る</a>
     <main class="edit-container">
         <h2>日記を編集</h2>

@@ -162,19 +162,7 @@
     </style>
 </head>
 <body>
-    <header>
-        <h1><a href="/">植物日記</a></h1>
-        <nav>
-            {{if .LoggedIn}}
-            <span class="user-info">{{.Username}}</span>
-            <form method="POST" action="/logout" style="display:inline">
-                <button type="submit" class="logout-btn">ログアウト</button>
-            </form>
-            {{else}}
-            <a href="/login">ログイン</a>
-            {{end}}
-        </nav>
-    </header>
+    {{template "header" .}}
     <a class="back-link" href="/">&larr; 一覧へ戻る</a>
     <main class="detail-container">
         <img class="detail-image" src="/photos/{{.Diary.ImagePath}}" alt="植物の写真">

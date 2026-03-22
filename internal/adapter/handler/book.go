@@ -198,6 +198,7 @@ func (s *Server) handleBookSettings(w http.ResponseWriter, r *http.Request) {
 
 	data := map[string]interface{}{
 		"Book":     book,
+		"LoggedIn": true,
 		"Username": currentUser.Username,
 		"FormName": book.Name,
 		"Success":  r.URL.Query().Get("success") == "1",
@@ -258,6 +259,7 @@ func (s *Server) handleBookSettingsPost(w http.ResponseWriter, r *http.Request) 
 	if errMsg != "" {
 		data := map[string]interface{}{
 			"Book":     book,
+			"LoggedIn": true,
 			"Username": currentUser.Username,
 			"FormName": name,
 			"Error":    errMsg,
