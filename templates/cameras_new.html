@@ -179,17 +179,7 @@
     </style>
 </head>
 <body>
-    <header>
-        <h1><a href="/">植物観察日記</a></h1>
-        <nav>
-            <a href="/books/new">日記帳作成</a>
-            <a href="/cameras">カメラ</a>
-            <span class="user-info">{{.Username}}</span>
-            <form method="POST" action="/logout" style="display:inline">
-                <button type="submit" class="logout-btn">ログアウト</button>
-            </form>
-        </nav>
-    </header>
+    {{template "header" .}}
     <a class="back-link" href="/cameras">&larr; カメラ一覧へ戻る</a>
     <main>
         <h2>カメラを追加</h2>
