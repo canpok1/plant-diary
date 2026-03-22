@@ -13,7 +13,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -33,7 +32,7 @@ func TestApplyMigrations_AppliesAllSQLFilesInOrder(t *testing.T) {
 
 	// 逆順で作成してソートが機能することを確認する
 	files := map[string]string{
-		"000002_add_name.up.sql":   "ALTER TABLE items ADD COLUMN name TEXT NOT NULL DEFAULT '';",
+		"000002_add_name.up.sql":     "ALTER TABLE items ADD COLUMN name TEXT NOT NULL DEFAULT '';",
 		"000001_create_items.up.sql": "CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY AUTOINCREMENT);",
 	}
 	for name, content := range files {
@@ -104,21 +103,16 @@ func applyMigrations(t *testing.T, db *sql.DB, dir string) {
 		t.Fatalf("failed to read migrations directory %q: %v", dir, err)
 	}
 
-	var sqlFiles []string
 	for _, entry := range entries {
-		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".up.sql") {
-			sqlFiles = append(sqlFiles, entry.Name())
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".up.sql") {
+			continue
 		}
-	}
-	sort.Strings(sqlFiles)
-
-	for _, name := range sqlFiles {
-		content, err := os.ReadFile(filepath.Join(dir, name))
+		content, err := os.ReadFile(filepath.Join(dir, entry.Name()))
 		if err != nil {
-			t.Fatalf("failed to read migration file %q: %v", name, err)
+			t.Fatalf("failed to read migration file %q: %v", entry.Name(), err)
 		}
 		if _, err := db.Exec(string(content)); err != nil {
-			t.Fatalf("failed to apply migration %q: %v", name, err)
+			t.Fatalf("failed to apply migration %q: %v", entry.Name(), err)
 		}
 	}
 }
