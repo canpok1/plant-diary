@@ -116,8 +116,6 @@ func (s *Server) handlePostBookPromptPreview(w http.ResponseWriter, r *http.Requ
 				pastDiaries = []domain.Diary{}
 			}
 		}
-	} else {
-		pastDiaries = []domain.Diary{}
 	}
 
 	// プロンプト展開

@@ -32,6 +32,40 @@ paths:
           description: Service Unavailable
         '500':
           description: Internal Server Error
+  /api/books/{id}/prompt-preview:
+    post:
+      summary: プロンプトの動作確認を実行する
+      operationId: postApiBookPromptPreview
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: 日記帳ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PromptPreviewRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromptPreviewResponse'
+        '400':
+          description: Bad Request (promptが空またはimage_diary_idが不正)
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (日記帳の所有者でない)
+        '404':
+          description: Not Found (日記帳または指定された日記が見つからない)
+        '500':
+          description: Internal Server Error
   /api/test-photo:
     post:
       summary: テスト写真をアップロードする
@@ -79,6 +113,34 @@ components:
           type: string
         username:
           type: string
+    PromptPreviewRequest:
+      type: object
+      required:
+        - prompt
+        - image_diary_id
+      properties:
+        prompt:
+          type: string
+          description: 動作確認するプロンプト（テキストエリアの現在の内容）
+        image_diary_id:
+          type: integer
+          description: 画像として使用する日記のID
+        context_diary_id:
+          type: integer
+          nullable: true
+          description: 過去日記の基準とする日記のID（省略時は過去日記なしで展開）
+    PromptPreviewResponse:
+      type: object
+      required:
+        - expanded_prompt
+        - generated_content
+      properties:
+        expanded_prompt:
+          type: string
+          description: プレースホルダー展開後のプロンプト全文
+        generated_content:
+          type: string
+          description: Geminiが生成した日記本文
     UploadTestPhotoRequest:
       type: object
       required:
