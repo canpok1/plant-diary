@@ -3,6 +3,7 @@ package handler
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -355,6 +356,60 @@ func TestPostBookPromptPreview_SuccessWithContextDiary(t *testing.T) {
 
 	if w.Code != http.StatusOK {
 		t.Errorf("expected status 200, got %d (body: %s)", w.Code, w.Body.String())
+	}
+}
+
+// TestPostBookPromptPreview_DatetimeUsesCurrentTime は{{datetime}}がimageDiaryのCreatedAtではなく
+// プレビュー実行時の現在時刻に展開されることを検証する
+func TestPostBookPromptPreview_DatetimeUsesCurrentTime(t *testing.T) {
+	srv, diaryRepo, bookRepo, userRepo, sessionRepo := setupServerForPromptPreview(t)
+	user, cookie := createTestSessionCookie(t, userRepo, sessionRepo)
+
+	book, err := bookRepo.CreateBook(user.ID, "テスト日記帳")
+	if err != nil {
+		t.Fatalf("CreateBook failed: %v", err)
+	}
+
+	// 意図的に過去の時刻（1年前）で日記を作成
+	pastTime := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+	imageDiary := createTestDiaryForBookAt(t, diaryRepo, book.ID, pastTime)
+
+	reqBody := map[string]interface{}{
+		"prompt":         "現在は{{datetime}}です。",
+		"image_diary_id": imageDiary.ID,
+	}
+	bodyBytes, _ := json.Marshal(reqBody)
+
+	beforeRequest := time.Now()
+
+	req := httptest.NewRequest("POST", "/api/books/"+itoa(book.ID)+"/prompt-preview", bytes.NewReader(bodyBytes))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(cookie)
+	w := httptest.NewRecorder()
+
+	srv.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d (body: %s)", w.Code, w.Body.String())
+	}
+
+	var resp map[string]interface{}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to parse response: %v", err)
+	}
+
+	expandedPrompt, _ := resp["expanded_prompt"].(string)
+
+	// imageDiary.CreatedAt（2020年）の年が含まれていないことを確認
+	if strings.Contains(expandedPrompt, "2020年") {
+		t.Errorf("{{datetime}} should NOT use imageDiary.CreatedAt (2020), got: %s", expandedPrompt)
+	}
+
+	// リクエスト前後の時刻の年が含まれていることを確認（現在時刻で展開されている）
+	expectedYear := beforeRequest.In(time.FixedZone("JST", 9*60*60)).Year()
+	yearStr := fmt.Sprintf("%d年", expectedYear)
+	if !strings.Contains(expandedPrompt, yearStr) {
+		t.Errorf("{{datetime}} should use current time (year %d), got: %s", expectedYear, expandedPrompt)
 	}
 }
 

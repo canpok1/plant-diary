@@ -113,7 +113,7 @@ func (s *Server) handlePostBookPromptPreview(w http.ResponseWriter, r *http.Requ
 		}
 	}
 
-	expandedPrompt := expandPrompt(req.Prompt, book.Name, imageDiary.CreatedAt, pastDiaries)
+	expandedPrompt := expandPrompt(req.Prompt, book.Name, time.Now(), pastDiaries)
 
 	genWithPrompt, ok := s.generator.(usecase.DiaryGeneratorWithPrompt)
 	if !ok {
