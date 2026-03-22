@@ -372,6 +372,18 @@ func (s *Server) handleBookSlideshow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	currentUser, err := s.getCurrentUser(r)
+	if err != nil {
+		log.Printf("ERROR: failed to get current user: %v", err)
+		s.renderError(w, http.StatusInternalServerError)
+		return
+	}
+	loggedIn := currentUser != nil
+	username := ""
+	if currentUser != nil {
+		username = currentUser.Username
+	}
+
 	data := map[string]interface{}{
 		"Diaries":       diaries,
 		"From":          fromStr,
@@ -380,6 +392,8 @@ func (s *Server) handleBookSlideshow(w http.ResponseWriter, r *http.Request) {
 		"BookName":      book.Name,
 		"BackURL":       fmt.Sprintf("/books/%d", id),
 		"FilterBaseURL": fmt.Sprintf("/books/%d/slideshow", id),
+		"LoggedIn":      loggedIn,
+		"Username":      username,
 	}
 
 	if err := s.templates.ExecuteTemplate(w, "slideshow.html", data); err != nil {
