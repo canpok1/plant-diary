@@ -8,7 +8,6 @@ type BookRepository interface {
 	GetAllBooks() ([]BookView, error)
 	GetBooksByCreatorID(creatorID int) ([]Book, error)
 	GetBookByID(id int) (*Book, error)
-	GetBookByUploadKey(uploadKey string) (*Book, error)
 	UpdateBookName(id int, name string) error
 	DeleteBook(id int) error
 }

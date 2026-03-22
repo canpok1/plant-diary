@@ -12,7 +12,6 @@ type scriptConfigResponse struct {
 	TargetBrightness      float64 `json:"target_brightness"`
 	BrightnessTolerance   float64 `json:"brightness_tolerance"`
 	MaxAdjustRetries      int     `json:"max_adjust_retries"`
-	UploadKey             string  `json:"upload_key"`
 	ShouldTestCapture     bool    `json:"should_test_capture"`
 	ShouldScheduleCapture bool    `json:"should_schedule_capture"`
 }
@@ -37,24 +36,10 @@ func (s *Server) handleGetScriptConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// camera.book_id に対応する books.upload_key を取得
-	book, err := s.bookRepo.GetBookByID(camera.BookID)
-	if err != nil {
-		log.Printf("ERROR: failed to get book %d: %v", camera.BookID, err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-	if book == nil {
-		log.Printf("ERROR: book %d not found for camera %d", camera.BookID, camera.ID)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-
 	resp := scriptConfigResponse{
 		TargetBrightness:      camera.TargetBrightness,
 		BrightnessTolerance:   camera.BrightnessTolerance,
 		MaxAdjustRetries:      camera.MaxAdjustRetries,
-		UploadKey:             book.UploadKey,
 		ShouldTestCapture:     camera.TestCaptureRequested,
 		ShouldScheduleCapture: computeShouldScheduleCapture(camera.CaptureTimesUTC, camera.LastScheduledCaptureAt, time.Now().UTC()),
 	}

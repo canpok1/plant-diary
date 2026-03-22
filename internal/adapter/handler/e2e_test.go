@@ -3,12 +3,10 @@
 package handler
 
 import (
-	"bytes"
 	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
-	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -43,7 +41,6 @@ func setupE2ETestDB(t *testing.T) *sql.DB {
 			uuid       TEXT NOT NULL UNIQUE,
 			creator_id INTEGER NOT NULL REFERENCES users(id),
 			name       TEXT NOT NULL,
-			upload_key TEXT NOT NULL UNIQUE,
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 		);
 		CREATE TABLE IF NOT EXISTS cameras (
@@ -394,35 +391,6 @@ func TestE2E_GetBooksNew_Authorized(t *testing.T) {
 
 	if booksResp.StatusCode != http.StatusOK {
 		t.Errorf("expected status 200, got %d", booksResp.StatusCode)
-	}
-}
-
-// TestE2E_PostApiPhotos_Unauthorized は不正なupload_keyでPOST /api/photosが401を返すことを検証する
-func TestE2E_PostApiPhotos_Unauthorized(t *testing.T) {
-	ts := setupE2EServer(t)
-
-	body := &bytes.Buffer{}
-	writer := multipart.NewWriter(body)
-	if err := writer.WriteField("upload_key", "invalid-key"); err != nil {
-		t.Fatalf("failed to write field: %v", err)
-	}
-	part, err := writer.CreateFormFile("photo", "test.jpg")
-	if err != nil {
-		t.Fatalf("failed to create form file: %v", err)
-	}
-	if _, err := part.Write([]byte("fake image data")); err != nil {
-		t.Fatalf("failed to write form file: %v", err)
-	}
-	writer.Close()
-
-	resp, err := http.Post(ts.URL+"/api/photos", writer.FormDataContentType(), body)
-	if err != nil {
-		t.Fatalf("POST /api/photos failed: %v", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusUnauthorized {
-		t.Errorf("expected status 401, got %d", resp.StatusCode)
 	}
 }
 

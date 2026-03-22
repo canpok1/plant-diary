@@ -30,7 +30,6 @@ func setupTestDB(t *testing.T) *sql.DB {
 			uuid       TEXT NOT NULL UNIQUE,
 			creator_id INTEGER NOT NULL REFERENCES users(id),
 			name       TEXT NOT NULL,
-			upload_key TEXT NOT NULL UNIQUE,
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 		);
 		CREATE TABLE IF NOT EXISTS diary (
@@ -761,9 +760,6 @@ func TestSQLiteBookRepository_CreateBook(t *testing.T) {
 	if book.Name != "Alice's Garden" {
 		t.Errorf("expected Name 'Alice's Garden', got '%s'", book.Name)
 	}
-	if len(book.UploadKey) != 32 {
-		t.Errorf("expected UploadKey length 32, got %d", len(book.UploadKey))
-	}
 	if book.CreatedAt.IsZero() {
 		t.Error("expected non-zero CreatedAt")
 	}
@@ -852,45 +848,6 @@ func TestSQLiteBookRepository_GetBookByID(t *testing.T) {
 	}
 	if notFound != nil {
 		t.Errorf("expected nil for non-existent ID, got %v", notFound)
-	}
-}
-
-func TestSQLiteBookRepository_GetBookByUploadKey(t *testing.T) {
-	db := setupTestDB(t)
-	userRepo := NewSQLiteUserRepository(db)
-	bookRepo := NewSQLiteBookRepository(db)
-
-	if err := userRepo.CreateUser("uuid-001", "alice", "hash"); err != nil {
-		t.Fatalf("CreateUser failed: %v", err)
-	}
-	alice, err := userRepo.GetUserByUsername("alice")
-	if err != nil {
-		t.Fatalf("GetUserByUsername failed: %v", err)
-	}
-
-	created, err := bookRepo.CreateBook(alice.ID, "Test Book")
-	if err != nil {
-		t.Fatalf("CreateBook failed: %v", err)
-	}
-
-	book, err := bookRepo.GetBookByUploadKey(created.UploadKey)
-	if err != nil {
-		t.Fatalf("GetBookByUploadKey failed: %v", err)
-	}
-	if book == nil {
-		t.Fatal("expected book, got nil")
-	}
-	if book.ID != created.ID {
-		t.Errorf("expected ID %d, got %d", created.ID, book.ID)
-	}
-
-	// 存在しないキーを取得
-	notFound, err := bookRepo.GetBookByUploadKey("nonexistent")
-	if err != nil {
-		t.Fatalf("GetBookByUploadKey failed: %v", err)
-	}
-	if notFound != nil {
-		t.Errorf("expected nil for non-existent key, got %v", notFound)
 	}
 }
 

@@ -27,7 +27,6 @@ type Book struct {
 	UUID      string
 	CreatorID int
 	Name      string
-	UploadKey string
 	CreatedAt time.Time
 }
 

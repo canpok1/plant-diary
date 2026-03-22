@@ -100,11 +100,14 @@ echo "$(date): Captured ${OUTPUT}" >> /var/log/plant-diary-capture.log
 サーバーからカメラ設定を取得し、輝度を自動調整しながら撮影・アップロードする。
 
 1. **設定取得**: `GET /api/script-config`（Bearer認証）でサーバーから設定を取得。
-   - `target_brightness` / `brightness_tolerance` / `max_adjust_retries` / `upload_key`
+   - `target_brightness` / `brightness_tolerance` / `max_adjust_retries`
    - `should_test_capture`（テスト撮影が要求されているか） / `should_schedule_capture`（スケジュール撮影のタイミングか）
    - 取得失敗時はスクリプトを即終了（撮影スキップ）。
 2. **輝度調整撮影**: 取得した設定値を使って最大 `max_adjust_retries` 回撮影を試みる。
-3. **アップロード**: 取得した `upload_key` で `POST /api/photos` にアップロード。
+3. **アップロード**: script_keyでBearerトークン認証し、必要に応じて `POST /api/test-photo` と `POST /api/scheduled-photo` にアップロードする。
+   - `should_test_capture=true` のとき `POST /api/test-photo`
+   - `should_schedule_capture=true` のとき `POST /api/scheduled-photo`
+   - 両方 `true` のときは同じ写真を両方へアップロード
 
 #### スクリプト例 (`scripts/capture_auto.sh`)
 

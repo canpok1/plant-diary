@@ -447,17 +447,12 @@ func (r *MockBookRepository) CreateBook(creatorID int, name string) (*Book, erro
 	if err != nil {
 		return nil, err
 	}
-	uploadKey, err := utils.GenerateUUID()
-	if err != nil {
-		return nil, err
-	}
 
 	book := &Book{
 		ID:        r.nextID,
 		UUID:      uuid,
 		CreatorID: creatorID,
 		Name:      name,
-		UploadKey: uploadKey,
 		CreatedAt: time.Now(),
 	}
 	r.books[r.nextID] = book
@@ -492,20 +487,6 @@ func (r *MockBookRepository) GetBookByID(id int) (*Book, error) {
 	}
 	copy := *b
 	return &copy, nil
-}
-
-// GetBookByUploadKey は指定upload_keyの日記帳を返す。見つからない場合はnilを返す
-func (r *MockBookRepository) GetBookByUploadKey(uploadKey string) (*Book, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	for _, b := range r.books {
-		if b.UploadKey == uploadKey {
-			copy := *b
-			return &copy, nil
-		}
-	}
-	return nil, nil
 }
 
 // UpdateBookName は指定IDの日記帳の名前を更新する
