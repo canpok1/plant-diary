@@ -10,6 +10,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"path/filepath"
+	"runtime"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -21,6 +25,63 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
+// TestApplyMigrations_AppliesAllSQLFilesInOrder は applyMigrations が
+// migrationsDir 内の *.up.sql ファイルを番号順に全て適用することを検証する
+func TestApplyMigrations_AppliesAllSQLFilesInOrder(t *testing.T) {
+	// テスト用の一時ディレクトリにSQLファイルを作成する
+	dir := t.TempDir()
+
+	// 逆順で作成してソートが機能することを確認する
+	files := map[string]string{
+		"000002_add_name.up.sql":   "ALTER TABLE items ADD COLUMN name TEXT NOT NULL DEFAULT '';",
+		"000001_create_items.up.sql": "CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY AUTOINCREMENT);",
+	}
+	for name, content := range files {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0600); err != nil {
+			t.Fatalf("failed to write SQL file: %v", err)
+		}
+	}
+
+	db, err := sql.Open("sqlite3", ":memory:")
+	if err != nil {
+		t.Fatalf("failed to open database: %v", err)
+	}
+	defer db.Close()
+
+	applyMigrations(t, db, dir)
+
+	// テーブルとカラムが存在することを確認する
+	_, err = db.Exec("INSERT INTO items (name) VALUES ('test')")
+	if err != nil {
+		t.Errorf("expected items table with name column to exist: %v", err)
+	}
+}
+
+// TestApplyMigrations_WithRealMigrationsDir は applyMigrations が実際の migrations
+// ディレクトリを使って全テーブルを作成できることを検証する
+func TestApplyMigrations_WithRealMigrationsDir(t *testing.T) {
+	db, err := sql.Open("sqlite3", ":memory:")
+	if err != nil {
+		t.Fatalf("failed to open database: %v", err)
+	}
+	defer db.Close()
+
+	applyMigrations(t, db, migrationsDir())
+
+	// 全テーブルが存在することを確認する
+	tables := []string{"users", "sessions", "books", "cameras", "diary"}
+	for _, table := range tables {
+		var count int
+		row := db.QueryRow("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?", table)
+		if err := row.Scan(&count); err != nil {
+			t.Fatalf("failed to query sqlite_master for table %q: %v", table, err)
+		}
+		if count != 1 {
+			t.Errorf("expected table %q to exist, but it does not", table)
+		}
+	}
+}
+
 // setupE2ETestDB はE2Eテスト用のインメモリSQLiteデータベースを作成する
 func setupE2ETestDB(t *testing.T) *sql.DB {
 	t.Helper()
@@ -28,59 +89,44 @@ func setupE2ETestDB(t *testing.T) *sql.DB {
 	if err != nil {
 		t.Fatalf("failed to open database: %v", err)
 	}
-	_, err = db.Exec(`
-		CREATE TABLE IF NOT EXISTS users (
-			id            INTEGER PRIMARY KEY AUTOINCREMENT,
-			uuid          TEXT NOT NULL UNIQUE,
-			username      TEXT NOT NULL UNIQUE,
-			password_hash TEXT NOT NULL,
-			created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-		);
-		CREATE TABLE IF NOT EXISTS books (
-			id         INTEGER PRIMARY KEY AUTOINCREMENT,
-			uuid       TEXT NOT NULL UNIQUE,
-			creator_id INTEGER NOT NULL REFERENCES users(id),
-			name       TEXT NOT NULL,
-			prompt     TEXT NOT NULL DEFAULT '',
-			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-		);
-		CREATE TABLE IF NOT EXISTS cameras (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			name TEXT NOT NULL,
-			script_key TEXT NOT NULL UNIQUE,
-			target_brightness REAL NOT NULL DEFAULT 0.475,
-			brightness_tolerance REAL NOT NULL DEFAULT 0.175,
-			max_adjust_retries INTEGER NOT NULL DEFAULT 5,
-			book_id INTEGER NOT NULL REFERENCES books(id),
-			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-			test_capture_requested INTEGER NOT NULL DEFAULT 0,
-			last_test_photo_path TEXT,
-			last_test_photo_captured_at DATETIME,
-			capture_times_utc TEXT,
-			last_scheduled_capture_at DATETIME
-		);
-		CREATE TABLE IF NOT EXISTS diary (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			image_path TEXT NOT NULL UNIQUE,
-			content TEXT NOT NULL,
-			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-			user_id INTEGER REFERENCES users(id),
-			book_id INTEGER REFERENCES books(id)
-		);
-		CREATE INDEX IF NOT EXISTS idx_created_at ON diary(created_at DESC);
-		CREATE TABLE IF NOT EXISTS sessions (
-			id         TEXT PRIMARY KEY,
-			user_id    INTEGER NOT NULL REFERENCES users(id),
-			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-			expires_at DATETIME NOT NULL
-		);
-		CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
-	`)
-	if err != nil {
-		t.Fatalf("failed to create table: %v", err)
-	}
+	applyMigrations(t, db, migrationsDir())
 	t.Cleanup(func() { db.Close() })
 	return db
+}
+
+// applyMigrations は dir 内の *.up.sql ファイルをファイル名の昇順でソートして
+// 順番に db へ適用する
+func applyMigrations(t *testing.T, db *sql.DB, dir string) {
+	t.Helper()
+
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("failed to read migrations directory %q: %v", dir, err)
+	}
+
+	var sqlFiles []string
+	for _, entry := range entries {
+		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".up.sql") {
+			sqlFiles = append(sqlFiles, entry.Name())
+		}
+	}
+	sort.Strings(sqlFiles)
+
+	for _, name := range sqlFiles {
+		content, err := os.ReadFile(filepath.Join(dir, name))
+		if err != nil {
+			t.Fatalf("failed to read migration file %q: %v", name, err)
+		}
+		if _, err := db.Exec(string(content)); err != nil {
+			t.Fatalf("failed to apply migration %q: %v", name, err)
+		}
+	}
+}
+
+// migrationsDir はこのファイルから見た migrations ディレクトリの絶対パスを返す
+func migrationsDir() string {
+	_, filename, _, _ := runtime.Caller(0)
+	return filepath.Join(filepath.Dir(filename), "../../../migrations")
 }
 
 // setupE2EServer はE2Eテスト用のHTTPサーバーを設定して起動する
