@@ -137,6 +137,18 @@ func loginAsUser(t *testing.T, ts *httptest.Server, username, password string) [
 	return resp.Cookies()
 }
 
+// readBody はHTTPレスポンスの body 全体を読み取る。
+// fmt.Fscan 等は空白区切りでトークンを読み取るため、HTMLのようなコンテンツでは
+// 最初のトークン以降が欠落してしまうので使用しないこと。
+func readBody(t *testing.T, r io.Reader) string {
+	t.Helper()
+	b, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatalf("failed to read body: %v", err)
+	}
+	return string(b)
+}
+
 // TestE2E_GetIndex はGET /がHTMLを返すことを検証する
 func TestE2E_GetIndex(t *testing.T) {
 	ts := setupE2EServer(t)
@@ -948,11 +960,7 @@ func TestE2E_GetCameraSettings_ShowsCaptureTimesJST(t *testing.T) {
 		t.Errorf("expected status 200, got %d", resp.StatusCode)
 	}
 
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		t.Fatalf("failed to read response body: %v", err)
-	}
-	bodyStr := string(bodyBytes)
+	bodyStr := readBody(t, resp.Body)
 
 	// 12:00 と 18:00（JST変換後）がページに含まれることを確認
 	if !strings.Contains(bodyStr, "12:00") {
