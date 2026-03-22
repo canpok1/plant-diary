@@ -94,9 +94,12 @@ GitHub Issue $ARGUMENTS を対応します。
     - Goコードの変更を含まない場合（例: `.md` ファイルのみの変更）: `/tdd` をスキップし、直接実装する
 3. `base-tools:monologue` を実行してから、`/review` スキルで自己レビュー（コード品質 + ドキュメント整合性チェック）を行う
 4. `base-tools:monologue` を実行してから、lint/formatチェックを実行する（PR作成前の最終ガード）
-  - `gofmt -l .` → 出力があれば `gofmt -w .` で修正
-  - `golangci-lint run` → 指摘があれば修正
-  - `shellcheck scripts/*.sh` → 指摘があれば修正
+  - Goファイルの変更がある場合:
+    - `gofmt -l .` → 出力があれば `gofmt -w .` で修正
+    - `golangci-lint run` → 指摘があれば修正
+  - `.sh` ファイルの変更がある場合:
+    - `shellcheck scripts/*.sh` → 指摘があれば修正
+  - 変更ファイルがMarkdownのみの場合: lint/formatチェックはスキップ
   - 修正した場合はコミットする
 5. `base-tools:monologue` を実行してから、同一Issueに対する既存PRの重複チェックを行う
   - ブランチ名検索（第一手段）: `gh pr list --repo {owner}/{repo} --head "worktree-issue-{番号}" --state all`
