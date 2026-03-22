@@ -77,6 +77,11 @@ GitHub Issue $ARGUMENTS を対応します。
 | 8. 振り返り | 追記 | 作成したIssue番号（あれば） |
 | 9. 全作業完了通知 | なし | monologueのみ実行 |
 
+## 重要: 各ステップ完了後の継続ルール
+
+**各ステップが完了したら、ユーザーの指示を待たずに次のステップへ自動的に進むこと。**
+サブスキル（`commit-commands:commit-push-pr` 等）の実行が完了してメインの会話に戻ってきた場合も同様に、チェックリストの次の未完了ステップを確認して作業を継続する。
+
 0. Issue の状態を確認する
   - `gh issue view $ARGUMENTS --json state --jq .state` で対象IssueのOPEN/CLOSED状態を確認する
   - `CLOSED` の場合: 「Issue #$ARGUMENTS は既にクローズ済みです」と報告して処理を終了する
