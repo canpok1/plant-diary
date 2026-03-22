@@ -150,7 +150,7 @@ GitHub Issue $ARGUMENTS を対応します。
   - **重要**: `commit-commands:commit-push-pr` スキルのプロンプトが展開されたら、必ずそのワークフローを最後まで実行すること。ユーザーからの割り込みがあっても、スキルの実行を完了させてから対応すること
   - 完了後（PR作成成功・PR URLが返ってきた場合）: **ユーザーの指示を待たずに** ステップ7へ進む
 7. `base-tools:monologue` を実行してから、ローカルの `fix-pr` スキル（`.claude/skills/fix-pr/`）でCI待機・レビュー対応・マージを行う
-  - **必ず `base-tools:fix-pr` ではなくローカルの `fix-pr` スキルを使うこと**（CodeRabbitのrate limit処理が含まれているため）
+  - **必ず `base-tools:fix-pr` ではなくローカルの `fix-pr` スキルを使うこと**（wait-coderabbit.sh スクリプトによる包括的なrate limit処理が含まれているため）
   - 引数にPR番号を渡す
   - 完了後: **ユーザーの指示を待たずに** ステップ8へ進む
 8. `base-tools:monologue` を実行してから、`/retro` スキルで振り返りを行う
