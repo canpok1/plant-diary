@@ -23,6 +23,13 @@ GitHub Issue $ARGUMENTS を対応します。
 - [ ] ステップ8：振り返り（retro）
 - [ ] ステップ9：全作業完了通知（monologue）
 
+## 重要: 各ステップ完了後の継続ルール
+
+> [!IMPORTANT]
+> **各ステップが完了したら、ユーザーの指示を待たずに次のステップへ自動的に進むこと。**
+> サブスキル（`commit-commands:commit-push-pr` 等）の実行が完了してメインの会話に戻ってきた場合も同様に、チェックリストの次の未完了ステップを確認して作業を継続する。
+> スキルが「結果なし」「対象なし」と返した場合も、それ自体が正常な完了であり、次のステップへ進むこと。
+
 ## 作業メモ
 
 各ステップの実施時に、作業メモをMarkdownファイルへ記録する。
@@ -79,15 +86,10 @@ GitHub Issue $ARGUMENTS を対応します。
 | 8. 振り返り | 追記 | 作成したIssue番号（あれば） |
 | 9. 全作業完了通知 | なし | monologueのみ実行 |
 
-## 重要: 各ステップ完了後の継続ルール
-
-**各ステップが完了したら、ユーザーの指示を待たずに次のステップへ自動的に進むこと。**
-サブスキル（`commit-commands:commit-push-pr` 等）の実行が完了してメインの会話に戻ってきた場合も同様に、チェックリストの次の未完了ステップを確認して作業を継続する。
-
 0. Issue の状態を確認する
   - `gh issue view $ARGUMENTS --json state --jq .state` で対象IssueのOPEN/CLOSED状態を確認する
   - `CLOSED` の場合: 「Issue #$ARGUMENTS は既にクローズ済みです」と報告して処理を終了する
-  - `OPEN` の場合: 次のステップに進む
+  - `OPEN` の場合: **ユーザーの指示を待たずに** ステップ1へ進む
 1. `base-tools:monologue` を実行してから、Issue の内容を理解する
   - メモファイルを作成する（既存ファイルがあれば追記）
 1.5. 現在のブランチに対象Issueのコミットが存在するか確認し、後続ステップのスキップ判断を行う
@@ -102,7 +104,10 @@ GitHub Issue $ARGUMENTS を対応します。
   - Issueの内容からGoコードの変更が必要かどうかを判断する
     - Goコードの変更を含む場合: `/tdd` スキルで実装する
     - Goコードの変更を含まない場合（例: `.md` ファイルのみの変更）: `/tdd` をスキップし、直接実装する
+  - 完了後（`/tdd` スキルが「対象なし」「スキップ」と返した場合も含む）: **ユーザーの指示を待たずに** ステップ3へ進む
 3. `base-tools:monologue` を実行してから、`/review` スキルで自己レビュー（コード品質 + ドキュメント整合性チェック）を行う
+  - `/review` 内のサブスキルが「対象なし」「変更なし」と返した場合も、それは正常完了であり次のステップへ進む
+  - 完了後: **ユーザーの指示を待たずに** ステップ4へ進む
 4. `base-tools:monologue` を実行してから、lint/formatチェックを実行する（PR作成前の最終ガード）
   - Goファイルの変更がある場合:
     - `gofmt -l .` → 出力があれば `gofmt -w .` で修正
@@ -111,6 +116,7 @@ GitHub Issue $ARGUMENTS を対応します。
     - `shellcheck scripts/*.sh` → 指摘があれば修正
   - 変更ファイルがMarkdownのみの場合: lint/formatチェックはスキップ
   - 修正した場合はコミットする
+  - 完了後: **ユーザーの指示を待たずに** ステップ5へ進む
 5. `base-tools:monologue` を実行してから、同一Issueに対する既存PRの重複チェックを行う
   - ブランチ名検索（第一手段）: `gh pr list --head "worktree-issue-{番号}" --state all`
   - テキスト検索（フォールバック）: `gh pr list --search "#{番号}" --state all`
@@ -122,12 +128,15 @@ GitHub Issue $ARGUMENTS を対応します。
        - 複数のopen PRがある場合は、最新のものを対象とする
        - PR番号の取得例: `gh pr list --head "worktree-issue-{番号}" --state open --json number --jq '.[0].number'`
     3. **closed状態（マージされずにクローズ）のPRのみ存在する場合**: 既存PRなしとして扱い、ステップ6に進む
-  - 上記いずれにも該当しない場合（既存PRが存在しない場合）: ステップ6に進む
+  - 上記いずれにも該当しない場合（既存PRが存在しない場合）: **ユーザーの指示を待たずに** ステップ6へ進む
 6. `base-tools:monologue` を実行してから、`commit-commands:commit-push-pr` スキルでPRを作成する
   - PR本文に必ず `Closes #$ARGUMENTS` を含めること（マージ時にIssueが自動クローズされる）
   - `commit-commands:commit-push-pr` スキルへPR本文を渡す際は `--body "Closes #$ARGUMENTS\n\n{説明}"` のように明示すること
+  - 完了後（PR作成成功・PR URLが返ってきた場合）: **ユーザーの指示を待たずに** ステップ7へ進む
 7. `base-tools:monologue` を実行してから、ローカルの `fix-pr` スキル（`.claude/skills/fix-pr/`）でCI待機・レビュー対応・マージを行う
   - **必ず `base-tools:fix-pr` ではなくローカルの `fix-pr` スキルを使うこと**（CodeRabbitのrate limit処理が含まれているため）
   - 引数にPR番号を渡す
+  - 完了後: **ユーザーの指示を待たずに** ステップ8へ進む
 8. `base-tools:monologue` を実行してから、`/retro` スキルで振り返りを行う
+  - 完了後: **ユーザーの指示を待たずに** ステップ9へ進む
 9. `base-tools:monologue` を実行して、全作業完了を通知する
