@@ -325,6 +325,20 @@
             font-style: italic;
         }
 
+        .preview-thumbnail {
+            display: none;
+            margin-top: 8px;
+            width: 120px;
+            height: 120px;
+            object-fit: cover;
+            border-radius: 4px;
+            border: 1px solid #cccccc;
+        }
+
+        .preview-thumbnail.visible {
+            display: block;
+        }
+
         @media screen and (max-width: 640px) {
             header {
                 padding: 12px 16px;
@@ -383,9 +397,10 @@
                     <label for="preview-image-diary">画像として使用する日記</label>
                     <select id="preview-image-diary" class="preview-select">
                         {{range .Diaries}}
-                        <option value="{{.ID}}">{{(.CreatedAt | toJST).Format "2006年1月2日"}} — {{truncate .Content 30}}</option>
+                        <option value="{{.ID}}" data-image-url="{{if .ImagePath}}/photos/{{.ImagePath}}{{end}}">{{(.CreatedAt | toJST).Format "2006年1月2日"}} — {{truncate .Content 30}}</option>
                         {{end}}
                     </select>
+                    <img id="preview-image-thumbnail" class="preview-thumbnail" src="" alt="選択した日記の画像">
                 </div>
                 <div class="preview-field">
                     <label for="preview-context-diary">過去日記の基準日</label>
@@ -419,6 +434,20 @@
     </main>
     <script>
     (function() {
+        var imageDiarySelect = document.getElementById('preview-image-diary');
+        var thumbnail = document.getElementById('preview-image-thumbnail');
+
+        function updateThumbnail() {
+            var imageUrl = imageDiarySelect.options[imageDiarySelect.selectedIndex].getAttribute('data-image-url') || '';
+            thumbnail.src = imageUrl;
+            thumbnail.classList.toggle('visible', imageUrl !== '');
+        }
+
+        if (imageDiarySelect && thumbnail) {
+            imageDiarySelect.addEventListener('change', updateThumbnail);
+            updateThumbnail();
+        }
+
         var btn = document.getElementById('preview-btn');
         if (!btn) return;
 
