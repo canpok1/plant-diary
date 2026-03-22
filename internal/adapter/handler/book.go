@@ -197,11 +197,12 @@ func (s *Server) handleBookSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := map[string]interface{}{
-		"Book":     book,
-		"LoggedIn": true,
-		"Username": currentUser.Username,
-		"FormName": book.Name,
-		"Success":  r.URL.Query().Get("success") == "1",
+		"Book":       book,
+		"LoggedIn":   true,
+		"Username":   currentUser.Username,
+		"FormName":   book.Name,
+		"FormPrompt": book.Prompt,
+		"Success":    r.URL.Query().Get("success") == "1",
 	}
 
 	if err := s.templates.ExecuteTemplate(w, "book_settings.html", data); err != nil {
@@ -248,21 +249,25 @@ func (s *Server) handleBookSettingsPost(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	name := r.FormValue("name")
+	prompt := r.FormValue("prompt")
 
 	var errMsg string
 	if name == "" {
 		errMsg = "日記帳名は必須です"
 	} else if len([]rune(name)) > 50 {
 		errMsg = "日記帳名は50文字以内で入力してください"
+	} else if prompt == "" {
+		errMsg = "プロンプトは必須です"
 	}
 
 	if errMsg != "" {
 		data := map[string]interface{}{
-			"Book":     book,
-			"LoggedIn": true,
-			"Username": currentUser.Username,
-			"FormName": name,
-			"Error":    errMsg,
+			"Book":       book,
+			"LoggedIn":   true,
+			"Username":   currentUser.Username,
+			"FormName":   name,
+			"FormPrompt": prompt,
+			"Error":      errMsg,
 		}
 		if err := s.templates.ExecuteTemplate(w, "book_settings.html", data); err != nil {
 			log.Printf("ERROR: failed to render book_settings template for book %d: %v", id, err)
@@ -271,8 +276,8 @@ func (s *Server) handleBookSettingsPost(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if err := s.bookRepo.UpdateBookName(id, name); err != nil {
-		log.Printf("ERROR: failed to update book name for book %d: %v", id, err)
+	if err := s.bookRepo.UpdateBook(id, name, prompt); err != nil {
+		log.Printf("ERROR: failed to update book settings for book %d: %v", id, err)
 		s.renderError(w, http.StatusInternalServerError)
 		return
 	}

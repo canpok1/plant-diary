@@ -6,6 +6,13 @@ import (
 	"time"
 )
 
+// DefaultBookPrompt は日記帳のデフォルトプロンプト
+const DefaultBookPrompt = `{{book_name}}の写真を見て、成長の様子や変化を観察してください。親しみやすい口調で、200文字程度の観察日記を書いてください。
+現在は{{datetime}}です。
+
+{{past_diaries}}
+これまでの観察記録を踏まえて、今回の写真から見られる成長の変化や特徴を記述してください。`
+
 // YearMonth は年月を表す構造体
 type YearMonth struct {
 	Year  int
@@ -27,6 +34,7 @@ type Book struct {
 	UUID      string
 	CreatorID int
 	Name      string
+	Prompt    string
 	CreatedAt time.Time
 }
 

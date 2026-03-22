@@ -141,7 +141,7 @@ func TestMigrations_FinalSchema(t *testing.T) {
 		"diary":    {"id", "image_path", "content", "created_at", "updated_at", "user_id", "book_id"},
 		"users":    {"id", "uuid", "username", "password_hash", "created_at"},
 		"sessions": {"id", "user_id", "created_at", "expires_at"},
-		"books":    {"id", "uuid", "creator_id", "name", "created_at"},
+		"books":    {"id", "uuid", "creator_id", "name", "prompt", "created_at"},
 	}
 	for table, expectedCols := range tableColumns {
 		existingCols := migrationGetColumns(t, db, table)

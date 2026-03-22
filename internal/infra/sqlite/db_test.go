@@ -30,6 +30,7 @@ func setupTestDB(t *testing.T) *sql.DB {
 			uuid       TEXT NOT NULL UNIQUE,
 			creator_id INTEGER NOT NULL REFERENCES users(id),
 			name       TEXT NOT NULL,
+			prompt     TEXT NOT NULL DEFAULT '',
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 		);
 		CREATE TABLE IF NOT EXISTS diary (
@@ -760,6 +761,9 @@ func TestSQLiteBookRepository_CreateBook(t *testing.T) {
 	if book.Name != "Alice's Garden" {
 		t.Errorf("expected Name 'Alice's Garden', got '%s'", book.Name)
 	}
+	if book.Prompt == "" {
+		t.Error("expected non-empty default Prompt")
+	}
 	if book.CreatedAt.IsZero() {
 		t.Error("expected non-zero CreatedAt")
 	}
@@ -962,6 +966,46 @@ func TestSQLiteBookRepository_GetAllBooks(t *testing.T) {
 	}
 	if foundBook2.HasDiaries {
 		t.Error("expected book2 to have no diaries")
+	}
+}
+
+func TestSQLiteBookRepository_UpdateBook(t *testing.T) {
+	db := setupTestDB(t)
+	userRepo := NewSQLiteUserRepository(db)
+	bookRepo := NewSQLiteBookRepository(db)
+
+	if err := userRepo.CreateUser("uuid-001", "alice", "hash"); err != nil {
+		t.Fatalf("CreateUser failed: %v", err)
+	}
+	alice, err := userRepo.GetUserByUsername("alice")
+	if err != nil {
+		t.Fatalf("GetUserByUsername failed: %v", err)
+	}
+
+	created, err := bookRepo.CreateBook(alice.ID, "Original Name")
+	if err != nil {
+		t.Fatalf("CreateBook failed: %v", err)
+	}
+
+	newPrompt := "カスタムプロンプト {{book_name}}"
+	if err := bookRepo.UpdateBook(created.ID, "Updated Name", newPrompt); err != nil {
+		t.Fatalf("UpdateBook failed: %v", err)
+	}
+
+	updated, err := bookRepo.GetBookByID(created.ID)
+	if err != nil {
+		t.Fatalf("GetBookByID failed: %v", err)
+	}
+	if updated.Name != "Updated Name" {
+		t.Errorf("expected Name 'Updated Name', got '%s'", updated.Name)
+	}
+	if updated.Prompt != newPrompt {
+		t.Errorf("expected Prompt '%s', got '%s'", newPrompt, updated.Prompt)
+	}
+
+	// 存在しないIDを更新するとエラー
+	if err := bookRepo.UpdateBook(9999, "x", "y"); err == nil {
+		t.Error("expected error for non-existent ID, got nil")
 	}
 }
 

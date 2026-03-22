@@ -140,7 +140,7 @@ func (s *Server) handlePostScheduledPhoto(w http.ResponseWriter, r *http.Request
 				pastDiaries = []domain.Diary{}
 			}
 
-			prompt := buildDiaryPrompt(pastDiaries)
+			prompt := expandPrompt(book.Prompt, book.Name, capturedAt, pastDiaries)
 
 			var content string
 			retryErr := utils.Retry(utils.DefaultRetryConfig(), fmt.Sprintf("generate diary for %s", diskImagePath), func() error {
