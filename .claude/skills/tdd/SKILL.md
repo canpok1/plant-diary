@@ -57,7 +57,7 @@ argument-hint: "[task-description]"
 
 1. テストが通ったまま、コードの重複を除去・整理する
 2. `go test ./...` でテストがPASSしたままであることを確認する
-3. `golangci-lint run` でlintエラーがないことを確認する
+3. Goファイルの変更がある場合のみ `golangci-lint run` でlintエラーがないことを確認する
 
 **制約**: Refactor中はテストコードを変更しない
 
@@ -74,10 +74,19 @@ argument-hint: "[task-description]"
 ```bash
 # 全テストを実行（レースコンディション検出）
 go test -v -race ./...
-
-# lintチェック
-golangci-lint run
 ```
+
+- Goファイルの変更がある場合のみ実行:
+  ```bash
+  # lintチェック
+  gofmt -l .  # 出力があれば gofmt -w . で修正
+  golangci-lint run
+  ```
+- `.sh` ファイルの変更がある場合のみ実行:
+  ```bash
+  find scripts .claude -type f -name '*.sh' -print0 | xargs -0 shellcheck
+  ```
+- 変更ファイルがMarkdownのみの場合: lint/formatチェックはスキップ
 
 ## 制約まとめ
 
