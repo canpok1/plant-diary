@@ -37,6 +37,18 @@ argument-hint: "[topic]"
 # Glob, Grep, Read で調査
 ```
 
+#### コメント投稿に関するIssueを作成する際の追加調査
+
+コメント投稿処理（`gh pr comment`、`gh issue comment`、`gh api .../replies` 等）に関連するIssueの場合、`SKILL.md` のコマンドテンプレートだけでなく、同一スキルディレクトリ配下の `scripts/*.sh` も必ず確認する。
+
+```bash
+# スキルディレクトリ配下のシェルスクリプトにコメント投稿コマンドが含まれていないか確認
+grep -r "gh pr comment\|gh issue comment\|gh api.*replies" .claude/skills/ --include="*.sh"
+```
+
+- コマンドが含まれている場合は、フッター付与の有無も確認する
+- 修正が必要な箇所をすべてIssueに記載することで、修正漏れを防ぐ
+
 ### 3. 仕様整理
 
 会話の内容を Issue の形にまとめる。以下の構成を基本とする：
