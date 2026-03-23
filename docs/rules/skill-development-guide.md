@@ -230,7 +230,7 @@ description: |
 ```
 
 ```yaml
-name: fix-pr
+name: fix-pr-local
 description: |
   PRのCI状態とレビューコメントを確認し、必要な修正と返信を行う。
   完了条件を満たした場合は自動的にマージする。
