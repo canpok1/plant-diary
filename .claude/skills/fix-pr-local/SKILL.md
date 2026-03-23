@@ -107,8 +107,8 @@ gh api repos/<OWNER>/<REPO>/pulls/comments/<COMMENT_ID>/replies \
 PRのコメントとレビューを取得して以下の順で判定する:
 
 ```bash
-# コメント・レビューを取得
-gh pr view --repo <REPO> <PR番号> --json comments,reviews
+# コメント・レビューを取得（この結果を後続の処理でも再利用する）
+PR_DATA=$(gh pr view --repo <REPO> <PR番号> --json comments,reviews)
 ```
 
 #### 判定順序
@@ -140,14 +140,27 @@ gh pr view --repo <REPO> <PR番号> --json comments,reviews
 
 3. **対応不要なのに未承認**
 
-   各レビュアー宛に approve 依頼コメントを投稿し、`sleep 10` してステップ1へ戻る:
+   PRにコメントしたユーザーからapprove依頼先を動的に検出し、コメントを投稿して `sleep 10` してステップ1へ戻る:
 
    ```bash
-   gh pr comment --repo <REPO> <PR番号> --body "@<レビュアー名> CIが通過し、未解決のコメントもありません。レビューとapproveをお願いします。
+   # リポジトリオーナー（自分自身）を取得（REPO は "owner/repo" 形式）
+   OWNER=$(echo "<REPO>" | cut -d/ -f1)
+
+   # 取得済みの PR_DATA からコメント投稿者を抽出し、リポジトリオーナーを除外する
+   REVIEWERS=$(echo "$PR_DATA" | jq -r --arg owner "$OWNER" \
+     '[.comments[].author.login] | unique | map(select(. != $owner)) | join(" @")')
+   ```
+
+   - `REVIEWERS` が空でない場合: `@{REVIEWERS}` 宛にapprove依頼コメントを投稿する
+
+   ```bash
+   gh pr comment --repo <REPO> <PR番号> --body "@${REVIEWERS} CIが通過し、未解決のコメントもありません。レビューとapproveをお願いします。
 
    ---
    🤖 Generated with [Claude Code](https://claude.ai/claude-code)"
    ```
+
+   - `REVIEWERS` が空の場合（コメント投稿者がリポジトリオーナーのみ、またはコメントなし）: approve依頼コメントを投稿せず、`sleep 10` してステップ1へ戻る
 
 ## 注意事項
 
