@@ -28,10 +28,16 @@ argument-hint: "[target-commit-or-pr]"
    ```
 
 2. **linterチェック（自動）**
-   ```bash
-   golangci-lint run
-   find scripts .claude -type f -name '*.sh' -print0 | xargs -0 shellcheck
-   ```
+   - Goファイルの変更がある場合のみ実行:
+     ```bash
+     gofmt -l .  # 出力があれば gofmt -w . で修正
+     golangci-lint run
+     ```
+   - `.sh` ファイルの変更がある場合のみ実行:
+     ```bash
+     find scripts .claude -type f -name '*.sh' -print0 | xargs -0 shellcheck
+     ```
+   - 変更ファイルがMarkdownのみの場合: このステップをスキップ
 
 3. **テスト実行**
    ```bash
