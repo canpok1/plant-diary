@@ -121,12 +121,14 @@ GitHub Issue $ARGUMENTS を対応します。
     - **既存コミットあり + PRなし** → **「セッション再開時のメモ補完ルール」を実施してから**ステップ2〜4をスキップしてステップ5（重複チェック）へ進む
     - **既存コミットなし** → 通常通りステップ2（実装）へ進む
 1.6. 依存 Issue の状態を確認し、必要に応じて rebase する
-  - Issue 本文から「依存」「Depends on」「関連」などのセクションを確認し、依存 Issue の番号を特定する
-  - 依存 Issue が見つかった場合: `gh issue view {依存Issue番号} --json state --jq .state` で状態を確認する
+  - Issue 本文から「依存」「Depends on」「関連」などのセクションを確認し、依存 Issue の番号を**全て**特定する
+  - 依存 Issue が見つかった場合: 各 Issue について `gh issue view {依存Issue番号} --json state --jq .state` で状態を確認する
   - 確認結果に応じて以下のように分岐する:
-    - **依存 Issue が CLOSED の場合**: `git fetch origin && git log HEAD..origin/main --oneline` で main の新しいコミットを確認し、コミットがあれば `git rebase origin/main` を実行してから実装を開始する
+    - **全件 CLOSED の場合**:
+      - `git status --porcelain` で作業ツリーがクリーンか確認する（未コミット変更がある場合は `git stash` で退避してから続行し、rebase 完了後に `git stash pop` で戻す）
+      - `git fetch origin && git log HEAD..origin/main --oneline` で main の新しいコミットを確認し、コミットがあれば `git rebase origin/main` を実行してから実装を開始する
       - rebase 中にコンフリクトが発生した場合: コンフリクト内容をユーザーに報告し、解消方法を確認する
-    - **依存 Issue が OPEN の場合**: ユーザーに「Issue #{依存Issue番号} がまだ OPEN です。マージを待ってから作業することを推奨します。続行しますか？」と報告し、ユーザーの判断を仰ぐ
+    - **1件でも OPEN の場合**: ユーザーに「Issue #{依存Issue番号} がまだ OPEN です。マージを待ってから作業することを推奨します。続行しますか？」と報告し、ユーザーの判断を仰ぐ
       - 続行を選択した場合: そのままステップ2へ進む
       - 中止を選択した場合: 処理を終了する
     - **依存 Issue が見つからない場合**: そのままステップ2へ進む
@@ -168,7 +170,7 @@ GitHub Issue $ARGUMENTS を対応します。
     - rebase 中にコンフリクトが発生した場合: コンフリクト内容をユーザーに報告し、解消方法を確認する
     - rebase 成功後: コンフリクト解消コミットがある場合はそのままステップ6へ進む
   - 追加コミットがない場合: そのままステップ6へ進む
-  - 完了後: **ユーザーの指示を待たずに** ステップ6へ進む
+  - 完了後: そのままステップ6へ進む
 6. `base-tools:monologue` を実行してから、`commit-commands:commit-push-pr` スキルでPRを作成する
   - PR本文に必ず `Closes #$ARGUMENTS` を含めること（マージ時にIssueが自動クローズされる）
   - `commit-commands:commit-push-pr` スキルへPR本文を渡す際は `--body "Closes #$ARGUMENTS\n\n{説明}"` のように明示すること
