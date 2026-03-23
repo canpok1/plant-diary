@@ -3,6 +3,7 @@ package sqlite
 import (
 	"database/sql"
 	"testing"
+	"time"
 
 	"plant-diary/internal/domain"
 )
@@ -19,7 +20,12 @@ func setupTestDBWithCameras(t *testing.T) *sql.DB {
 			brightness_tolerance REAL NOT NULL DEFAULT 0.175,
 			max_adjust_retries INTEGER NOT NULL DEFAULT 5,
 			book_id INTEGER NOT NULL REFERENCES books(id),
-			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			test_capture_requested INTEGER NOT NULL DEFAULT 0,
+			last_test_photo_path TEXT,
+			last_test_photo_captured_at DATETIME,
+			capture_times_utc TEXT,
+			last_scheduled_capture_at DATETIME
 		);
 	`)
 	if err != nil {
@@ -308,4 +314,237 @@ func TestSQLiteCameraRepository_ImplementsInterface(t *testing.T) {
 	db := setupTestDBWithCameras(t)
 	// コンパイル時にインターフェースを満たすことを確認
 	var _ domain.CameraRepository = NewSQLiteCameraRepository(db)
+}
+
+func setupTestCamera(t *testing.T, db *sql.DB) *domain.Camera {
+	t.Helper()
+	userRepo := NewSQLiteUserRepository(db)
+	bookRepo := NewSQLiteBookRepository(db)
+	cameraRepo := NewSQLiteCameraRepository(db)
+
+	if err := userRepo.CreateUser("uuid-001", "alice", "hash"); err != nil {
+		t.Fatalf("CreateUser failed: %v", err)
+	}
+	alice, err := userRepo.GetUserByUsername("alice")
+	if err != nil {
+		t.Fatalf("GetUserByUsername failed: %v", err)
+	}
+	book, err := bookRepo.CreateBook(alice.ID, "Alice's Garden")
+	if err != nil {
+		t.Fatalf("CreateBook failed: %v", err)
+	}
+	camera, err := cameraRepo.CreateCamera("テストカメラ", book.ID)
+	if err != nil {
+		t.Fatalf("CreateCamera failed: %v", err)
+	}
+	return camera
+}
+
+func TestSQLiteCameraRepository_UpdateCameraTestCaptureRequested(t *testing.T) {
+	db := setupTestDBWithCameras(t)
+	camera := setupTestCamera(t, db)
+	cameraRepo := NewSQLiteCameraRepository(db)
+
+	// true に更新
+	if err := cameraRepo.UpdateCameraTestCaptureRequested(camera.ID, true); err != nil {
+		t.Fatalf("UpdateCameraTestCaptureRequested(true) failed: %v", err)
+	}
+	updated, err := cameraRepo.GetCameraByID(camera.ID)
+	if err != nil {
+		t.Fatalf("GetCameraByID failed: %v", err)
+	}
+	if !updated.TestCaptureRequested {
+		t.Errorf("expected TestCaptureRequested true, got %v", updated.TestCaptureRequested)
+	}
+
+	// false に更新
+	if err := cameraRepo.UpdateCameraTestCaptureRequested(camera.ID, false); err != nil {
+		t.Fatalf("UpdateCameraTestCaptureRequested(false) failed: %v", err)
+	}
+	updated, err = cameraRepo.GetCameraByID(camera.ID)
+	if err != nil {
+		t.Fatalf("GetCameraByID failed: %v", err)
+	}
+	if updated.TestCaptureRequested {
+		t.Errorf("expected TestCaptureRequested false, got %v", updated.TestCaptureRequested)
+	}
+
+	// 存在しないIDはエラー
+	if err := cameraRepo.UpdateCameraTestCaptureRequested(9999, true); err == nil {
+		t.Error("expected error for non-existent ID, got nil")
+	}
+}
+
+func TestSQLiteCameraRepository_UpdateCameraAfterTestPhoto(t *testing.T) {
+	db := setupTestDBWithCameras(t)
+	camera := setupTestCamera(t, db)
+	cameraRepo := NewSQLiteCameraRepository(db)
+
+	photoPath := "/photos/test/photo_001.jpg"
+	capturedAt := time.Date(2026, 3, 21, 10, 0, 0, 0, time.UTC)
+
+	if err := cameraRepo.UpdateCameraAfterTestPhoto(camera.ID, photoPath, capturedAt); err != nil {
+		t.Fatalf("UpdateCameraAfterTestPhoto failed: %v", err)
+	}
+
+	updated, err := cameraRepo.GetCameraByID(camera.ID)
+	if err != nil {
+		t.Fatalf("GetCameraByID failed: %v", err)
+	}
+	if !updated.LastTestPhotoPath.Valid {
+		t.Error("expected LastTestPhotoPath to be valid")
+	}
+	if updated.LastTestPhotoPath.String != photoPath {
+		t.Errorf("expected LastTestPhotoPath %q, got %q", photoPath, updated.LastTestPhotoPath.String)
+	}
+	if !updated.LastTestPhotoCapturedAt.Valid {
+		t.Error("expected LastTestPhotoCapturedAt to be valid")
+	}
+	if !updated.LastTestPhotoCapturedAt.Time.Equal(capturedAt) {
+		t.Errorf("expected LastTestPhotoCapturedAt %v, got %v", capturedAt, updated.LastTestPhotoCapturedAt.Time)
+	}
+	// TestCaptureRequested がクリアされること
+	if updated.TestCaptureRequested {
+		t.Errorf("expected TestCaptureRequested false after test photo, got %v", updated.TestCaptureRequested)
+	}
+
+	// 存在しないIDはエラー
+	if err := cameraRepo.UpdateCameraAfterTestPhoto(9999, photoPath, capturedAt); err == nil {
+		t.Error("expected error for non-existent ID, got nil")
+	}
+}
+
+func TestSQLiteCameraRepository_UpdateCameraScheduleConfig(t *testing.T) {
+	db := setupTestDBWithCameras(t)
+	camera := setupTestCamera(t, db)
+	cameraRepo := NewSQLiteCameraRepository(db)
+
+	captureTimesUTC := "03:00,09:00"
+
+	if err := cameraRepo.UpdateCameraScheduleConfig(camera.ID, captureTimesUTC); err != nil {
+		t.Fatalf("UpdateCameraScheduleConfig failed: %v", err)
+	}
+
+	updated, err := cameraRepo.GetCameraByID(camera.ID)
+	if err != nil {
+		t.Fatalf("GetCameraByID failed: %v", err)
+	}
+	if !updated.CaptureTimesUTC.Valid {
+		t.Error("expected CaptureTimesUTC to be valid")
+	}
+	if updated.CaptureTimesUTC.String != captureTimesUTC {
+		t.Errorf("expected CaptureTimesUTC %q, got %q", captureTimesUTC, updated.CaptureTimesUTC.String)
+	}
+
+	// 存在しないIDはエラー
+	if err := cameraRepo.UpdateCameraScheduleConfig(9999, captureTimesUTC); err == nil {
+		t.Error("expected error for non-existent ID, got nil")
+	}
+}
+
+func TestSQLiteCameraRepository_UpdateCameraAfterScheduledCapture(t *testing.T) {
+	db := setupTestDBWithCameras(t)
+	camera := setupTestCamera(t, db)
+	cameraRepo := NewSQLiteCameraRepository(db)
+
+	capturedAt := time.Date(2026, 3, 21, 3, 0, 0, 0, time.UTC)
+
+	if err := cameraRepo.UpdateCameraAfterScheduledCapture(camera.ID, capturedAt); err != nil {
+		t.Fatalf("UpdateCameraAfterScheduledCapture failed: %v", err)
+	}
+
+	updated, err := cameraRepo.GetCameraByID(camera.ID)
+	if err != nil {
+		t.Fatalf("GetCameraByID failed: %v", err)
+	}
+	if !updated.LastScheduledCaptureAt.Valid {
+		t.Error("expected LastScheduledCaptureAt to be valid")
+	}
+	if !updated.LastScheduledCaptureAt.Time.Equal(capturedAt) {
+		t.Errorf("expected LastScheduledCaptureAt %v, got %v", capturedAt, updated.LastScheduledCaptureAt.Time)
+	}
+
+	// 存在しないIDはエラー
+	if err := cameraRepo.UpdateCameraAfterScheduledCapture(9999, capturedAt); err == nil {
+		t.Error("expected error for non-existent ID, got nil")
+	}
+}
+
+func TestComputeShouldScheduleCapture(t *testing.T) {
+	baseTime := time.Date(2026, 3, 21, 10, 0, 0, 0, time.UTC)
+	captureTime := time.Date(2026, 3, 21, 9, 0, 0, 0, time.UTC) // "09:00" UTC
+
+	tests := []struct {
+		name            string
+		captureTimesUTC sql.NullString
+		lastCaptureAt   sql.NullTime
+		now             time.Time
+		want            bool
+	}{
+		{
+			name:            "capture_times_utcがNULL→false",
+			captureTimesUTC: sql.NullString{Valid: false},
+			lastCaptureAt:   sql.NullTime{Valid: false},
+			now:             baseTime,
+			want:            false,
+		},
+		{
+			name:            "capture_times_utcが空→false",
+			captureTimesUTC: sql.NullString{String: "", Valid: true},
+			lastCaptureAt:   sql.NullTime{Valid: false},
+			now:             baseTime,
+			want:            false,
+		},
+		{
+			name:            "nowが登録時刻より前→false",
+			captureTimesUTC: sql.NullString{String: "12:00", Valid: true},
+			lastCaptureAt:   sql.NullTime{Valid: false},
+			now:             time.Date(2026, 3, 21, 10, 0, 0, 0, time.UTC),
+			want:            false,
+		},
+		{
+			name:            "lastCaptureAtがNULLかつnow>T→true",
+			captureTimesUTC: sql.NullString{String: "09:00", Valid: true},
+			lastCaptureAt:   sql.NullTime{Valid: false},
+			now:             baseTime,
+			want:            true,
+		},
+		{
+			name:            "lastCaptureAt<Tかつnow>T→true",
+			captureTimesUTC: sql.NullString{String: "09:00", Valid: true},
+			lastCaptureAt:   sql.NullTime{Time: captureTime.Add(-time.Hour), Valid: true},
+			now:             baseTime,
+			want:            true,
+		},
+		{
+			name:            "lastCaptureAt==T→false",
+			captureTimesUTC: sql.NullString{String: "09:00", Valid: true},
+			lastCaptureAt:   sql.NullTime{Time: captureTime, Valid: true},
+			now:             baseTime,
+			want:            false,
+		},
+		{
+			name:            "lastCaptureAt>T→false",
+			captureTimesUTC: sql.NullString{String: "09:00", Valid: true},
+			lastCaptureAt:   sql.NullTime{Time: captureTime.Add(time.Hour), Valid: true},
+			now:             baseTime,
+			want:            false,
+		},
+		{
+			name:            "複数時刻・いずれかが条件を満たす→true",
+			captureTimesUTC: sql.NullString{String: "03:00,09:00", Valid: true},
+			lastCaptureAt:   sql.NullTime{Valid: false},
+			now:             baseTime,
+			want:            true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := computeShouldScheduleCapture(tt.captureTimesUTC, tt.lastCaptureAt, tt.now)
+			if got != tt.want {
+				t.Errorf("computeShouldScheduleCapture() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }

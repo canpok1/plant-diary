@@ -24,14 +24,10 @@ func (r *SQLiteBookRepository) CreateBook(creatorID int, name string) (*domain.B
 	if err != nil {
 		return nil, err
 	}
-	uploadKey, err := utils.GenerateUUID()
-	if err != nil {
-		return nil, err
-	}
 
 	result, err := r.db.Exec(
-		"INSERT INTO books (uuid, creator_id, name, upload_key) VALUES (?, ?, ?, ?)",
-		uuid, creatorID, name, uploadKey,
+		"INSERT INTO books (uuid, creator_id, name, prompt) VALUES (?, ?, ?, ?)",
+		uuid, creatorID, name, domain.DefaultBookPrompt,
 	)
 	if err != nil {
 		return nil, err
@@ -48,7 +44,7 @@ func (r *SQLiteBookRepository) CreateBook(creatorID int, name string) (*domain.B
 // GetBooksByCreatorID は指定クリエイターIDの日記帳一覧を返す
 func (r *SQLiteBookRepository) GetBooksByCreatorID(creatorID int) ([]domain.Book, error) {
 	rows, err := r.db.Query(
-		"SELECT id, uuid, creator_id, name, upload_key, created_at FROM books WHERE creator_id = ?",
+		"SELECT id, uuid, creator_id, name, prompt, created_at FROM books WHERE creator_id = ?",
 		creatorID,
 	)
 	if err != nil {
@@ -59,7 +55,7 @@ func (r *SQLiteBookRepository) GetBooksByCreatorID(creatorID int) ([]domain.Book
 	var books []domain.Book
 	for rows.Next() {
 		var b domain.Book
-		if err := rows.Scan(&b.ID, &b.UUID, &b.CreatorID, &b.Name, &b.UploadKey, &b.CreatedAt); err != nil {
+		if err := rows.Scan(&b.ID, &b.UUID, &b.CreatorID, &b.Name, &b.Prompt, &b.CreatedAt); err != nil {
 			return nil, err
 		}
 		books = append(books, b)
@@ -75,9 +71,9 @@ func (r *SQLiteBookRepository) GetBooksByCreatorID(creatorID int) ([]domain.Book
 func (r *SQLiteBookRepository) GetBookByID(id int) (*domain.Book, error) {
 	var b domain.Book
 	err := r.db.QueryRow(
-		"SELECT id, uuid, creator_id, name, upload_key, created_at FROM books WHERE id = ?",
+		"SELECT id, uuid, creator_id, name, prompt, created_at FROM books WHERE id = ?",
 		id,
-	).Scan(&b.ID, &b.UUID, &b.CreatorID, &b.Name, &b.UploadKey, &b.CreatedAt)
+	).Scan(&b.ID, &b.UUID, &b.CreatorID, &b.Name, &b.Prompt, &b.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -121,25 +117,9 @@ func (r *SQLiteBookRepository) GetAllBooks() ([]domain.BookView, error) {
 	return result, nil
 }
 
-// GetBookByUploadKey は指定upload_keyの日記帳を返す。見つからない場合はnilを返す
-func (r *SQLiteBookRepository) GetBookByUploadKey(uploadKey string) (*domain.Book, error) {
-	var b domain.Book
-	err := r.db.QueryRow(
-		"SELECT id, uuid, creator_id, name, upload_key, created_at FROM books WHERE upload_key = ?",
-		uploadKey,
-	).Scan(&b.ID, &b.UUID, &b.CreatorID, &b.Name, &b.UploadKey, &b.CreatedAt)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return &b, nil
-}
-
-// UpdateBookName は指定IDの日記帳の名前を更新する
-func (r *SQLiteBookRepository) UpdateBookName(id int, name string) error {
-	result, err := r.db.Exec("UPDATE books SET name = ? WHERE id = ?", name, id)
+// UpdateBook は指定IDの日記帳の名前とプロンプトを更新する
+func (r *SQLiteBookRepository) UpdateBook(id int, name, prompt string) error {
+	result, err := r.db.Exec("UPDATE books SET name = ?, prompt = ? WHERE id = ?", name, prompt, id)
 	if err != nil {
 		return err
 	}

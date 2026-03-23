@@ -159,16 +159,7 @@
     </style>
 </head>
 <body>
-    <header>
-        <h1><a href="/">植物観察日記</a></h1>
-        <nav>
-            <a href="/books/new">日記帳作成</a>
-            <span class="user-info">{{.Username}}</span>
-            <form method="POST" action="/logout" style="display:inline">
-                <button type="submit" class="logout-btn">ログアウト</button>
-            </form>
-        </nav>
-    </header>
+    {{template "header" .}}
     <main>
         <h2>日記帳作成</h2>
         <form class="create-form" method="POST" action="/books">

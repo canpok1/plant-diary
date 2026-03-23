@@ -3,8 +3,12 @@ set -euo pipefail
 
 # 植物観察日記 - 明るさ自動調整付き撮影スクリプト
 # USBカメラで植物の写真を撮影し、明るさが適正範囲に収まるよう露出を自動調整する。
-# 撮影画像は data/photos/ に保存される。
-# crontab で定期実行することを想定。
+# crontab で定期実行することを想定（推奨: 5分おき）。
+#
+# サーバーの GET /api/script-config から以下のフラグを取得して動作を決定する:
+#   should_test_capture    ... true のとき POST /api/test-photo にアップロード
+#   should_schedule_capture ... true のとき POST /api/scheduled-photo にアップロード
+# 両方 false の場合は即終了（負荷ほぼゼロ）。
 #
 # === 使い方 ===
 # ./scripts/capture_auto.sh --api-url http://192.168.1.10:8080 --script-key <32文字キー>
@@ -132,6 +136,25 @@ float_abs_diff() {
     echo "${diff#-}"
 }
 
+upload_photo() {
+    local photo_file="$1"
+    local captured_at="$2"
+
+    if [ "${SHOULD_TEST_CAPTURE}" = "true" ]; then
+        curl -fsS -X POST \
+          -H "Authorization: Bearer ${DIARY_SCRIPT_KEY}" \
+          -F "photo=@${photo_file}" \
+          "${DIARY_API_URL}/api/test-photo" || log_message "WARN: test-photo upload failed (photo saved locally)"
+    fi
+    if [ "${SHOULD_SCHEDULE_CAPTURE}" = "true" ]; then
+        curl -fsS -X POST \
+          -H "Authorization: Bearer ${DIARY_SCRIPT_KEY}" \
+          -F "photo=@${photo_file}" \
+          -F "captured_at=${captured_at}" \
+          "${DIARY_API_URL}/api/scheduled-photo" || log_message "WARN: scheduled-photo upload failed (photo saved locally)"
+    fi
+}
+
 # === メイン処理 ===
 
 # 保存先ディレクトリの作成
@@ -190,21 +213,29 @@ SCRIPT_CONFIG_JSON=$(curl -s -f \
     IFS= read -r TARGET_BRIGHTNESS
     IFS= read -r BRIGHTNESS_TOLERANCE
     IFS= read -r MAX_ADJUST_RETRIES
-    IFS= read -r DIARY_UPLOAD_KEY
+    IFS= read -r SHOULD_TEST_CAPTURE
+    IFS= read -r SHOULD_SCHEDULE_CAPTURE
 } < <(echo "${SCRIPT_CONFIG_JSON}" | python3 -c "
 import sys, json
 d = json.load(sys.stdin)
 print(d['target_brightness'])
 print(d['brightness_tolerance'])
 print(d['max_adjust_retries'])
-print(d['upload_key'])
+print('true' if d.get('should_test_capture', False) else 'false')
+print('true' if d.get('should_schedule_capture', False) else 'false')
 ") || {
     log_message "ERROR: レスポンスの解析に失敗しました。"
     echo "ERROR: レスポンスの解析に失敗しました。" >&2
     exit 1
 }
 
-log_message "INFO: 設定を取得しました（target_brightness=${TARGET_BRIGHTNESS}, brightness_tolerance=${BRIGHTNESS_TOLERANCE}, max_adjust_retries=${MAX_ADJUST_RETRIES}）"
+log_message "INFO: 設定を取得しました（target_brightness=${TARGET_BRIGHTNESS}, brightness_tolerance=${BRIGHTNESS_TOLERANCE}, max_adjust_retries=${MAX_ADJUST_RETRIES}, should_test_capture=${SHOULD_TEST_CAPTURE}, should_schedule_capture=${SHOULD_SCHEDULE_CAPTURE}）"
+
+# 両方 false の場合は撮影をスキップ
+if [ "${SHOULD_TEST_CAPTURE}" = "false" ] && [ "${SHOULD_SCHEDULE_CAPTURE}" = "false" ]; then
+    log_message "INFO: should_test_capture=false, should_schedule_capture=false のため撮影をスキップします"
+    exit 0
+fi
 
 # 適正輝度範囲の算出
 BRIGHTNESS_MIN=$(echo "${TARGET_BRIGHTNESS} - ${BRIGHTNESS_TOLERANCE}" | bc -l)
@@ -231,6 +262,7 @@ log_message "INFO: 明るさ自動調整を開始（初期露出: ${EXPOSURE}、
 declare -a TRIAL_FILES=()
 declare -a TRIAL_BRIGHTNESSES=()
 declare -a TRIAL_EXPOSURES=()
+declare -a TRIAL_CAPTURED_ATS=()
 
 BEST_INDEX=-1
 
@@ -244,6 +276,7 @@ for ((i = 1; i <= MAX_ADJUST_RETRIES; i++)); do
         echo "ERROR: 撮影に失敗しました" >&2
         exit 1
     fi
+    CAPTURED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
     # 平均輝度を算出
     BRIGHTNESS=$(get_brightness "${TMP_OUTPUT}")
@@ -251,6 +284,7 @@ for ((i = 1; i <= MAX_ADJUST_RETRIES; i++)); do
     TRIAL_FILES+=("${TMP_OUTPUT}")
     TRIAL_BRIGHTNESSES+=("${BRIGHTNESS}")
     TRIAL_EXPOSURES+=("${EXPOSURE}")
+    TRIAL_CAPTURED_ATS+=("${CAPTURED_AT}")
 
     # 適正範囲の判定
     if ! float_lt "${BRIGHTNESS}" "${BRIGHTNESS_MIN}" && ! float_gt "${BRIGHTNESS}" "${BRIGHTNESS_MAX}"; then
@@ -271,10 +305,7 @@ for ((i = 1; i <= MAX_ADJUST_RETRIES; i++)); do
         echo "撮影成功: ${FINAL_OUTPUT}"
 
         # API登録
-        curl -fsS -X POST \
-          -F "photo=@${FINAL_OUTPUT}" \
-          -F "upload_key=${DIARY_UPLOAD_KEY}" \
-          "${DIARY_API_URL}/api/photos" || log_message "WARN: API upload failed (photo saved locally)"
+        upload_photo "${FINAL_OUTPUT}" "${CAPTURED_AT}"
 
         exit 0
     fi
@@ -316,6 +347,7 @@ done
 BEST_FILE="${TRIAL_FILES[${BEST_INDEX}]}"
 BEST_BRIGHTNESS="${TRIAL_BRIGHTNESSES[${BEST_INDEX}]}"
 BEST_EXPOSURE="${TRIAL_EXPOSURES[${BEST_INDEX}]}"
+BEST_CAPTURED_AT="${TRIAL_CAPTURED_ATS[${BEST_INDEX}]}"
 
 log_message "INFO: 最適画像を選択 - 試行 $((BEST_INDEX + 1)), 露出: ${BEST_EXPOSURE}, 平均輝度: ${BEST_BRIGHTNESS}"
 
@@ -332,7 +364,4 @@ log_message "INFO: Captured ${FINAL_OUTPUT}"
 echo "撮影成功: ${FINAL_OUTPUT}"
 
 # API登録
-curl -fsS -X POST \
-  -F "photo=@${FINAL_OUTPUT}" \
-  -F "upload_key=${DIARY_UPLOAD_KEY}" \
-  "${DIARY_API_URL}/api/photos" || log_message "WARN: API upload failed (photo saved locally)"
+upload_photo "${FINAL_OUTPUT}" "${BEST_CAPTURED_AT}"

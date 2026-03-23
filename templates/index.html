@@ -147,20 +147,7 @@
     </style>
 </head>
 <body>
-    <header>
-        <h1>植物観察日記</h1>
-        <nav>
-            {{if .LoggedIn}}
-            <a href="/books/new">日記帳作成</a>
-            <span class="user-info">{{.Username}}</span>
-            <form method="POST" action="/logout" style="display:inline">
-                <button type="submit" class="logout-btn">ログアウト</button>
-            </form>
-            {{else}}
-            <a href="/login">ログイン</a>
-            {{end}}
-        </nav>
-    </header>
+    {{template "header" .}}
     <main>
         {{if .Books}}
         <div class="book-list">

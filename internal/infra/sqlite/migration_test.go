@@ -141,13 +141,26 @@ func TestMigrations_FinalSchema(t *testing.T) {
 		"diary":    {"id", "image_path", "content", "created_at", "updated_at", "user_id", "book_id"},
 		"users":    {"id", "uuid", "username", "password_hash", "created_at"},
 		"sessions": {"id", "user_id", "created_at", "expires_at"},
-		"books":    {"id", "uuid", "creator_id", "name", "upload_key", "created_at"},
+		"books":    {"id", "uuid", "creator_id", "name", "prompt", "created_at"},
 	}
 	for table, expectedCols := range tableColumns {
 		existingCols := migrationGetColumns(t, db, table)
 		for _, col := range expectedCols {
 			if !migrationContains(existingCols, col) {
 				t.Errorf("column %s.%s does not exist", table, col)
+			}
+		}
+	}
+
+	// 削除済みカラムの不在確認
+	tableAbsentColumns := map[string][]string{
+		"books": {"upload_key"},
+	}
+	for table, absentCols := range tableAbsentColumns {
+		existingCols := migrationGetColumns(t, db, table)
+		for _, col := range absentCols {
+			if migrationContains(existingCols, col) {
+				t.Errorf("column %s.%s should not exist", table, col)
 			}
 		}
 	}

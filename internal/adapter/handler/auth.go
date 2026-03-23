@@ -13,7 +13,9 @@ import (
 // handleLoginGet はログインフォームページを表示する
 func (s *Server) handleLoginGet(w http.ResponseWriter, r *http.Request) {
 	data := map[string]interface{}{
-		"Error": "",
+		"Error":    "",
+		"LoggedIn": false,
+		"Username": "",
 	}
 	if err := s.templates.ExecuteTemplate(w, "login.html", data); err != nil {
 		log.Printf("ERROR: failed to render login template: %v", err)
@@ -31,7 +33,11 @@ func (s *Server) handleLoginPost(w http.ResponseWriter, r *http.Request) {
 	password := r.FormValue("password")
 
 	renderLoginError := func(msg string) {
-		data := map[string]interface{}{"Error": msg}
+		data := map[string]interface{}{
+			"Error":    msg,
+			"LoggedIn": false,
+			"Username": "",
+		}
 		if err := s.templates.ExecuteTemplate(w, "login.html", data); err != nil {
 			log.Printf("ERROR: failed to render login template: %v", err)
 			s.renderError(w, http.StatusInternalServerError)

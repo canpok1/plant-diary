@@ -5,7 +5,7 @@ context: fork
 agent: issue-assigner
 disable-model-invocation: false
 user-invocable: true
-allowed-tools: Skill
+allowed-tools: Skill, Bash(gh issue list*), Bash(gh issue edit*)
 argument-hint: "<付与する件数（省略時は2）>"
 ---
 
@@ -19,11 +19,31 @@ argument-hint: "<付与する件数（省略時は2）>"
 2. Issue一覧を取得し、以下のいずれかに該当するIssueを除外する
    - 既に `assign-to-claude` または `in-progress-by-claude` ラベルが付いている
    - タイトルや本文に `.claude/` というパスが含まれる（sensitiveな自動化設定の変更はユーザーと対話しながら慎重に行う必要があるため）
-3. 除外したIssueの番号・タイトル・除外理由を出力する
-4. issue-assigner エージェントの優先度ルールに従い、各Issueを評価して並び替える
-5. 優先度が高い上位N件に `assign-to-claude` ラベルを付与する（引数指定がある場合はその数値をN、ない場合はデフォルト2件）。対象がN件未満の場合は存在する分だけ付与（0件なら何もしない）
-6. ラベルを付与したIssue番号・タイトル・判定理由を出力する
-7. `base-tools:monologue` スキルを使用してアサイン完了を宣言する
+   - タイトルや本文が `.claude/` 配下の修正を主目的とすると判断できる（sensitiveな自動化設定に意図せず手が入るリスクを避けるため）
+     - 判断基準: 以下のキーワードを含み、かつアプリケーションコード（Go/Python等）の修正ではなく自動化設定・ツール設定の改修が主目的である場合
+       - 「スキル」「skill」（例: 「スキルを追加する」「スキルを修正する」）
+       - 「ルール」「rule」（例: 「ルールを追加する」「ルールを変更する」）
+       - 「フック」「hook」（例: 「フックを設定する」「hookを追加する」）
+       - 「CLAUDE.md」
+       - 「自動化」「自動化スクリプト」「automation」（例: 「自動化を見直す」「自動化スクリプトを改善する」）
+     - 注意: アプリケーションコードや機能追加のIssueを誤って除外しないよう、文脈を考慮して判断すること
+       - 除外する例: 「スキルを追加する」「assign-issuesスキルのバグを修正する」「ルールを更新する」
+       - 除外しない例: 「植物の登録機能にバグがある」（「登録」はキーワード非該当）、「ユーザー認証機能を追加する」
+3. 除外したIssueの番号・タイトル・除外理由をターミナル（標準出力）に出力する。GitHub Issueにはコメントしないこと。
+4. そのうち「`.claude/` 配下の修正を主目的として除外したIssue」に限り、`ready` ラベルを外す（`assign-to-claude` / `in-progress-by-claude` ラベルが理由で除外されたIssueは対象外）
+   ```sh
+   gh issue edit --repo {repo-owner}/{repo-name} {number} --remove-label "ready"
+   ```
+   ラベルを外したことをログ出力する（例: `Issue #{number} から ready ラベルを削除しました`）
+5. issue-assigner エージェントの優先度ルールに従い、各Issueを評価して並び替える
+6. 優先度が高い上位N件に `assign-to-claude` ラベルを付与する（引数指定がある場合はその数値をN、ない場合はデフォルト2件）。対象がN件未満の場合は存在する分だけ付与（0件なら何もしない）
+7. ラベルを付与したIssue番号・タイトル・判定理由をターミナル（標準出力）に出力する。GitHub Issueにはコメントしないこと。
+8. `base-tools:monologue` スキルを使用してアサイン完了を宣言する
+
+## 制約
+
+- GitHub Issueへのコメント投稿（`gh issue comment`）は禁止。アサイン結果はターミナル（標準出力）へのみ出力すること。
+- 使用可能なghコマンドは `gh issue list` と `gh issue edit` のみ。
 
 ## コマンド
 
@@ -35,4 +55,9 @@ gh issue list --repo {repo-owner}/{repo-name} --state open --label "ready" --jso
 **ラベルの付与**
 ```sh
 gh issue edit --repo {repo-owner}/{repo-name} {number} --add-label "assign-to-claude"
+```
+
+**ラベルの削除**
+```sh
+gh issue edit --repo {repo-owner}/{repo-name} {number} --remove-label "ready"
 ```

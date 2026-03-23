@@ -65,12 +65,16 @@ func TestGetApiScriptConfig_ValidScriptKey(t *testing.T) {
 	if resp["max_adjust_retries"] == nil {
 		t.Error("expected max_adjust_retries in response")
 	}
-	if resp["upload_key"] == nil {
-		t.Error("expected upload_key in response")
+	if _, ok := resp["upload_key"]; ok {
+		t.Error("upload_key should not be in response")
 	}
 
-	if resp["upload_key"] != book.UploadKey {
-		t.Errorf("expected upload_key '%s', got '%s'", book.UploadKey, resp["upload_key"])
+	// should_test_capture が含まれること（デフォルトは false）
+	if _, ok := resp["should_test_capture"]; !ok {
+		t.Error("expected should_test_capture in response")
+	}
+	if resp["should_test_capture"] != false {
+		t.Errorf("expected should_test_capture false, got %v", resp["should_test_capture"])
 	}
 }
 
@@ -86,6 +90,79 @@ func TestGetApiScriptConfig_InvalidScriptKey(t *testing.T) {
 
 	if w.Code != http.StatusUnauthorized {
 		t.Errorf("expected status 401, got %d", w.Code)
+	}
+}
+
+// TestGetApiScriptConfig_ShouldTestCapture_True はTestCaptureRequestedがtrueのとき should_test_capture=true を返すことを検証する
+func TestGetApiScriptConfig_ShouldTestCapture_True(t *testing.T) {
+	srv, cameraRepo, bookRepo := setupServerWithCameraRepo(t)
+
+	book, err := bookRepo.CreateBook(1, "Test Book")
+	if err != nil {
+		t.Fatalf("CreateBook failed: %v", err)
+	}
+
+	camera, err := cameraRepo.CreateCamera("テストカメラ", book.ID)
+	if err != nil {
+		t.Fatalf("CreateCamera failed: %v", err)
+	}
+
+	// TestCaptureRequested を true に設定
+	if err := cameraRepo.UpdateCameraTestCaptureRequested(camera.ID, true); err != nil {
+		t.Fatalf("UpdateCameraTestCaptureRequested failed: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/api/script-config", nil)
+	req.Header.Set("Authorization", "Bearer "+camera.ScriptKey)
+	w := httptest.NewRecorder()
+
+	srv.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status 200, got %d", w.Code)
+	}
+
+	var resp map[string]interface{}
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if resp["should_test_capture"] != true {
+		t.Errorf("expected should_test_capture true, got %v", resp["should_test_capture"])
+	}
+}
+
+// TestGetApiScriptConfig_ShouldScheduleCapture_InResponse は should_schedule_capture がレスポンスに含まれることを検証する
+func TestGetApiScriptConfig_ShouldScheduleCapture_InResponse(t *testing.T) {
+	srv, cameraRepo, bookRepo := setupServerWithCameraRepo(t)
+
+	book, err := bookRepo.CreateBook(1, "Test Book")
+	if err != nil {
+		t.Fatalf("CreateBook failed: %v", err)
+	}
+
+	camera, err := cameraRepo.CreateCamera("テストカメラ", book.ID)
+	if err != nil {
+		t.Fatalf("CreateCamera failed: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/api/script-config", nil)
+	req.Header.Set("Authorization", "Bearer "+camera.ScriptKey)
+	w := httptest.NewRecorder()
+
+	srv.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status 200, got %d", w.Code)
+	}
+
+	var resp map[string]interface{}
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if _, ok := resp["should_schedule_capture"]; !ok {
+		t.Error("expected should_schedule_capture in response")
 	}
 }
 
