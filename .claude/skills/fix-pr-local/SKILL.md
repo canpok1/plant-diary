@@ -113,20 +113,24 @@ gh pr view --repo <REPO> <PR番号> --json comments,reviews
 
 #### 判定順序
 
-1. **CodeRabbit の rate limit コメントがある**
+1. **CodeRabbit の rate limit コメントがある かつ レビュー開始コメントがない**
 
    rate limit コメントが最新の CodeRabbit コメント/レビューに含まれているか確認する。
-   含まれている場合:
-   - コメント本文から待機時間を自然言語として解釈し、秒数に換算する
-   - 残り待機秒数 = `(comment_created_at の UNIX 時刻 + 待機秒数) - 現在の UNIX 時刻`
-   - 残り待機秒数が 0 以下なら `0` を渡す
-   - `handle-coderabbit-rate-limit.sh` を実行する:
-     ```bash
-     ./.claude/skills/fix-pr-local/scripts/handle-coderabbit-rate-limit.sh <PR番号> <残り待機秒数>
-     ```
-   - 終了コードに応じて対応:
-     - exit 0（正常完了）: `sleep 10` してステップ1へ戻る
-     - exit 1（タイムアウト）: ユーザーにタイムアウトした旨を報告し、そのままステップ1へ戻る
+   含まれている場合、さらにレビュー開始コメント（「レビューを開始します」等）が CodeRabbit から投稿されているか確認する:
+
+   - **レビュー開始コメントがない場合**: rate limit 対応を実行する
+     - コメント本文から待機時間を自然言語として解釈し、秒数に換算する
+     - 残り待機秒数 = `(comment_created_at の UNIX 時刻 + 待機秒数) - 現在の UNIX 時刻`
+     - 残り待機秒数が 0 以下なら `0` を渡す
+     - `handle-coderabbit-rate-limit.sh` を実行する:
+       ```bash
+       ./.claude/skills/fix-pr-local/scripts/handle-coderabbit-rate-limit.sh <PR番号> <残り待機秒数>
+       ```
+     - 終了コードに応じて対応:
+       - exit 0（正常完了）: `sleep 10` してステップ1へ戻る
+       - exit 1（タイムアウト）: ユーザーにタイムアウトした旨を報告し、そのままステップ1へ戻る
+
+   - **レビュー開始コメントがある場合**: rate limit は既に解除されてレビューは開始済みと判断し、タイムアウト扱いとして「3. 対応不要なのに未承認」の処理へ進む
 
 2. **対応すべきコメントがある（rate limit以外）**
 
