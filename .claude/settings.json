@@ -103,7 +103,10 @@
   },
   "enabledPlugins": {
     "commit-commands@claude-plugins-official": true,
-    "base-tools@canpok1-plugins": true
+    "base-tools@canpok1-plugins": true,
+    "vox-actor-plugin@vox-actor-marketplace": true,
+    "auto-monologue-plugin@vox-actor-marketplace": true,
+    "superpowers@claude-plugins-official": true
   },
   "extraKnownMarketplaces": {}
 }
